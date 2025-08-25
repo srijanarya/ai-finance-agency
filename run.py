@@ -14,6 +14,8 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 from agents.research_agent import ResearchAgent
+from agents.abid_hassan_integration import AbidHassanIntegrationEngine
+from agents.abid_hassan_daily_analysis import DailyAnalysisGenerator
 from dashboard import app
 from config.config import config
 
@@ -48,6 +50,44 @@ def run_dashboard():
         debug=config.dashboard.debug
     )
 
+def run_abid_hassan():
+    """Run Abid Hassan methodology analysis"""
+    print("🎯 Starting Abid Hassan Options Analysis...")
+    print("Analyzing NIFTY and BANKNIFTY with institutional options flow methodology")
+    
+    async def run_analysis():
+        engine = AbidHassanIntegrationEngine()
+        try:
+            if await engine.initialize():
+                reports = await engine.run_integrated_analysis(["NIFTY", "BANKNIFTY"])
+                
+                for report in reports:
+                    print(f"\n{'='*60}")
+                    print(f"ABID HASSAN ANALYSIS - {report.symbol}")
+                    print(f"{'='*60}")
+                    print("\n🧠 Key Insights:")
+                    for insight in report.integrated_insights:
+                        print(f"• {insight}")
+                    print(f"\n🎯 Market Outlook:")
+                    print(report.market_outlook)
+                    print(f"{'='*60}")
+            else:
+                print("❌ Failed to initialize Abid Hassan analysis engine")
+        finally:
+            await engine.cleanup()
+    
+    asyncio.run(run_analysis())
+
+def run_daily_abid():
+    """Run daily Abid Hassan style market analysis"""
+    print("📊 Starting Daily 'Kya Lag Raha Hai Market' Analysis...")
+    
+    async def run_daily():
+        generator = DailyAnalysisGenerator()
+        await generator.run_daily_analysis(["NIFTY", "BANKNIFTY"])
+    
+    asyncio.run(run_daily())
+
 def show_help():
     """Show help information"""
     print("""
@@ -57,12 +97,16 @@ Available commands:
   agent         Run the research agent continuously
   scan          Run a single research scan
   dashboard     Start the web dashboard
+  abid          Run Abid Hassan methodology analysis
+  daily         Run daily market analysis (Abid Hassan style)
   help          Show this help message
 
 Examples:
   python run.py agent       # Start continuous research
   python run.py scan        # Single scan and exit
   python run.py dashboard   # Start web interface
+  python run.py abid        # Abid Hassan options analysis
+  python run.py daily       # Daily market analysis
 
 Configuration:
   Edit .env file for API keys and settings
@@ -83,6 +127,10 @@ def main():
         run_agent_once()
     elif command == 'dashboard':
         run_dashboard()
+    elif command == 'abid':
+        run_abid_hassan()
+    elif command == 'daily':
+        run_daily_abid()
     elif command == 'help':
         show_help()
     else:

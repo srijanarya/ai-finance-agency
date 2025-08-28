@@ -56,7 +56,7 @@ class AgentConfig:
 @dataclass
 class DashboardConfig:
     """Dashboard configuration"""
-    port: int = 5000
+    port: int = 8088
     debug: bool = False
     secret_key: str = "dev-key-change-in-production"
     

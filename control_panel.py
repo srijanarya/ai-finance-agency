@@ -35,55 +35,43 @@ def show_menu():
     print('=' * 50)
     
 def generate_content():
-    print('
-📝 Generating AI Content...')
+    print('\n📝 Generating AI Content...')
     os.system('python3 generate_content.py')
-    input('
-Press Enter to continue...')
+    input('\nPress Enter to continue...')
 
 def post_to_linkedin():
-    print('
-📤 Posting to LinkedIn...')
+    print('\n📤 Posting to LinkedIn...')
     print('✅ Content posted successfully!')
-    input('
-Press Enter to continue...')
+    input('\nPress Enter to continue...')
 
 def market_analysis():
-    print('
-📊 Market Analysis for', datetime.now().strftime('%B %d, %Y'))
+    print('\n📊 Market Analysis for', datetime.now().strftime('%B %d, %Y'))
     print('-' * 40)
     print('NIFTY 50: 21,894 (+0.21%)')
     print('SENSEX: 72,147 (+0.21%)')
     print('Top Gainers: TCS, Reliance, HDFC')
     print('Strategy: Bullish momentum continues')
-    input('
-Press Enter to continue...')
+    input('\nPress Enter to continue...')
 
 def auto_posting():
-    print('
-🚀 Auto-Posting Started!')
+    print('\n🚀 Auto-Posting Started!')
     print('Will post every hour automatically...')
     print('Press Ctrl+C to stop')
-    input('
-Press Enter to continue...')
+    input('\nPress Enter to continue...')
 
 def check_revenue():
-    print('
-💰 Revenue Progress')
+    print('\n💰 Revenue Progress')
     print('-' * 40)
     print('Target: $30,000/month')
     print('Current: $0 (Day 1)')
     print('Next Milestone: 2 clients = $6,000')
-    input('
-Press Enter to continue...')
+    input('\nPress Enter to continue...')
 
 def find_leads():
-    print('
-🔍 Finding Finance Industry Leads...')
+    print('\n🔍 Finding Finance Industry Leads...')
     print('Found 25 potential clients on LinkedIn')
     print('✅ Saved to leads.csv')
-    input('
-Press Enter to continue...')
+    input('\nPress Enter to continue...')
 
 # Main loop
 while True:
@@ -103,8 +91,7 @@ while True:
     elif choice == '6':
         find_leads()
     elif choice == '0':
-        print('
-👋 Goodbye!')
+        print('\n👋 Goodbye!')
         break
     else:
         print('Invalid choice. Try again.')

@@ -181,12 +181,17 @@ class FinancialDataFetcher:
     async def fetch_rss_feeds(self) -> List[Dict]:
         """Fetch and parse RSS feeds from financial news sources"""
         feeds = [
-            ('Bloomberg', 'https://feeds.bloomberg.com/markets/news.rss'),
-            ('Yahoo Finance', 'https://feeds.finance.yahoo.com/rss/2.0/headline'),
-            ('MarketWatch', 'https://feeds.marketwatch.com/marketwatch/topstories/'),
-            ('Reuters Business', 'https://feeds.reuters.com/reuters/businessNews'),
+            # Indian financial news sources
+            ('Economic Times', 'https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms'),
+            ('Moneycontrol', 'https://www.moneycontrol.com/rss/MCtopnews.xml'),
+            ('Business Standard', 'https://www.business-standard.com/rss/markets-106.rss'),
+            ('Financial Express', 'https://www.financialexpress.com/market/feed/'),
+            ('LiveMint Markets', 'https://www.livemint.com/rss/markets'),
+            ('NDTV Business', 'https://feeds.feedburner.com/ndtvprofit-latest'),
+            # Global sources with India coverage
+            ('Reuters India', 'https://feeds.reuters.com/reuters/INbusinessNews'),
+            ('Bloomberg Asia', 'https://feeds.bloomberg.com/markets/news.rss'),
             ('CNBC', 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10001147'),
-            ('WSJ Markets', 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml'),
         ]
         
         all_articles = []
@@ -291,6 +296,48 @@ class ContentAnalyzer:
     
     def __init__(self):
         self.keyword_weights = {
+            # Indian market specific keywords
+            'nifty': 10,
+            'sensex': 10,
+            'bse': 9,
+            'nse': 9,
+            'sebi': 9,
+            'rbi': 10,
+            'rupee': 8,
+            'inr': 8,
+            'india': 9,
+            'indian': 9,
+            'budget': 9,
+            'gst': 8,
+            'fii': 8,
+            'dii': 8,
+            'sgx': 7,
+            'gift city': 8,
+            'mutual fund': 8,
+            'sip': 7,
+            'demat': 7,
+            'zerodha': 7,
+            'upstox': 7,
+            'groww': 7,
+            # Indian companies
+            'reliance': 9,
+            'tcs': 9,
+            'infosys': 9,
+            'hdfc': 9,
+            'icici': 9,
+            'sbi': 9,
+            'wipro': 8,
+            'hcl': 8,
+            'adani': 9,
+            'tata': 9,
+            'bajaj': 8,
+            'maruti': 8,
+            'airtel': 8,
+            'jio': 8,
+            'paytm': 8,
+            'zomato': 8,
+            'nykaa': 8,
+            # Generic financial keywords
             'earnings': 10,
             'ipo': 9,
             'merger': 9,
@@ -426,8 +473,18 @@ class ResearchAgent:
             trending_topics = await fetcher.fetch_trending_topics()
             logger.info(f"Identified {len(trending_topics)} trending topics")
             
-            symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 
-                      'JPM', 'BAC', 'WMT', '^GSPC', '^DJI', '^IXIC']
+            # Indian stock symbols with .NS suffix for NSE
+            symbols = [
+                # Indian indices
+                '^NSEI',  # Nifty 50
+                '^BSESN', # Sensex
+                # Major Indian stocks
+                'RELIANCE.NS', 'TCS.NS', 'HDFCBANK.NS', 'INFY.NS', 'ICICIBANK.NS',
+                'HINDUNILVR.NS', 'ITC.NS', 'SBIN.NS', 'BHARTIARTL.NS', 'KOTAKBANK.NS',
+                'LT.NS', 'AXISBANK.NS', 'WIPRO.NS', 'HCLTECH.NS', 'BAJFINANCE.NS',
+                'MARUTI.NS', 'TATAMOTORS.NS', 'ADANIENT.NS', 'ADANIGREEN.NS',
+                'PAYTM.NS', 'ZOMATO.NS', 'NYKAA.NS'
+            ]
             market_data = await fetcher.fetch_market_data(symbols)
             logger.info(f"Fetched market data for {len(market_data)} symbols")
             

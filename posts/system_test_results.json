@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-08-27T15:06:06.363480",
+  "content_quality": 8.35,
+  "news_articles": 55,
+  "market_data": {
+    "nifty": "24,712",
+    "nifty_change": "0.00%",
+    "sensex": "80,787",
+    "sensex_change": "0.00%",
+    "fii": "\u20b9+304 Cr",
+    "dii": "\u20b9-477 Cr",
+    "top_sector": "Bank NIFTY (+0.0%)",
+    "market_sentiment": "Range-bound"
+  },
+  "visual_created": "posts/visuals/minimalist_20250827_150606.png",
+  "improvements": "ALL_COMPLETE"
+}

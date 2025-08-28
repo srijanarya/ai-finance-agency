@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Finance Agency - Research Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📊</text></svg>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
@@ -98,7 +99,7 @@
             color: #4a5568;
             margin-bottom: 1rem;
             display: flex;
-            justify-content: between;
+            justify-content: space-between;
             align-items: center;
         }
         
@@ -238,8 +239,18 @@
 </head>
 <body>
     <div class="header">
-        <h1>🚀 AI Finance Agency</h1>
-        <p>Research Dashboard - Real-time Content Intelligence</p>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1>🚀 AI Finance Agency</h1>
+                <p>Research Dashboard - Real-time Content Intelligence</p>
+            </div>
+            <div id="kite-status" style="text-align: right;">
+                <div style="font-size: 0.9rem; color: #666;">Data Source</div>
+                <div id="kite-badge" style="display: inline-block; padding: 0.25rem 0.75rem; border-radius: 20px; margin-top: 0.25rem; font-size: 0.85rem; font-weight: 600;">
+                    Checking...
+                </div>
+            </div>
+        </div>
     </div>
     
     <div class="container">
@@ -290,8 +301,41 @@
             stats: {},
             ideas: [],
             keywords: [],
-            topics: []
+            topics: [],
+            kiteConnected: false
         };
+        
+        // Check Kite MCP status
+        async function checkKiteStatus() {
+            try {
+                const response = await fetch('/api/kite/status');
+                const data = await response.json();
+                
+                const badge = document.getElementById('kite-badge');
+                if (data.status === 'connected') {
+                    badge.style.backgroundColor = '#10B981';
+                    badge.style.color = 'white';
+                    badge.innerHTML = '🔴 LIVE - Kite MCP (10/10)';
+                    dashboardData.kiteConnected = true;
+                    
+                    // Show sample data if available
+                    if (data.sample && data.sample.nifty) {
+                        badge.title = `NIFTY: ${data.sample.nifty.toFixed(2)}`;
+                    }
+                } else {
+                    badge.style.backgroundColor = '#F59E0B';
+                    badge.style.color = 'white';
+                    badge.innerHTML = '📊 Intelligent Mode (7/10)';
+                    dashboardData.kiteConnected = false;
+                }
+            } catch (error) {
+                const badge = document.getElementById('kite-badge');
+                badge.style.backgroundColor = '#EF4444';
+                badge.style.color = 'white';
+                badge.innerHTML = '❌ Offline (6/10)';
+                dashboardData.kiteConnected = false;
+            }
+        }
         
         // Fetch dashboard statistics
         async function fetchStats() {
@@ -315,17 +359,21 @@
         async function fetchIdeas() {
             try {
                 const response = await fetch('/api/ideas?limit=10');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const data = await response.json();
                 
-                if (data.status === 'success') {
+                if (data.status === 'success' && data.data) {
                     dashboardData.ideas = data.data;
                     updateIdeasDisplay();
                 } else {
-                    showAlert('Error fetching ideas: ' + data.message, 'error');
+                    console.error('Ideas API returned error:', data);
+                    document.getElementById('ideas-list').innerHTML = '<div class="error">No ideas available</div>';
                 }
             } catch (error) {
                 console.error('Error fetching ideas:', error);
-                document.getElementById('ideas-list').innerHTML = '<div class="error">Error loading ideas</div>';
+                document.getElementById('ideas-list').innerHTML = '<div class="error">Error loading ideas. Please refresh the page.</div>';
             }
         }
         
@@ -351,17 +399,21 @@
         async function fetchTopics() {
             try {
                 const response = await fetch('/api/topics?limit=10');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 const data = await response.json();
                 
-                if (data.status === 'success') {
+                if (data.status === 'success' && data.data) {
                     dashboardData.topics = data.data;
                     updateTopicsDisplay();
                 } else {
-                    showAlert('Error fetching topics: ' + data.message, 'error');
+                    console.error('Topics API returned error:', data);
+                    document.getElementById('topics-list').innerHTML = '<div class="error">No topics available</div>';
                 }
             } catch (error) {
                 console.error('Error fetching topics:', error);
-                document.getElementById('topics-list').innerHTML = '<div class="error">Error loading topics</div>';
+                document.getElementById('topics-list').innerHTML = '<div class="error">Error loading topics. Please refresh the page.</div>';
             }
         }
         
@@ -373,33 +425,60 @@
             document.getElementById('avg-relevance').textContent = dashboardData.stats.avg_relevance_24h || '0';
         }
         
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+        
         // Update ideas display
         function updateIdeasDisplay() {
             const container = document.getElementById('ideas-list');
             
-            if (dashboardData.ideas.length === 0) {
+            if (!dashboardData.ideas || dashboardData.ideas.length === 0) {
                 container.innerHTML = '<div style="text-align: center; color: #718096; padding: 2rem;">No content ideas found</div>';
                 return;
             }
             
-            const html = dashboardData.ideas.map(idea => `
-                <div class="idea-item">
-                    <div class="idea-title">${idea.title}</div>
-                    <div class="idea-meta">
-                        <span>Type: ${idea.content_type}</span>
-                        <span>Audience: ${idea.target_audience}</span>
-                        <span>Reach: ${idea.estimated_reach}</span>
-                        <span class="urgency-badge urgency-${idea.urgency}">${idea.urgency}</span>
-                    </div>
-                    ${idea.keywords ? `
-                        <div class="keywords">
-                            ${JSON.parse(idea.keywords).slice(0, 5).map(kw => `<span class="keyword">${kw}</span>`).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
+            container.innerHTML = '';
             
-            container.innerHTML = html;
+            dashboardData.ideas.forEach(idea => {
+                const ideaDiv = document.createElement('div');
+                ideaDiv.className = 'idea-item';
+                
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'idea-title';
+                titleDiv.textContent = idea.title || 'Untitled';
+                ideaDiv.appendChild(titleDiv);
+                
+                const metaDiv = document.createElement('div');
+                metaDiv.className = 'idea-meta';
+                metaDiv.innerHTML = `
+                    <span>Type: ${escapeHtml(idea.content_type)}</span>
+                    <span>Audience: ${escapeHtml(idea.target_audience)}</span>
+                    <span>Reach: ${idea.estimated_reach || 0}</span>
+                    <span class="urgency-badge urgency-${escapeHtml(idea.urgency)}">${escapeHtml(idea.urgency)}</span>
+                    <button onclick="generateContentForIdea(${idea.id})" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 0.25rem 0.75rem; border-radius: 4px; cursor: pointer; margin-left: 1rem; font-size: 0.85rem;">
+                        ${dashboardData.kiteConnected ? '🔴 Generate with Live Data' : '📊 Generate Content'}
+                    </button>
+                `;
+                ideaDiv.appendChild(metaDiv);
+                
+                if (idea.keywords && idea.keywords.length > 0) {
+                    const keywordsDiv = document.createElement('div');
+                    keywordsDiv.className = 'keywords';
+                    idea.keywords.slice(0, 5).forEach(kw => {
+                        const kwSpan = document.createElement('span');
+                        kwSpan.className = 'keyword';
+                        kwSpan.textContent = kw;
+                        keywordsDiv.appendChild(kwSpan);
+                    });
+                    ideaDiv.appendChild(keywordsDiv);
+                }
+                
+                container.appendChild(ideaDiv);
+            });
         }
         
         // Update keywords display
@@ -425,28 +504,184 @@
         function updateTopicsDisplay() {
             const container = document.getElementById('topics-list');
             
-            if (dashboardData.topics.length === 0) {
+            if (!dashboardData.topics || dashboardData.topics.length === 0) {
                 container.innerHTML = '<div style="text-align: center; color: #718096; padding: 2rem;">No research topics found</div>';
                 return;
             }
             
-            const html = dashboardData.topics.map(topic => `
-                <div class="idea-item">
-                    <div class="idea-title">${topic.topic}</div>
-                    <div class="idea-meta">
-                        <span>Source: ${topic.source}</span>
-                        <span>Relevance: ${topic.relevance_score}/100</span>
-                        <span>Date: ${new Date(topic.timestamp).toLocaleString()}</span>
-                    </div>
-                    ${topic.keywords ? `
-                        <div class="keywords">
-                            ${JSON.parse(topic.keywords).slice(0, 5).map(kw => `<span class="keyword">${kw}</span>`).join('')}
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
+            container.innerHTML = '';
             
-            container.innerHTML = html;
+            dashboardData.topics.forEach(topic => {
+                const topicDiv = document.createElement('div');
+                topicDiv.className = 'idea-item';
+                
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'idea-title';
+                titleDiv.textContent = topic.topic || 'Untitled';
+                topicDiv.appendChild(titleDiv);
+                
+                const metaDiv = document.createElement('div');
+                metaDiv.className = 'idea-meta';
+                metaDiv.innerHTML = `
+                    <span>Source: ${escapeHtml(topic.source)}</span>
+                    <span>Relevance: ${topic.relevance_score || 0}/100</span>
+                    <span>Date: ${new Date(topic.timestamp).toLocaleString()}</span>
+                `;
+                topicDiv.appendChild(metaDiv);
+                
+                if (topic.keywords && topic.keywords.length > 0) {
+                    const keywordsDiv = document.createElement('div');
+                    keywordsDiv.className = 'keywords';
+                    topic.keywords.slice(0, 5).forEach(kw => {
+                        const kwSpan = document.createElement('span');
+                        kwSpan.className = 'keyword';
+                        kwSpan.textContent = kw;
+                        keywordsDiv.appendChild(kwSpan);
+                    });
+                    topicDiv.appendChild(keywordsDiv);
+                }
+                
+                container.appendChild(topicDiv);
+            });
+        }
+        
+        // Generate content for a specific idea using Kite MCP if available
+        async function generateContentForIdea(ideaId) {
+            try {
+                showAlert('Generating content with ' + (dashboardData.kiteConnected ? 'LIVE Kite data' : 'intelligent system') + '...', 'info');
+                
+                const response = await fetch('/api/content/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content_id: ideaId,
+                        use_live_data: dashboardData.kiteConnected
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const qualityInfo = data.quality_score ? ` (Quality: ${data.quality_score}/10)` : '';
+                    const sourceInfo = data.data_source ? ` - Source: ${data.data_source}` : '';
+                    
+                    showAlert('Content generated successfully' + qualityInfo + sourceInfo, 'success');
+                    
+                    // Display the generated content
+                    displayGeneratedContent(data);
+                } else {
+                    showAlert('Error generating content: ' + data.message, 'error');
+                }
+            } catch (error) {
+                showAlert('Failed to generate content: ' + error.message, 'error');
+            }
+        }
+        
+        // Display generated content in a modal or new section
+        function displayGeneratedContent(content) {
+            // Remove any existing modal first
+            const existingOverlay = document.getElementById('modal-overlay');
+            const existingModal = document.getElementById('content-modal');
+            if (existingOverlay) existingOverlay.remove();
+            if (existingModal) existingModal.remove();
+            
+            // Create a modal to show the content
+            const modal = document.createElement('div');
+            modal.id = 'content-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 2rem;
+                border-radius: 12px;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                max-width: 800px;
+                max-height: 80vh;
+                overflow-y: auto;
+                z-index: 1000;
+            `;
+            
+            // Create header
+            const header = document.createElement('h2');
+            header.style.cssText = 'margin-bottom: 1rem; color: #4a5568;';
+            header.textContent = content.title || 'Generated Content';
+            modal.appendChild(header);
+            
+            // Create badges
+            const badgesDiv = document.createElement('div');
+            badgesDiv.style.cssText = 'margin-bottom: 1rem; display: flex; gap: 1rem; flex-wrap: wrap;';
+            
+            const qualityBadge = document.createElement('span');
+            qualityBadge.style.cssText = 'background: #10B981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem;';
+            qualityBadge.textContent = `Quality: ${content.quality_score || 'N/A'}/10`;
+            badgesDiv.appendChild(qualityBadge);
+            
+            const sourceBadge = document.createElement('span');
+            sourceBadge.style.cssText = 'background: #667eea; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem;';
+            sourceBadge.textContent = content.data_source || 'Unknown Source';
+            badgesDiv.appendChild(sourceBadge);
+            
+            modal.appendChild(badgesDiv);
+            
+            // Create content area
+            const contentDiv = document.createElement('div');
+            contentDiv.style.cssText = 'white-space: pre-wrap; line-height: 1.6; color: #2d3748;';
+            contentDiv.textContent = content.content || 'No content generated';
+            modal.appendChild(contentDiv);
+            
+            // Create buttons
+            const buttonsDiv = document.createElement('div');
+            buttonsDiv.style.cssText = 'margin-top: 1.5rem; display: flex; gap: 1rem;';
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.style.cssText = 'background: #e2e8f0; color: #4a5568; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;';
+            closeBtn.textContent = 'Close';
+            closeBtn.onclick = () => {
+                modal.remove();
+                document.getElementById('modal-overlay').remove();
+            };
+            buttonsDiv.appendChild(closeBtn);
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.style.cssText = 'background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;';
+            copyBtn.textContent = 'Copy Content';
+            copyBtn.onclick = () => copyToClipboard(content.content || '');
+            buttonsDiv.appendChild(copyBtn);
+            
+            modal.appendChild(buttonsDiv);
+            
+            // Add overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'modal-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+            `;
+            overlay.onclick = () => {
+                modal.remove();
+                overlay.remove();
+            };
+            
+            document.body.appendChild(overlay);
+            document.body.appendChild(modal);
+        }
+        
+        // Copy text to clipboard
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showAlert('Content copied to clipboard!', 'success');
+            }).catch(() => {
+                showAlert('Failed to copy content', 'error');
+            });
         }
         
         // Show alert message
@@ -500,10 +735,14 @@
         
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
+            checkKiteStatus();  // Check Kite MCP status first
             fetchAll();
             
             // Auto-refresh every 5 minutes
             setInterval(fetchAll, 5 * 60 * 1000);
+            
+            // Check Kite status every 30 seconds
+            setInterval(checkKiteStatus, 30 * 1000);
         });
     </script>
 </body>

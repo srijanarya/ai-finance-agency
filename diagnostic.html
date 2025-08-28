@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Diagnostic Page</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        .log { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #fee; color: red; }
+        .success { background: #efe; color: green; }
+        button { padding: 10px; margin: 5px; }
+        pre { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Diagnostic</h1>
+    
+    <button onclick="testAPIDirectly()">Test API Directly</button>
+    <button onclick="testGenerateContent()">Test Generate Content</button>
+    <button onclick="checkErrors()">Check for Errors</button>
+    
+    <div id="logs"></div>
+    
+    <script>
+        function log(message, type = 'log') {
+            const logsDiv = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log ${type}`;
+            logEntry.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            logsDiv.insertBefore(logEntry, logsDiv.firstChild);
+            console.log(message);
+        }
+        
+        async function testAPIDirectly() {
+            log('Testing API directly...');
+            
+            try {
+                const response = await fetch('/api/content/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        use_live_data: true
+                    })
+                });
+                
+                log(`Response status: ${response.status}`);
+                
+                const text = await response.text();
+                log(`Raw response: ${text.substring(0, 200)}...`);
+                
+                try {
+                    const data = JSON.parse(text);
+                    log(`Parsed JSON successfully`, 'success');
+                    log(`Title: ${data.title || 'NO TITLE'}`);
+                    log(`Status: ${data.status || 'NO STATUS'}`);
+                    log(`Quality: ${data.quality_score || 'NO QUALITY'}`);
+                    log(`Content length: ${(data.content || '').length} chars`);
+                    
+                    // Show full response structure
+                    log(`<pre>Full response structure:\n${JSON.stringify(data, null, 2).substring(0, 500)}...</pre>`);
+                } catch (parseError) {
+                    log(`Failed to parse as JSON: ${parseError}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`Network error: ${error}`, 'error');
+            }
+        }
+        
+        async function testGenerateContent() {
+            log('Testing the generate function...');
+            
+            // First, get an idea ID
+            try {
+                const ideasResponse = await fetch('/api/ideas');
+                const ideasData = await ideasResponse.json();
+                
+                if (ideasData.data && ideasData.data.length > 0) {
+                    const firstIdea = ideasData.data[0];
+                    log(`Found idea with ID: ${firstIdea.id}`);
+                    
+                    // Now try to generate content for this idea
+                    log(`Calling generateContentForIdea(${firstIdea.id})...`);
+                    
+                    // Simulate the function from dashboard
+                    await generateContentForIdea(firstIdea.id);
+                } else {
+                    log('No ideas found', 'error');
+                }
+            } catch (error) {
+                log(`Error getting ideas: ${error}`, 'error');
+            }
+        }
+        
+        async function generateContentForIdea(ideaId) {
+            try {
+                log(`Generating content for idea ${ideaId}...`);
+                
+                const response = await fetch('/api/content/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content_id: ideaId,
+                        use_live_data: true
+                    })
+                });
+                
+                log(`Response status: ${response.status}`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    log(`SUCCESS! Generated content:`, 'success');
+                    log(`Title: ${data.title}`);
+                    log(`Quality: ${data.quality_score}/10`);
+                    log(`Source: ${data.data_source}`);
+                    
+                    // Try to display it
+                    displayContent(data);
+                } else {
+                    log(`FAILED: ${data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                log(`Exception: ${error}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        function displayContent(data) {
+            log('Attempting to display content...');
+            
+            const modal = document.createElement('div');
+            modal.style.cssText = 'background: white; border: 2px solid blue; padding: 20px; margin: 20px 0;';
+            modal.innerHTML = `
+                <h3>${data.title || 'No Title'}</h3>
+                <p>Quality: ${data.quality_score || 'N/A'}/10</p>
+                <p>Source: ${data.data_source || 'Unknown'}</p>
+                <pre style="white-space: pre-wrap;">${(data.content || 'No content').substring(0, 500)}...</pre>
+            `;
+            document.body.appendChild(modal);
+            
+            log('Content displayed', 'success');
+        }
+        
+        function checkErrors() {
+            log('Checking for JavaScript errors...');
+            
+            // Check if functions exist
+            const functions = [
+                'fetch',
+                'JSON',
+                'document.getElementById'
+            ];
+            
+            functions.forEach(fn => {
+                if (typeof window[fn] !== 'undefined' || typeof eval(fn) !== 'undefined') {
+                    log(`✓ ${fn} exists`, 'success');
+                } else {
+                    log(`✗ ${fn} missing`, 'error');
+                }
+            });
+            
+            // Try to parse a test JSON
+            try {
+                JSON.parse('{"test": true}');
+                log('✓ JSON parsing works', 'success');
+            } catch (e) {
+                log('✗ JSON parsing broken', 'error');
+            }
+            
+            // Check fetch
+            if (typeof fetch === 'function') {
+                log('✓ fetch API available', 'success');
+            } else {
+                log('✗ fetch API not available', 'error');
+            }
+        }
+        
+        // Auto-run diagnostics
+        log('Diagnostic page loaded');
+        checkErrors();
+    </script>
+</body>
+</html>

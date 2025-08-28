@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Finance Agency - Working Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .idea-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .generate-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        .generate-btn:hover {
+            opacity: 0.9;
+        }
+        #status { padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; }
+        .connected { background: #10B981; color: white; }
+        .disconnected { background: #F59E0B; color: white; }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+            display: none;
+        }
+        .modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+        .modal.show, .modal-overlay.show { display: block; }
+        .content-display {
+            white-space: pre-wrap;
+            background: #f5f5f5;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .alert {
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin: 0.5rem 0;
+        }
+        .alert.success { background: #10B981; color: white; }
+        .alert.error { background: #EF4444; color: white; }
+        .alert.info { background: #3B82F6; color: white; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>🚀 AI Finance Agency</h1>
+            <p style="color: #666; margin-top: 0.25rem;">Working Dashboard</p>
+        </div>
+        <div>
+            <span style="color: #666; margin-right: 0.5rem;">Data Source:</span>
+            <span id="status" class="disconnected">Checking...</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="alerts"></div>
+        
+        <div class="card">
+            <h2>Quick Actions</h2>
+            <button class="generate-btn" onclick="generateQuickContent()">Generate Content (No ID)</button>
+            <button class="generate-btn" onclick="checkStatus()" style="background: #3B82F6;">Check Kite Status</button>
+            <button class="generate-btn" onclick="loadIdeas()" style="background: #10B981;">Reload Ideas</button>
+        </div>
+
+        <div class="card">
+            <h2>Content Ideas</h2>
+            <div id="ideas-container">Loading ideas...</div>
+        </div>
+
+        <div class="card">
+            <h2>Generated Content</h2>
+            <div id="output">No content generated yet</div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal" id="content-modal">
+        <h2 id="modal-title">Generated Content</h2>
+        <div id="modal-badges"></div>
+        <div class="content-display" id="modal-content"></div>
+        <button class="generate-btn" onclick="closeModal()">Close</button>
+        <button class="generate-btn" onclick="copyContent()" style="margin-left: 0.5rem;">Copy Content</button>
+    </div>
+
+    <script>
+        let currentContent = '';
+        let kiteConnected = false;
+
+        // Check Kite status
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/kite/status');
+                const data = await response.json();
+                
+                const statusEl = document.getElementById('status');
+                if (data.status === 'connected') {
+                    statusEl.className = 'connected';
+                    statusEl.textContent = '🔴 LIVE - Kite MCP (10/10)';
+                    kiteConnected = true;
+                } else {
+                    statusEl.className = 'disconnected';
+                    statusEl.textContent = '📊 Intelligent Mode (7/10)';
+                    kiteConnected = false;
+                }
+                
+                showAlert(`Status: ${data.message}`, 'info');
+            } catch (error) {
+                console.error('Status check error:', error);
+                document.getElementById('status').textContent = '❌ Error';
+            }
+        }
+
+        // Load ideas
+        async function loadIdeas() {
+            try {
+                const response = await fetch('/api/ideas');
+                const data = await response.json();
+                
+                const container = document.getElementById('ideas-container');
+                
+                if (data.status === 'success' && data.data && data.data.length > 0) {
+                    container.innerHTML = '';
+                    
+                    data.data.slice(0, 5).forEach(idea => {
+                        const ideaDiv = document.createElement('div');
+                        ideaDiv.className = 'idea-item';
+                        ideaDiv.innerHTML = `
+                            <h3>${idea.title || 'Untitled'}</h3>
+                            <p style="color: #666; font-size: 0.9rem;">
+                                Type: ${idea.content_type} | 
+                                ID: ${idea.id}
+                            </p>
+                        `;
+                        
+                        const btn = document.createElement('button');
+                        btn.className = 'generate-btn';
+                        btn.textContent = kiteConnected ? '🔴 Generate with Live Data' : '📊 Generate Content';
+                        btn.onclick = () => generateForIdea(idea.id);
+                        ideaDiv.appendChild(btn);
+                        
+                        container.appendChild(ideaDiv);
+                    });
+                    
+                    showAlert(`Loaded ${data.data.length} ideas`, 'success');
+                } else {
+                    container.innerHTML = '<p>No ideas found</p>';
+                }
+            } catch (error) {
+                console.error('Load ideas error:', error);
+                document.getElementById('ideas-container').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+
+        // Generate content for specific idea
+        async function generateForIdea(ideaId) {
+            showAlert(`Generating content for idea ${ideaId}...`, 'info');
+            
+            try {
+                const response = await fetch('/api/content/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        content_id: ideaId,
+                        use_live_data: kiteConnected
+                    })
+                });
+                
+                const data = await response.json();
+                console.log('API Response:', data);
+                
+                if (data.status === 'success') {
+                    displayContent(data);
+                    showAlert(`Generated successfully! Quality: ${data.quality_score}/10`, 'success');
+                } else {
+                    showAlert(`Error: ${data.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Generate error:', error);
+                showAlert(`Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Generate quick content (no ID)
+        async function generateQuickContent() {
+            showAlert('Generating quick content...', 'info');
+            
+            try {
+                const response = await fetch('/api/content/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({use_live_data: kiteConnected})
+                });
+                
+                const data = await response.json();
+                console.log('Quick generate response:', data);
+                
+                if (data.status === 'success') {
+                    displayContent(data);
+                    showAlert(`Generated! Quality: ${data.quality_score}/10`, 'success');
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Quick generate error:', error);
+                showAlert(`Failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Display content
+        function displayContent(data) {
+            // Update output area
+            const output = document.getElementById('output');
+            output.innerHTML = `
+                <h3>${data.title || 'Generated Content'}</h3>
+                <p>
+                    <span style="background: #10B981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                        Quality: ${data.quality_score || 'N/A'}/10
+                    </span>
+                    <span style="background: #667eea; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; margin-left: 0.5rem;">
+                        ${data.data_source || 'Unknown'}
+                    </span>
+                </p>
+                <div class="content-display">${data.content || 'No content'}</div>
+            `;
+            
+            // Update modal
+            document.getElementById('modal-title').textContent = data.title || 'Generated Content';
+            document.getElementById('modal-badges').innerHTML = `
+                <span style="background: #10B981; color: white; padding: 0.25rem 0.5rem; border-radius: 4px;">
+                    Quality: ${data.quality_score || 'N/A'}/10
+                </span>
+                <span style="background: #667eea; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; margin-left: 0.5rem;">
+                    ${data.data_source || 'Unknown'}
+                </span>
+            `;
+            document.getElementById('modal-content').textContent = data.content || 'No content';
+            currentContent = data.content || '';
+            
+            // Show modal
+            openModal();
+        }
+
+        // Modal functions
+        function openModal() {
+            document.querySelector('.modal-overlay').classList.add('show');
+            document.getElementById('content-modal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.querySelector('.modal-overlay').classList.remove('show');
+            document.getElementById('content-modal').classList.remove('show');
+        }
+
+        function copyContent() {
+            if (currentContent) {
+                navigator.clipboard.writeText(currentContent).then(() => {
+                    showAlert('Content copied to clipboard!', 'success');
+                }).catch(() => {
+                    showAlert('Failed to copy', 'error');
+                });
+            }
+        }
+
+        // Show alert
+        function showAlert(message, type) {
+            const alertsDiv = document.getElementById('alerts');
+            const alert = document.createElement('div');
+            alert.className = `alert ${type}`;
+            alert.textContent = message;
+            alertsDiv.appendChild(alert);
+            
+            setTimeout(() => alert.remove(), 5000);
+        }
+
+        // Initialize
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Dashboard loaded');
+            checkStatus();
+            loadIdeas();
+            
+            // Refresh status every 30 seconds
+            setInterval(checkStatus, 30000);
+        });
+    </script>
+</body>
+</html>

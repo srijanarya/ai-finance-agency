@@ -334,40 +334,11 @@ Detailed closing report coming up!
         
         while True:
             try:
-                # This would connect to NSE options chain API
-                # For now, posting scheduled options updates
+                # DISABLED - This was posting outdated hardcoded data
+                # Options data needs real API integration
+                # For now, skipping options updates to avoid misleading data
                 
-                hour = datetime.now().hour
-                
-                # Post options update at specific times
-                if hour in [10, 12, 14]:  # 10 AM, 12 PM, 2 PM
-                    message = f"""📊 OPTIONS CHAIN UPDATE - {datetime.now().strftime('%I:%M %p')}
-
-NIFTY OPTIONS:
-• Highest Call OI: 25,000 CE (Resistance)
-• Highest Put OI: 24,500 PE (Support)
-• PCR: 0.95 (Neutral)
-• India VIX: 13.25
-
-BANK NIFTY:
-• Call Writing at: 52,500
-• Put Writing at: 51,000
-• Range: 51,000-52,500
-
-Strategy: Range bound, sell strangles
-
-Educational purpose only.
-
-@AIFinanceNews2024"""
-                    
-                    # Create hash to avoid duplicate
-                    news_hash = hashlib.md5(f"options_{datetime.now().strftime('%Y%m%d_%H')}".encode()).hexdigest()
-                    
-                    if not self.is_news_posted(news_hash):
-                        if self.post_to_telegram(message):
-                            self.mark_news_posted(news_hash, "Options Update", "NSE")
-                            print("   📊 Posted options update")
-                
+                print("   ⏭️ Skipping options update (needs real data source)")
                 time.sleep(1800)  # Check every 30 minutes
                 
             except Exception as e:

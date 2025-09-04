@@ -1,0 +1,13 @@
+{
+  "timestamp": "2025-09-04T21:07:19.520646",
+  "message_copied": true,
+  "tabs_opened": 4,
+  "target_groups": [
+    "IndianStockMarketLive",
+    "StockMarketIndiaOfficial",
+    "NSEBSETips"
+  ],
+  "expected_subscribers": "60-90",
+  "completion_time": "2 minutes manual",
+  "automation_level": "95%"
+}

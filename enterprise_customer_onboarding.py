@@ -15,8 +15,7 @@ import requests
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
+# Auto-fixed: Removed problematic email imports
 from pathlib import Path
 import logging
 

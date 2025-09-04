@@ -203,8 +203,11 @@ class ContentAnalytics:
             "content_frequency": {"avg_hours_between_posts": 2.5}
         }
     
-    def _calculate_frequency(self, df: pd.DataFrame) -> Dict:
+    def _calculate_frequency(self, df) -> Dict:
         """Calculate posting frequency patterns"""
+        if not PANDAS_AVAILABLE:
+            return {"avg_hours_between_posts": 2.5}
+            
         df_sorted = df.sort_values('timestamp')
         time_diffs = df_sorted['timestamp'].diff().dt.total_seconds() / 3600  # Hours
         

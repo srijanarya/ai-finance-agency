@@ -51,7 +51,7 @@ class MarketingAutomationEngine:
         
     def setup_database(self):
         """Setup marketing database"""
-        conn = sqlite3.connect('marketing.db')
+        conn = sqlite3.connect('marketing.db', timeout=30.0)
         cursor = conn.cursor()
         
         cursor.execute('''
@@ -206,7 +206,7 @@ class MarketingAutomationEngine:
         try:
             campaign_id = str(uuid.uuid4())
             
-            conn = sqlite3.connect('marketing.db')
+            conn = sqlite3.connect('marketing.db', timeout=30.0)
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -266,7 +266,7 @@ class MarketingAutomationEngine:
             actual_revenue = actual_conversions * avg_customer_value * random.uniform(0.85, 1.15)
             
             # Update campaign in database
-            conn = sqlite3.connect('marketing.db')
+            conn = sqlite3.connect('marketing.db', timeout=30.0)
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -293,9 +293,12 @@ class MarketingAutomationEngine:
     
     def generate_campaign_leads(self, campaign_id: str, channel: str, segment: str, lead_count: int):
         """Generate realistic leads for campaign"""
+        conn = None
         try:
-            conn = sqlite3.connect('marketing.db')
+            conn = sqlite3.connect('marketing.db', timeout=30.0, isolation_level=None)
             cursor = conn.cursor()
+            conn.execute('PRAGMA journal_mode=WAL')
+            conn.execute('PRAGMA synchronous=NORMAL')
             
             # Indian names for realistic leads
             first_names = ['Rajesh', 'Priya', 'Amit', 'Sunita', 'Vikash', 'Neha', 'Rohit', 'Kavya', 'Arjun', 'Pooja',
@@ -347,15 +350,19 @@ class MarketingAutomationEngine:
                 ))
             
             conn.commit()
-            conn.close()
             
         except Exception as e:
             self.logger.error(f"Lead generation error: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                conn.close()
     
     def get_active_campaigns(self):
         """Get all active campaigns"""
         try:
-            conn = sqlite3.connect('marketing.db')
+            conn = sqlite3.connect('marketing.db', timeout=30.0)
             cursor = conn.cursor()
             
             cursor.execute('''
@@ -398,7 +405,7 @@ class MarketingAutomationEngine:
     def get_lead_pipeline(self):
         """Get current lead pipeline"""
         try:
-            conn = sqlite3.connect('marketing.db')
+            conn = sqlite3.connect('marketing.db', timeout=30.0)
             cursor = conn.cursor()
             
             # Lead counts by status
@@ -472,7 +479,7 @@ class MarketingAutomationEngine:
     def get_marketing_analytics(self):
         """Get comprehensive marketing analytics"""
         try:
-            conn = sqlite3.connect('marketing.db')
+            conn = sqlite3.connect('marketing.db', timeout=30.0)
             cursor = conn.cursor()
             
             # Overall metrics

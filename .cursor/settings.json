@@ -1,0 +1,29 @@
+{
+  "cursor.aiAutoAccept": true,
+  "cursor.autoAcceptSuggestions": true,
+  "cursor.copilot.enable": true,
+  "cursor.copilot.autoTrigger": true,
+  "cursor.copilot.acceptOnTab": true,
+  "cursor.copilot.acceptOnEnter": false,
+  "cursor.chat.autoApprove": true,
+  "cursor.chat.autoRun": true,
+  "cursor.terminal.autoRun": true,
+  "cursor.apply.autoAccept": true,
+  "cursor.composer.autoAccept": true,
+  "cursor.composer.autoRun": true,
+  "cursor.diff.autoAccept": true,
+  "editor.acceptSuggestionOnCommitCharacter": true,
+  "editor.acceptSuggestionOnEnter": "on",
+  "editor.tabCompletion": "on",
+  "editor.suggestOnTriggerCharacters": true,
+  "editor.quickSuggestions": {
+    "other": true,
+    "comments": true,
+    "strings": true
+  },
+  "editor.inlineSuggest.enabled": true,
+  "editor.suggest.showStatusBar": true,
+  "editor.suggest.insertMode": "replace",
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000
+}

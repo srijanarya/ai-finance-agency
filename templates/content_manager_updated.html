@@ -582,15 +582,9 @@
                     <strong>Hashtags:</strong><br>
                     ${content.hashtags ? content.hashtags.join(' ') : 'No hashtags'}
                 </div>
-                ${content.visual_url ? `
-                    <div style="margin-top: 20px;">
-                        <strong>Visual Generated:</strong>
-                        <div style="margin-top: 10px; border: 2px solid #ddd; border-radius: 8px; overflow: hidden;">
-                            <img src="${content.visual_url}" style="width: 100%; height: auto; display: block;" alt="Generated Visual">
-                        </div>
-                        <div style="margin-top: 10px; color: #666; font-size: 0.9rem;">
-                            📁 Saved at: ${content.visual_path || content.visual_url}
-                        </div>
+                ${content.visual_path ? `
+                    <div style="margin-top: 15px;">
+                        <strong>Visual:</strong> ${content.visual_path}
                     </div>
                 ` : ''}
                 <div style="margin-top: 15px;">

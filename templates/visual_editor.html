@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual Content Editor - AI Finance Agency</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        
+        .container-main {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .editor-card {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .visual-preview {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 2rem;
+            min-height: 500px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .visual-preview img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .editor-controls {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .nav-tabs .nav-link {
+            color: #6c757d;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            margin-right: 0.5rem;
+        }
+        
+        .nav-tabs .nav-link.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-generate {
+            background: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: transform 0.3s;
+        }
+        
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            color: white;
+        }
+        
+        .color-picker {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+        
+        .template-card {
+            border: 2px solid #dee2e6;
+            border-radius: 15px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .template-card:hover {
+            border-color: #667eea;
+            transform: translateY(-5px);
+        }
+        
+        .template-card.selected {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .metric-input {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 10px;
+        }
+        
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+            z-index: 10;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+            border-width: 0.3rem;
+        }
+        
+        .post-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .btn-linkedin {
+            background: #0077b5;
+            color: white;
+            border: none;
+        }
+        
+        .btn-download {
+            background: #28a745;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-main">
+        <!-- Header -->
+        <div class="text-center text-white mb-4">
+            <h1 class="display-4 fw-bold">
+                <i class="fas fa-palette"></i> Visual Content Editor
+            </h1>
+            <p class="lead">Create stunning LinkedIn visuals with AI-powered content</p>
+        </div>
+
+        <!-- Main Editor -->
+        <div class="row">
+            <!-- Left Panel - Controls -->
+            <div class="col-lg-5">
+                <div class="editor-card">
+                    <h3 class="mb-4">Content Settings</h3>
+                    
+                    <!-- Style Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Visual Style</label>
+                        <div class="btn-group" role="group">
+                            <input type="radio" class="btn-check" name="style" id="style-minimalist" value="minimalist" checked>
+                            <label class="btn btn-outline-primary" for="style-minimalist">Minimalist (Dezerv-style)</label>
+                            
+                            <input type="radio" class="btn-check" name="style" id="style-professional" value="professional">
+                            <label class="btn btn-outline-primary" for="style-professional">Professional</label>
+                            
+                            <input type="radio" class="btn-check" name="style" id="style-dezerv" value="dezerv">
+                            <label class="btn btn-outline-primary" for="style-dezerv">Dezerv Original</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Template Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Visual Template</label>
+                        <div class="d-flex gap-3 flex-wrap" id="template-container">
+                            <!-- Minimalist Templates (shown by default) -->
+                            <div class="template-card selected" data-template="hero_number" data-style="minimalist">
+                                <i class="fas fa-hashtag fa-2x text-primary mb-2"></i>
+                                <div>Hero Number</div>
+                            </div>
+                            <div class="template-card" data-template="data_comparison" data-style="minimalist">
+                                <i class="fas fa-exchange-alt fa-2x text-info mb-2"></i>
+                                <div>Data Comparison</div>
+                            </div>
+                            <div class="template-card" data-template="market_pulse" data-style="minimalist">
+                                <i class="fas fa-heartbeat fa-2x text-danger mb-2"></i>
+                                <div>Market Pulse</div>
+                            </div>
+                            
+                            <!-- Professional Templates (hidden initially) -->
+                            <div class="template-card" data-template="market_snapshot" data-style="professional" style="display:none">
+                                <i class="fas fa-chart-line fa-2x text-primary mb-2"></i>
+                                <div>Market Snapshot</div>
+                            </div>
+                            <div class="template-card" data-template="stock_analysis" data-style="professional" style="display:none">
+                                <i class="fas fa-chart-bar fa-2x text-success mb-2"></i>
+                                <div>Stock Analysis</div>
+                            </div>
+                            <div class="template-card" data-template="quote" data-style="professional" style="display:none">
+                                <i class="fas fa-quote-left fa-2x text-warning mb-2"></i>
+                                <div>Quote Card</div>
+                            </div>
+                            
+                            <!-- Dezerv Templates (hidden initially) -->
+                            <div class="template-card" data-template="narrative_visual" data-style="dezerv" style="display:none">
+                                <i class="fas fa-book-open fa-2x text-purple mb-2"></i>
+                                <div>Narrative Visual</div>
+                            </div>
+                            <div class="template-card" data-template="data_story" data-style="dezerv" style="display:none">
+                                <i class="fas fa-chart-pie fa-2x text-orange mb-2"></i>
+                                <div>Data Story</div>
+                            </div>
+                            <div class="template-card" data-template="quote_card" data-style="dezerv" style="display:none">
+                                <i class="fas fa-comment-dots fa-2x text-teal mb-2"></i>
+                                <div>Quote Card</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Title Input -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Title</label>
+                        <input type="text" class="form-control" id="title" 
+                               placeholder="Enter engaging title..." 
+                               value="FIIs Sold ₹50,000 Cr Yesterday. Here's Why You Should Care">
+                    </div>
+
+                    <!-- Market Data (for market snapshot) -->
+                    <div id="market-data" class="mb-4">
+                        <label class="form-label fw-bold">Market Data</label>
+                        <div class="metrics-grid">
+                            <div class="metric-input">
+                                <label class="form-label small">Nifty</label>
+                                <input type="text" class="form-control" id="nifty" value="24,712 (-0.75%)">
+                            </div>
+                            <div class="metric-input">
+                                <label class="form-label small">Sensex</label>
+                                <input type="text" class="form-control" id="sensex" value="80,787 (-0.73%)">
+                            </div>
+                            <div class="metric-input">
+                                <label class="form-label small">FII Flow</label>
+                                <input type="text" class="form-control" id="fii" value="₹-892 Cr">
+                            </div>
+                            <div class="metric-input">
+                                <label class="form-label small">DII Flow</label>
+                                <input type="text" class="form-control" id="dii" value="₹+3,456 Cr">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stock Data (for stock analysis) -->
+                    <div id="stock-data" class="mb-4" style="display: none;">
+                        <label class="form-label fw-bold">Stock Data</label>
+                        <div class="metrics-grid">
+                            <div class="metric-input">
+                                <label class="form-label small">Stock Name</label>
+                                <input type="text" class="form-control" id="stock" value="TCS">
+                            </div>
+                            <div class="metric-input">
+                                <label class="form-label small">Current Price</label>
+                                <input type="text" class="form-control" id="cmp" value="₹4,234">
+                            </div>
+                            <div class="metric-input">
+                                <label class="form-label small">Target</label>
+                                <input type="text" class="form-control" id="target" value="₹4,500">
+                            </div>
+                            <div class="metric-input">
+                                <label class="form-label small">Stop Loss</label>
+                                <input type="text" class="form-control" id="stop_loss" value="₹4,100">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Key Insight -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Key Insight</label>
+                        <textarea class="form-control" id="insight" rows="3">DIIs absorbed every FII sell-off. Pattern suggests 15% upside.</textarea>
+                    </div>
+
+                    <!-- Color Scheme -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Color Scheme</label>
+                        <div class="d-flex gap-2">
+                            <input type="color" class="color-picker" value="#0077B6">
+                            <input type="color" class="color-picker" value="#00B4D8">
+                            <input type="color" class="color-picker" value="#FF4757">
+                            <input type="color" class="color-picker" value="#00D2D3">
+                        </div>
+                    </div>
+
+                    <!-- Generate Button -->
+                    <button class="btn btn-generate w-100" onclick="generateVisual()">
+                        <i class="fas fa-magic me-2"></i>Generate Visual
+                    </button>
+                </div>
+
+                <!-- Content Editor -->
+                <div class="editor-card">
+                    <h3 class="mb-3">Post Content</h3>
+                    <textarea class="form-control" id="post-content" rows="8">🚀 India's Market Opportunity
+
+📊 Key Numbers:
+• Nifty: 24,712 (-0.75%)
+• Sensex: 80,787 (-0.73%)
+• FII: ₹-892 Cr | DII: ₹+3,456 Cr
+
+🎯 What Smart Money is Doing:
+DIIs bought ₹15,000 Cr in last 10 sessions
+
+💡 Your Action Plan:
+✓ Accumulate quality on dips
+✓ Keep 20% cash ready
+
+What's your take? 👇</textarea>
+                    
+                    <div class="post-actions">
+                        <button class="btn btn-linkedin flex-fill">
+                            <i class="fab fa-linkedin me-2"></i>Post to LinkedIn
+                        </button>
+                        <button class="btn btn-download flex-fill">
+                            <i class="fas fa-download me-2"></i>Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Preview -->
+            <div class="col-lg-7">
+                <div class="editor-card">
+                    <h3 class="mb-4">Visual Preview</h3>
+                    
+                    <!-- Tab Navigation -->
+                    <ul class="nav nav-tabs mb-4" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#visual-tab">Visual</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#post-tab">Full Post</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#mobile-tab">Mobile View</a>
+                        </li>
+                    </ul>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="visual-tab">
+                            <div class="visual-preview" id="visual-preview">
+                                <div class="loading-overlay" id="loading" style="display: none;">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                                <img src="/api/visual/preview" alt="Visual Preview" id="preview-image">
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="post-tab">
+                            <div class="visual-preview">
+                                <div class="w-100">
+                                    <div class="card border-0 shadow-sm">
+                                        <img src="/api/visual/preview" class="card-img-top" alt="Post Visual">
+                                        <div class="card-body">
+                                            <h5 class="card-title" id="preview-title">Title Preview</h5>
+                                            <p class="card-text" id="preview-content">Content preview...</p>
+                                            <div class="text-primary" id="preview-hashtags">#Hashtags</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="mobile-tab">
+                            <div class="visual-preview">
+                                <div style="max-width: 375px; margin: 0 auto;">
+                                    <img src="/api/visual/preview" class="w-100 rounded" alt="Mobile Preview">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="d-flex gap-2 mt-3">
+                        <button class="btn btn-outline-primary" onclick="refreshPreview()">
+                            <i class="fas fa-sync"></i> Refresh
+                        </button>
+                        <button class="btn btn-outline-success" onclick="saveVisual()">
+                            <i class="fas fa-save"></i> Save
+                        </button>
+                        <button class="btn btn-outline-info" onclick="generateAI()">
+                            <i class="fas fa-robot"></i> AI Generate
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recent Visuals -->
+                <div class="editor-card">
+                    <h3 class="mb-3">Recent Visuals</h3>
+                    <div class="row g-3" id="recent-visuals">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Style switching - show/hide appropriate templates
+        document.querySelectorAll('input[name="style"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const selectedStyle = this.value;
+                
+                // Hide all template cards
+                document.querySelectorAll('.template-card').forEach(card => {
+                    card.style.display = 'none';
+                    card.classList.remove('selected');
+                });
+                
+                // Show only cards for selected style
+                document.querySelectorAll(`.template-card[data-style="${selectedStyle}"]`).forEach(card => {
+                    card.style.display = 'block';
+                });
+                
+                // Select first visible template
+                const firstVisible = document.querySelector(`.template-card[data-style="${selectedStyle}"]`);
+                if (firstVisible) {
+                    firstVisible.classList.add('selected');
+                }
+                
+                // Update data fields based on style
+                if (selectedStyle === 'minimalist') {
+                    document.getElementById('market-data').style.display = 'none';
+                    document.getElementById('stock-data').style.display = 'none';
+                } else {
+                    document.getElementById('market-data').style.display = 'block';
+                }
+            });
+        });
+        
+        // Template switching
+        document.querySelectorAll('.template-card').forEach(card => {
+            card.addEventListener('click', function() {
+                // Only select if visible
+                if (this.style.display !== 'none') {
+                    document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+                    this.classList.add('selected');
+                    
+                    const template = this.dataset.template;
+                    if (template === 'stock_analysis') {
+                        document.getElementById('market-data').style.display = 'none';
+                        document.getElementById('stock-data').style.display = 'block';
+                    } else if (template === 'hero_number' || template === 'data_comparison' || template === 'market_pulse') {
+                        // Minimalist templates don't need these fields
+                        document.getElementById('market-data').style.display = 'none';
+                        document.getElementById('stock-data').style.display = 'none';
+                    } else {
+                        document.getElementById('market-data').style.display = 'block';
+                        document.getElementById('stock-data').style.display = 'none';
+                    }
+                }
+            });
+        });
+
+        // Generate visual
+        async function generateVisual() {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'flex';
+
+            const template = document.querySelector('.template-card.selected').dataset.template;
+            const style = document.querySelector('input[name="style"]:checked').value;
+            
+            const data = {
+                style: style,
+                template: template,
+                title: document.getElementById('title').value,
+                insight: document.getElementById('insight').value,
+                hero_number: '₹30 Trillion',  // For minimalist templates
+                subtitle: "India's Economic Transformation by 2047",
+                question: "Are you positioned for this opportunity?"
+            };
+
+            if (template === 'market_snapshot') {
+                data.nifty = document.getElementById('nifty').value;
+                data.sensex = document.getElementById('sensex').value;
+                data.fii = document.getElementById('fii').value;
+                data.dii = document.getElementById('dii').value;
+            } else {
+                data.stock = document.getElementById('stock').value;
+                data.cmp = document.getElementById('cmp').value;
+                data.target = document.getElementById('target').value;
+                data.stop_loss = document.getElementById('stop_loss').value;
+            }
+
+            try {
+                const response = await fetch('/api/visual/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    document.getElementById('preview-image').src = result.visual_url + '?' + new Date().getTime();
+                    updatePostPreview();
+                }
+            } catch (error) {
+                console.error('Error generating visual:', error);
+            }
+
+            loading.style.display = 'none';
+        }
+
+        // Update post preview
+        function updatePostPreview() {
+            document.getElementById('preview-title').textContent = document.getElementById('title').value;
+            document.getElementById('preview-content').textContent = document.getElementById('post-content').value.substring(0, 200) + '...';
+            document.getElementById('preview-hashtags').textContent = '#IndianStockMarket #Nifty50 #InvestmentIdeas';
+        }
+
+        // Refresh preview
+        function refreshPreview() {
+            generateVisual();
+        }
+
+        // Save visual
+        async function saveVisual() {
+            const data = {
+                title: document.getElementById('title').value,
+                content: document.getElementById('post-content').value,
+                visual_url: document.getElementById('preview-image').src
+            };
+
+            const response = await fetch('/api/visual/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                alert('Visual saved successfully!');
+                loadRecentVisuals();
+            }
+        }
+
+        // AI Generate - Professional Content
+        async function generateAI() {
+            try {
+                const response = await fetch('/api/content/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        content_type: null,  // Random professional type
+                        context: {}
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    document.getElementById('title').value = data.title;
+                    document.getElementById('post-content').value = data.content;
+                    
+                    // Update visual based on suggestion
+                    if (data.visual_suggestion) {
+                        updateVisualFromSuggestion(data.visual_suggestion);
+                    }
+                    generateVisual();
+                    
+                    // Show engagement estimate
+                    if (data.estimated_engagement) {
+                        alert('Professional content generated! Expected engagement: ' + data.estimated_engagement + '%');
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Failed to generate content');
+            }
+        }
+        
+        // Auto-extract insights when content is pasted
+        document.getElementById('post-content').addEventListener('paste', async (e) => {
+            setTimeout(async () => {
+                const pastedContent = e.target.value;
+                if (pastedContent.length > 50) {  // Only extract if substantial content
+                    try {
+                        const response = await fetch('/api/content/extract', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ content: pastedContent })
+                        });
+                        
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            const data = result.data;
+                            
+                            // Auto-fill title if empty
+                            const titleField = document.getElementById('title');
+                            if (!titleField.value || titleField.value.length < 10) {
+                                titleField.value = data.title;
+                            }
+                            
+                            // Show key insights
+                            if (data.key_insights && data.key_insights.length > 0) {
+                                console.log('Key Insights:', data.key_insights);
+                                // Could display these in a tooltip or separate section
+                            }
+                            
+                            // Update visual style based on detected content type
+                            if (data.visual_style) {
+                                updateVisualFromSuggestion(data.visual_style);
+                                generateVisual();
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error extracting insights:', error);
+                    }
+                }
+            }, 100);
+        });
+        
+        // Helper function to update visual from AI suggestion
+        function updateVisualFromSuggestion(suggestion) {
+            if (suggestion.primary_metric) {
+                const niftyField = document.getElementById('nifty');
+                if (niftyField) niftyField.value = suggestion.primary_metric;
+            }
+            if (suggestion.secondary_metric) {
+                const sensexField = document.getElementById('sensex');
+                if (sensexField) sensexField.value = suggestion.secondary_metric;
+            }
+        }
+
+        // Load recent visuals
+        async function loadRecentVisuals() {
+            const response = await fetch('/api/visual/recent');
+            const visuals = await response.json();
+            
+            const container = document.getElementById('recent-visuals');
+            container.innerHTML = visuals.slice(0, 6).map(visual => `
+                <div class="col-md-4">
+                    <img src="${visual.url}" class="w-100 rounded" style="cursor: pointer;" 
+                         onclick="loadVisual('${visual.id}')">
+                </div>
+            `).join('');
+        }
+
+        // Initialize
+        updatePostPreview();
+        generateVisual();
+        
+        // Also listen for input changes to update preview
+        document.getElementById('title').addEventListener('input', updatePostPreview);
+        document.getElementById('post-content').addEventListener('input', updatePostPreview);
+    </script>
+</body>
+</html>

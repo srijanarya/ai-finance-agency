@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Dashboard Generation</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .connected { background: #10B981; color: white; }
+        .disconnected { background: #F59E0B; color: white; }
+        .error { background: #EF4444; color: white; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        #result { margin: 20px 0; padding: 20px; background: #f0f0f0; border-radius: 5px; }
+        pre { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Test Page</h1>
+    
+    <div id="kite-status" class="status">Checking Kite status...</div>
+    
+    <button onclick="checkKiteStatus()">Check Kite Status</button>
+    <button onclick="generateContent()">Generate Content (with Kite)</button>
+    <button onclick="generateContentNoKite()">Generate Content (without Kite)</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        async function checkKiteStatus() {
+            try {
+                const response = await fetch('/api/kite/status');
+                const data = await response.json();
+                
+                const statusDiv = document.getElementById('kite-status');
+                statusDiv.className = 'status ' + (data.status === 'connected' ? 'connected' : 'disconnected');
+                statusDiv.textContent = data.message + ' (Quality: ' + data.data_quality + ')';
+                
+                if (data.sample) {
+                    statusDiv.textContent += ' | NIFTY: ' + (data.sample.nifty || 'N/A');
+                }
+            } catch (error) {
+                document.getElementById('kite-status').className = 'status error';
+                document.getElementById('kite-status').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        async function generateContent() {
+            document.getElementById('result').innerHTML = '<p>Generating with Kite data...</p>';
+            
+            try {
+                const response = await fetch('/api/content/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({use_live_data: true})
+                });
+                
+                const data = await response.json();
+                displayResult(data);
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<p class="error">Error: ' + error.message + '</p>';
+            }
+        }
+        
+        async function generateContentNoKite() {
+            document.getElementById('result').innerHTML = '<p>Generating without Kite data...</p>';
+            
+            try {
+                const response = await fetch('/api/content/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({use_live_data: false})
+                });
+                
+                const data = await response.json();
+                displayResult(data);
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<p class="error">Error: ' + error.message + '</p>';
+            }
+        }
+        
+        function displayResult(data) {
+            let html = '<h2>Generated Content</h2>';
+            
+            if (data.status === 'success') {
+                html += `
+                    <p><strong>Title:</strong> ${data.title || 'No title'}</p>
+                    <p><strong>Quality Score:</strong> ${data.quality_score || 'N/A'}/10</p>
+                    <p><strong>Data Source:</strong> ${data.data_source || 'Unknown'}</p>
+                    <p><strong>Time Appropriate:</strong> ${data.time_appropriate ? 'Yes' : 'No'}</p>
+                    <h3>Content:</h3>
+                    <pre>${data.content || 'No content'}</pre>
+                    <h3>Raw Response:</h3>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } else {
+                html += `<p class="error">Error: ${data.message || 'Unknown error'}</p>`;
+            }
+            
+            document.getElementById('result').innerHTML = html;
+        }
+        
+        // Check status on load
+        checkKiteStatus();
+    </script>
+</body>
+</html>

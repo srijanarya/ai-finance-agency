@@ -1,0 +1,486 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>N8N Import Helper</title>
+        <style>
+            body { font-family: Arial; padding: 20px; }
+            textarea { width: 100%; height: 400px; }
+            button { padding: 10px 20px; margin: 10px; }
+        </style>
+    </head>
+    <body>
+        <h1>N8N Workflow Import Helper</h1>
+        <p>1. Click "Copy Workflow" below</p>
+        <p>2. Go to n8n and press Cmd+V to paste</p>
+        <textarea id="workflow">{
+  "name": "AI Finance Content Agency - Master Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-start",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "e5f6g7h8-cron",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 500]
+    },
+    {
+      "parameters": {
+        "url": "https://oauth.reddit.com/r/personalfinance/hot",
+        "authentication": "oAuth2",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "25"
+            },
+            {
+              "name": "t",
+              "value": "day"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "AI-Finance-Agency/1.0"
+            }
+          ]
+        }
+      },
+      "id": "i9j0k1l2-reddit",
+      "name": "Scan Reddit Trends",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter high-engagement posts\nconst items = $input.all();\nconst filtered = [];\n\nfor (const item of items) {\n  const data = item.json.data;\n  if (data && data.children) {\n    for (const post of data.children) {\n      const postData = post.data;\n      \n      // Filter for posts with 1000+ upvotes\n      if (postData.ups >= 1000) {\n        filtered.push({\n          json: {\n            title: postData.title,\n            subreddit: postData.subreddit,\n            upvotes: postData.ups,\n            comments: postData.num_comments,\n            url: `https://reddit.com${postData.permalink}`,\n            engagement_score: postData.ups + (postData.num_comments * 10),\n            content_angle: extractContentAngle(postData.title)\n          }\n        });\n      }\n    }\n  }\n}\n\n// Helper function to extract content angle\nfunction extractContentAngle(title) {\n  const titleLower = title.toLowerCase();\n  \n  if (titleLower.includes('how') || titleLower.includes('guide')) {\n    return 'educational';\n  } else if (titleLower.includes('why') || titleLower.includes('should')) {\n    return 'analytical';\n  } else if (titleLower.includes('news') || titleLower.includes('breaking')) {\n    return 'news_response';\n  } else {\n    return 'general';\n  }\n}\n\n// Sort by engagement score\nfiltered.sort((a, b) => b.json.engagement_score - a.json.engagement_score);\n\n// Return top 10\nreturn filtered.slice(0, 10);"
+      },
+      "id": "m3n4o5p6-filter",
+      "name": "Filter & Sort Topics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2025-01-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"model\": \"claude-opus-4-1-20250805\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"Create a comprehensive 1500-word finance article about: {{$json.title}}\\n\\nTarget Audience: Retail investors\\n\\nREQUIREMENTS:\\n- Open with compelling statistic\\n- Include 5-7 data points\\n- Provide 3 actionable insights (no guarantees)\\n- Reference historical context\\n- Forward-looking perspective\\n\\nCOMPLIANCE: FINRA strict mode\\n- No predictions or guarantees\\n- Include disclaimers\\n- Balanced perspective\\n\\nTONE: Professional yet accessible\\nSEO: Naturally include keywords related to the topic\\n\\nSource context: This topic has {{$json.upvotes}} upvotes and {{$json.comments}} comments on r/{{$json.subreddit}}\"\n    }\n  ],\n  \"max_tokens\": 4000,\n  \"temperature\": 0.7\n}"
+      },
+      "id": "q7r8s9t0-claude",
+      "name": "Generate with Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1",
+          "name": "Claude API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"model\": \"gpt-4-turbo-2025-01\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a world-class financial content editor. Enhance content for maximum engagement while maintaining accuracy.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Enhance this finance article for better engagement. Add compelling hooks, smooth transitions, and powerful CTAs. Maintain all facts and compliance elements.\\n\\nOriginal content:\\n{{$json.content[0].text}}\"\n    }\n  ],\n  \"max_tokens\": 4000,\n  \"temperature\": 0.8\n}"
+      },
+      "id": "u1v2w3x4-gpt",
+      "name": "Enhance with GPT-4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2",
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Add compliance disclaimers and final formatting\nconst items = $input.all();\nconst processed = [];\n\nfor (const item of items) {\n  const content = item.json.choices[0].message.content;\n  \n  // Add compliance disclaimer\n  const disclaimer = `\\n\\n---\\n*Disclaimer: This content is for informational purposes only and should not be construed as investment advice. Past performance does not guarantee future results. Always consult with a qualified financial advisor before making investment decisions.*`;\n  \n  // Generate meta description (first 155 chars)\n  const metaDescription = content.substring(0, 155).replace(/\\n/g, ' ').trim();\n  \n  // Count words\n  const wordCount = content.split(' ').length;\n  \n  processed.push({\n    json: {\n      title: generateTitle(item.json.title),\n      content: content + disclaimer,\n      meta_description: metaDescription,\n      word_count: wordCount,\n      keywords: extractKeywords(content),\n      generated_at: new Date().toISOString(),\n      source_engagement: item.json.engagement_score\n    }\n  });\n}\n\nfunction generateTitle(baseTopic) {\n  const templates = [\n    `${baseTopic}: What Every Investor Needs to Know in 2025`,\n    `How ${baseTopic} Will Impact Your Portfolio`,\n    `The Complete Guide to ${baseTopic}`,\n    `${baseTopic}: Expert Analysis and Predictions`\n  ];\n  \n  return templates[Math.floor(Math.random() * templates.length)];\n}\n\nfunction extractKeywords(content) {\n  // Simple keyword extraction - in production, use more sophisticated NLP\n  const commonWords = ['the', 'and', 'for', 'that', 'with', 'this', 'from', 'will', 'are', 'was', 'been', 'have', 'has', 'had', 'were', 'can', 'could', 'would', 'should', 'may', 'might'];\n  \n  const words = content.toLowerCase()\n    .replace(/[^a-z\\s]/g, '')\n    .split(' ')\n    .filter(word => word.length > 4 && !commonWords.includes(word));\n  \n  const wordFreq = {};\n  words.forEach(word => {\n    wordFreq[word] = (wordFreq[word] || 0) + 1;\n  });\n  \n  return Object.entries(wordFreq)\n    .sort((a, b) => b[1] - a[1])\n    .slice(0, 5)\n    .map(([word]) => word);\n}\n\nreturn processed;"
+      },
+      "id": "y5z6a7b8-compliance",
+      "name": "Compliance & Formatting",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Content Database"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblXXXXXXXXXXXXXX",
+          "mode": "list",
+          "cachedResultName": "Articles"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{$json.title}}",
+            "Content": "={{$json.content}}",
+            "Meta Description": "={{$json.meta_description}}",
+            "Word Count": "={{$json.word_count}}",
+            "Keywords": "={{$json.keywords.join(', ')}}",
+            "Generated At": "={{$json.generated_at}}",
+            "Engagement Score": "={{$json.source_engagement}}",
+            "Status": "ready_to_publish"
+          }
+        }
+      },
+      "id": "c9d0e1f2-airtable",
+      "name": "Store in Database",
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "title": "={{$json.title}}",
+        "content": "={{$json.content}}",
+        "status": "publish",
+        "format": "standard",
+        "additionalFields": {
+          "excerpt": "={{$json.meta_description}}",
+          "tags": "={{$json.keywords}}"
+        }
+      },
+      "id": "g3h4i5j6-wordpress",
+      "name": "Publish to WordPress",
+      "type": "n8n-nodes-base.wordpress",
+      "typeVersion": 1,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "text": "={{$json.title}}\\n\\n{{$json.meta_description}}\\n\\nRead more: {{$json.wordpress_url}}\\n\\n#Finance #Investing #MarketAnalysis",
+        "additionalFields": {
+          "visibility": "public"
+        }
+      },
+      "id": "k7l8m9n0-linkedin",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedin",
+      "typeVersion": 2,
+      "position": [1650, 350]
+    },
+    {
+      "parameters": {
+        "status": "={{$json.title.substring(0, 250)}}... Read more: {{$json.wordpress_url}}"
+      },
+      "id": "o1p2q3r4-twitter",
+      "name": "Post to Twitter",
+      "type": "n8n-nodes-base.twitter",
+      "typeVersion": 2,
+      "position": [1650, 500]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "channel": "#content-published",
+        "text": ":rocket: New Article Published!\\n\\n*{{$json.title}}*\\n\\nEngagement Score: {{$json.source_engagement}}\\nWord Count: {{$json.word_count}}\\n\\nLinks:\\n• WordPress: {{$json.wordpress_url}}\\n• LinkedIn: {{$json.linkedin_url}}\\n• Twitter: {{$json.twitter_url}}",
+        "otherOptions": {
+          "mrkdwn": true
+        }
+      },
+      "id": "s5t6u7v8-slack",
+      "name": "Notify Team",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.1,
+      "position": [1850, 350]
+    },
+    {
+      "parameters": {
+        "fromEmail": "content@aifinanceagency.com",
+        "toEmail": "={{$json.client_email}}",
+        "subject": "Your Latest Finance Content is Ready!",
+        "html": "<h2>{{$json.title}}</h2>\\n<p>{{$json.meta_description}}</p>\\n<p><strong>Your new content has been published across all channels:</strong></p>\\n<ul>\\n<li>Website: <a href='{{$json.wordpress_url}}'>View Article</a></li>\\n<li>LinkedIn: <a href='{{$json.linkedin_url}}'>View Post</a></li>\\n<li>Twitter: <a href='{{$json.twitter_url}}'>View Tweet</a></li>\\n</ul>\\n<p>Engagement Score: {{$json.source_engagement}}</p>\\n<p>Keywords: {{$json.keywords.join(', ')}}</p>\\n<hr>\\n<p>Best regards,<br>AI Finance Content Agency</p>"
+      },
+      "id": "w9x0y1z2-email",
+      "name": "Email Client",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2050, 350]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate performance metrics\nconst items = $input.all();\nconst metrics = {\n  total_generated: items.length,\n  total_word_count: 0,\n  avg_engagement_score: 0,\n  keywords_extracted: [],\n  generation_time: new Date().toISOString()\n};\n\nfor (const item of items) {\n  metrics.total_word_count += item.json.word_count;\n  metrics.avg_engagement_score += item.json.source_engagement;\n  metrics.keywords_extracted = [...new Set([...metrics.keywords_extracted, ...item.json.keywords])];\n}\n\nmetrics.avg_engagement_score = Math.round(metrics.avg_engagement_score / items.length);\n\n// Calculate estimated value\nmetrics.estimated_value = items.length * 150; // $150 per article\nmetrics.time_saved_hours = items.length * 6; // 6 hours saved per article\nmetrics.cost_savings = metrics.time_saved_hours * 75; // $75/hour traditional cost\n\nreturn [{\n  json: metrics\n}];"
+      },
+      "id": "a3b4c5d6-metrics",
+      "name": "Calculate Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2250, 350]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.DASHBOARD_WEBHOOK_URL}}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{JSON.stringify($json)}}"
+      },
+      "id": "e7f8g9h0-dashboard",
+      "name": "Update Dashboard",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2450, 350]
+    }
+  ],
+  "connections": {
+    "Every 30 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Scan Reddit Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Scan Reddit Trends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scan Reddit Trends": {
+      "main": [
+        [
+          {
+            "node": "Filter & Sort Topics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter & Sort Topics": {
+      "main": [
+        [
+          {
+            "node": "Generate with Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate with Claude": {
+      "main": [
+        [
+          {
+            "node": "Enhance with GPT-4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enhance with GPT-4": {
+      "main": [
+        [
+          {
+            "node": "Compliance & Formatting",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compliance & Formatting": {
+      "main": [
+        [
+          {
+            "node": "Store in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store in Database": {
+      "main": [
+        [
+          {
+            "node": "Publish to WordPress",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to LinkedIn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Post to Twitter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Publish to WordPress": {
+      "main": [
+        [
+          {
+            "node": "Notify Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Notify Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Twitter": {
+      "main": [
+        [
+          {
+            "node": "Notify Team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify Team": {
+      "main": [
+        [
+          {
+            "node": "Email Client",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Client": {
+      "main": [
+        [
+          {
+            "node": "Calculate Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Metrics": {
+      "main": [
+        [
+          {
+            "node": "Update Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "error-handler-workflow-id"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "id": "1",
+      "name": "AI Content"
+    },
+    {
+      "id": "2",
+      "name": "Finance"
+    },
+    {
+      "id": "3",
+      "name": "Automation"
+    }
+  ],
+  "meta": {
+    "templateId": "ai-finance-content-agency-2025",
+    "templateVersion": "1.0.0",
+    "description": "Complete AI-powered finance content generation workflow with Reddit trend scanning, dual-AI generation (Claude + GPT-4), multi-channel distribution, and performance tracking."
+  }
+}</textarea>
+        <button onclick="copyWorkflow()">Copy Workflow to Clipboard</button>
+        <script>
+            function copyWorkflow() {
+                document.getElementById('workflow').select();
+                document.execCommand('copy');
+                alert('Workflow copied! Now paste it in n8n with Cmd+V');
+            }
+        </script>
+    </body>
+    </html>
+    

@@ -1,0 +1,74 @@
+{
+  "name": "n8n-ai-finance-agency",
+  "description": "n8n MCP Configuration for AI Finance Agency",
+  "version": "1.0.0",
+  "servers": {
+    "n8n": {
+      "type": "http",
+      "url": "http://localhost:5678",
+      "endpoints": {
+        "workflows": "/rest/workflows",
+        "executions": "/rest/executions",
+        "webhook": "/webhook",
+        "metrics": "/rest/metrics"
+      }
+    },
+    "webhook-server": {
+      "type": "http", 
+      "url": "http://localhost:5000",
+      "endpoints": {
+        "trigger": "/webhook/n8n/trigger",
+        "metrics": "/webhook/n8n/metrics",
+        "content": "/webhook/n8n/content",
+        "health": "/webhook/n8n/health"
+      }
+    }
+  },
+  "workflows": {
+    "ai-finance-content": {
+      "id": "ai-finance-content-agency-2025",
+      "name": "AI Finance Content Agency - Master Workflow",
+      "triggers": ["cron", "webhook", "manual"],
+      "webhookPath": "/webhook/ai-finance-content"
+    }
+  },
+  "credentials": {
+    "claude": {
+      "type": "httpHeaderAuth",
+      "required": true,
+      "header": "x-api-key"
+    },
+    "openai": {
+      "type": "httpHeaderAuth",
+      "required": true,
+      "header": "Authorization",
+      "prefix": "Bearer"
+    },
+    "reddit": {
+      "type": "oauth2",
+      "required": true
+    },
+    "telegram": {
+      "type": "token",
+      "required": false,
+      "configured": true
+    }
+  },
+  "integrations": {
+    "multi_agent_orchestrator": {
+      "enabled": true,
+      "endpoint": "http://localhost:5000/webhook/n8n/trigger",
+      "method": "POST"
+    },
+    "telegram_poster": {
+      "enabled": true,
+      "channel": "@AIFinanceNews2024"
+    }
+  },
+  "monitoring": {
+    "enabled": true,
+    "metricsEndpoint": "/rest/metrics",
+    "healthEndpoint": "/healthz",
+    "logLevel": "info"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "name": "AI Finance Fresh",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1",
+      "name": "Manual",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5001/webhook/n8n/trigger",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParametersJson": "{\"content_type\":\"blog\",\"topic\":\"Live Market Update\",\"platforms\":[\"telegram\"]}"
+      },
+      "id": "2",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [500, 300]
+    }
+  ],
+  "connections": {
+    "Manual": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

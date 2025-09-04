@@ -1,0 +1,77 @@
+{
+  "name": "AI Finance Content Agency - Fixed",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "a1b2c3d4-start",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "e5f6g7h8-cron",
+      "name": "Every 30 Minutes",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [250, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:5001/webhook/n8n/trigger",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"content_type\": \"blog\", \"topic\": \"Market Analysis\", \"platforms\": [\"telegram\"]}"
+      },
+      "id": "webhook-trigger",
+      "name": "Trigger AI Finance",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 400]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Trigger AI Finance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 30 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Trigger AI Finance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 2,
+  "updatedAt": "2025-09-04T18:00:00.000Z",
+  "versionId": "1"
+}

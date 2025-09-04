@@ -8,3 +8,4 @@ secure_credentials/
 *.log
 __pycache__/
 *.pyc
+PROJECT_BRAIN.md

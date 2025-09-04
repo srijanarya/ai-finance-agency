@@ -30,6 +30,11 @@ Run this command with your code:
 ```bash
 python3 -c "
 import requests
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Your code from Step 3
 AUTH_CODE = 'PASTE_YOUR_CODE_HERE'
@@ -40,8 +45,8 @@ data = {
     'grant_type': 'authorization_code',
     'code': AUTH_CODE,
     'redirect_uri': 'https://www.linkedin.com/developers/tools/oauth/redirect',
-    'client_id': '77ccq66ayuwvqo',
-    'client_secret': 'WPL_AP1.Vj3PvAamQi6UQCmM.K478VA=='
+    'client_id': os.getenv('LINKEDIN_CLIENT_ID'),
+    'client_secret': os.getenv('LINKEDIN_CLIENT_SECRET')
 }
 
 response = requests.post(token_url, data=data)

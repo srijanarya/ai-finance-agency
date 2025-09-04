@@ -51,21 +51,21 @@ class IndianMarketAPI:
             'NIFTY': '^NSEI',
             'BANKNIFTY': '^NSEBANK',
             'FINNIFTY': 'NIFTY_FIN_SERVICE.NS',
-            'MIDCAP': '^CNXM',
-            'SMALLCAP': '^CNXSC'
+            'MIDCAP': '^CNXMIDCAP',  # Fixed symbol
+            'SMALLCAP': '^CNXSMALLCAP'  # Fixed symbol
         }
         
         self.top_stocks = {
             'RELIANCE': 'RELIANCE.NS',
             'TCS': 'TCS.NS',
-            'HDFC': 'HDFC.NS',
+            'HDFCBANK': 'HDFCBANK.NS',  # Use HDFCBANK instead of HDFC
             'INFY': 'INFY.NS',
             'ICICIBANK': 'ICICIBANK.NS',
             'KOTAKBANK': 'KOTAKBANK.NS',
             'SBIN': 'SBIN.NS',
             'ITC': 'ITC.NS',
             'LT': 'LT.NS',
-            'HDFCBANK': 'HDFCBANK.NS'
+            'WIPRO': 'WIPRO.NS'  # Replace problematic symbols
         }
     
     def setup_database(self):
@@ -226,23 +226,45 @@ class IndianMarketAPI:
         return nse_data
     
     async def _get_fallback_data(self) -> Dict:
-        """Fallback data source when NSE API fails"""
+        """Fallback data source when NSE API fails - with timestamp validation"""
         try:
-            # Use Yahoo Finance as fallback
+            # Only use fallback during market hours or within 30 minutes of market close
+            now = datetime.now()
+            market_start = now.replace(hour=9, minute=15, second=0, microsecond=0)
+            market_end = now.replace(hour=16, minute=0, second=0, microsecond=0)  # 30min buffer after 3:30PM
+            
+            if not (market_start <= now <= market_end and now.weekday() < 5):
+                self.logger.warning("Market closed - not generating fallback data to prevent stale content")
+                return {}
+            
+            # Use Yahoo Finance as fallback with fresh data validation
             nifty = yf.Ticker('^NSEI')
             bank_nifty = yf.Ticker('^NSEBANK')
+            
+            # Validate data freshness
+            nifty_hist = nifty.history(period="1d")
+            if nifty_hist.empty or (now - nifty_hist.index[-1].to_pydatetime()).seconds > 1800:  # 30 minutes
+                self.logger.warning("Yahoo Finance data too stale - skipping fallback")
+                return {}
             
             # Get top stocks for gainers/losers
             top_stocks_data = []
             for name, symbol in list(self.top_stocks.items())[:10]:
                 stock_data = await self._get_yfinance_data(symbol)
                 if stock_data:
-                    top_stocks_data.append({
-                        'symbol': name,
-                        'ltp': stock_data.current_price,
-                        'netPrice': stock_data.change,
-                        'pChange': stock_data.change_pct
-                    })
+                    # Validate stock data timestamp
+                    if (now - stock_data.timestamp).seconds < 1800:  # Fresh within 30 minutes
+                        top_stocks_data.append({
+                            'symbol': name,
+                            'ltp': stock_data.current_price,
+                            'netPrice': stock_data.change,
+                            'pChange': stock_data.change_pct,
+                            'timestamp': stock_data.timestamp.isoformat()
+                        })
+            
+            if not top_stocks_data:
+                self.logger.warning("No fresh stock data available - skipping fallback")
+                return {}
             
             # Sort for gainers and losers
             gainers = sorted(top_stocks_data, key=lambda x: x['pChange'], reverse=True)[:5]
@@ -250,11 +272,13 @@ class IndianMarketAPI:
             
             return {
                 'indices': [
-                    {'indexName': 'NIFTY 50', 'last': nifty.info.get('regularMarketPrice', 0)},
-                    {'indexName': 'NIFTY BANK', 'last': bank_nifty.info.get('regularMarketPrice', 0)}
+                    {'indexName': 'NIFTY 50', 'last': nifty.info.get('regularMarketPrice', 0), 'timestamp': now.isoformat()},
+                    {'indexName': 'NIFTY BANK', 'last': bank_nifty.info.get('regularMarketPrice', 0), 'timestamp': now.isoformat()}
                 ],
                 'gainers': gainers,
-                'losers': losers
+                'losers': losers,
+                'data_freshness': 'live_fallback',
+                'generated_at': now.isoformat()
             }
             
         except Exception as e:
@@ -471,12 +495,25 @@ class MarketContentIntegrator:
         self.market_api = IndianMarketAPI()
     
     async def generate_market_brief(self) -> str:
-        """Generate market brief using live data"""
+        """Generate market brief using live data with freshness validation"""
         summary = await self.market_api.get_market_summary()
         
-        # Create market brief
+        # Validate data freshness
+        now = datetime.now()
+        data_age = (now - summary['timestamp']).seconds
+        
+        # Don't generate content if data is older than 30 minutes during market hours
+        if summary['market_status'] == 'OPEN' and data_age > 1800:
+            raise ValueError(f"Market data too stale ({data_age//60} minutes old). Not posting to maintain credibility.")
+        
+        # Don't generate content if market is closed for more than 1 hour
+        if summary['market_status'] == 'CLOSED' and data_age > 3600:
+            raise ValueError("Market closed for too long. Not posting stale content.")
+        
+        # Create market brief with freshness indicator
         brief = f"""
 📊 MARKET BRIEF - {summary['timestamp'].strftime('%d %B %Y, %I:%M %p')}
+⏰ Data Age: {data_age//60} minutes | Status: {summary['market_status']}
 
 🎯 Market Status: {summary['market_status']}
 

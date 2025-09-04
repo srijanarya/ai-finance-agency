@@ -14,8 +14,13 @@ from telethon.tl.functions.channels import JoinChannelRequest, GetParticipantsRe
 from telethon.tl.functions.messages import GetHistoryRequest, ImportChatInviteRequest
 from telethon.tl.types import ChannelParticipantsSearch
 import os
-from database.models import db_manager, Subscriber, Campaign, GrowthMetric
-from cache.redis_cache import cache
+try:
+    from database.models import db_manager, Subscriber, Campaign, GrowthMetric
+    from cache.redis_cache import cache
+except ImportError:
+    # Use SQLite for local development
+    from database.models_sqlite import db_manager, Subscriber, Campaign, GrowthMetric
+    from cache.simple_cache import cache
 import json
 
 class TelegramGrowthEngine:

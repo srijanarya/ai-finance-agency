@@ -22,7 +22,7 @@ class Content(Base):
     engagement_score = Column(Float)
     created_at = Column(DateTime, default=datetime.utcnow)
     published_at = Column(DateTime)
-    metadata = Column(JSON)
+    meta_data = Column(JSON)
     
     __table_args__ = (
         Index('idx_content_created', 'created_at'),
@@ -61,7 +61,7 @@ class Interaction(Base):
     content_id = Column(Integer, ForeignKey('content.id'))
     interaction_type = Column(String(50))  # view, like, share, comment
     timestamp = Column(DateTime, default=datetime.utcnow)
-    metadata = Column(JSON)
+    meta_data = Column(JSON)
     
     # Relationships
     subscriber = relationship("Subscriber", back_populates="interactions")
@@ -115,7 +115,7 @@ class GrowthMetric(Base):
     metric_name = Column(String(100))
     metric_value = Column(Float)
     timestamp = Column(DateTime, default=datetime.utcnow)
-    metadata = Column(JSON)
+    meta_data = Column(JSON)
     
     __table_args__ = (
         Index('idx_metric_platform', 'platform'),

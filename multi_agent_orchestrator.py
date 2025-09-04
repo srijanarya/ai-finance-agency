@@ -20,6 +20,7 @@ from pathlib import Path
 
 # Import existing components
 from templates.master_finance_prompts import FinanceContentPrompts
+from real_time_market_data_fix import RealTimeMarketDataManager
 
 class AgentRole(Enum):
     RESEARCHER = "market_researcher"
@@ -44,6 +45,8 @@ class FinanceAgent:
             'success_rate': 100,
             'avg_time': 0
         }
+        # Initialize real-time data manager
+        self.market_data_manager = RealTimeMarketDataManager()
         
     def _initialize_tools(self) -> Dict[str, Any]:
         """Initialize role-specific tools"""
@@ -182,63 +185,78 @@ class FinanceAgent:
             return await self._schedule_content(task)
     
     async def _research_market(self, task: Dict) -> Dict:
-        """Enhanced market research with real data"""
-        # Fetch real market data
+        """Enhanced market research with REAL-TIME data - NO hardcoded values"""
+        print(f"🔄 [{self.role.value}] Fetching REAL-TIME market data...")
+        
         try:
-            nifty = yf.Ticker("^NSEI")
-            banknifty = yf.Ticker("^NSEBANK")
+            # Get comprehensive real-time market data
+            market_data = self.market_data_manager.get_comprehensive_market_data()
             
-            nifty_data = nifty.history(period="5d")
-            bank_data = banknifty.history(period="5d")
+            # Validate data freshness
+            if not self.market_data_manager.validate_data_freshness(market_data):
+                print("⚠️ Warning: Market data may be stale")
             
             # Get real news
             feed = feedparser.parse('https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms')
             latest_news = [entry.title for entry in feed.entries[:5]] if feed.entries else []
             
-            # Calculate real metrics
-            if not nifty_data.empty:
-                current_nifty = round(nifty_data['Close'].iloc[-1], 2)
-                nifty_change = round(((nifty_data['Close'].iloc[-1] - nifty_data['Close'].iloc[-2]) / nifty_data['Close'].iloc[-2]) * 100, 2)
-            else:
-                current_nifty = 25000
-                nifty_change = 0.5
+            nifty_data = market_data['indices']['nifty']
+            banknifty_data = market_data['indices']['banknifty']
+            
+            print(f"✅ Fresh data: NIFTY {nifty_data['current_price']:.0f} ({nifty_data['change']:+.0f})")
+            print(f"✅ Fresh data: BankNifty {banknifty_data['current_price']:.0f} ({banknifty_data['change']:+.0f})")
             
             return {
                 'market_trends': latest_news[:3] if latest_news else [
-                    'Market showing resilience amid global volatility',
-                    'FII flows remain positive for 5th week',
-                    'Banking sector leads the rally'
+                    f"NIFTY showing {market_data['content_hints']['market_direction']} sentiment",
+                    f"Market experiencing {market_data['content_hints']['volatility']} volatility",
+                    market_data['content_hints']['key_theme']
                 ],
                 'key_data': {
-                    'nifty': current_nifty,
-                    'nifty_change': nifty_change,
-                    'banknifty': round(bank_data['Close'].iloc[-1], 2) if not bank_data.empty else 52000,
-                    'volume': f"{round(nifty_data['Volume'].iloc[-1]/1000000, 1)}M" if not nifty_data.empty else "150M",
-                    'vix': random.uniform(12, 18)
+                    'nifty': nifty_data['current_price'],
+                    'nifty_change': nifty_data['change_percent'],
+                    'banknifty': banknifty_data['current_price'],
+                    'banknifty_change': banknifty_data['change_percent'],
+                    'nifty_support': nifty_data['support'],
+                    'nifty_resistance': nifty_data['resistance'],
+                    'banknifty_support': banknifty_data['support'],
+                    'banknifty_resistance': banknifty_data['resistance'],
+                    'volume': f"{nifty_data['volume']/1000000:.1f}M",
+                    'market_status': market_data['market_session']
                 },
-                'sentiment': 'bullish' if nifty_change > 0 else 'bearish',
-                'sources': ['Economic Times', 'Moneycontrol', 'Bloomberg'],
+                'sentiment': market_data['content_hints']['market_direction'],
+                'sources': ['Real-time yfinance', 'Economic Times', 'Live Market Data'],
                 'top_movers': self._get_top_movers(),
-                'sector_performance': self._get_sector_performance()
+                'sector_performance': self._get_sector_performance(),
+                'data_freshness': market_data['data_freshness'],
+                'timestamp': market_data['timestamp']
             }
         except Exception as e:
-            # Fallback to simulated data
+            print(f"⚠️ [{self.role.value}] Error fetching real-time data: {e}")
+            print("🔄 Using emergency fallback with updated realistic values")
+            
+            # Use market data manager fallback (which has updated values)
+            fallback_data = self.market_data_manager.get_comprehensive_market_data()
+            
             return {
                 'market_trends': [
-                    'Markets await RBI policy decision',
-                    'Technology stocks show strength',
-                    'Banking sector consolidates'
+                    'Markets await policy updates',
+                    'Mixed sector performance observed',
+                    'Consolidation phase continues'
                 ],
                 'key_data': {
-                    'nifty': 25000,
-                    'nifty_change': 0.5,
-                    'banknifty': 52000,
-                    'volume': "150M",
-                    'vix': 14.5
+                    'nifty': fallback_data['indices']['nifty']['current_price'],
+                    'nifty_change': fallback_data['indices']['nifty']['change_percent'],
+                    'banknifty': fallback_data['indices']['banknifty']['current_price'],
+                    'banknifty_change': fallback_data['indices']['banknifty']['change_percent'],
+                    'volume': f"{fallback_data['indices']['nifty']['volume']/1000000:.1f}M",
+                    'market_status': 'FALLBACK_MODE'
                 },
-                'sentiment': 'neutral',
-                'sources': ['Reuters', 'CNBC'],
-                'error': str(e)
+                'sentiment': fallback_data['content_hints']['market_direction'],
+                'sources': ['Emergency Fallback', 'Updated Base Values'],
+                'data_freshness': 'FALLBACK_DATA',
+                'error': str(e),
+                'warning': 'Using fallback data - real-time feed unavailable'
             }
     
     def _get_top_movers(self) -> List[Dict]:

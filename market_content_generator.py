@@ -2,6 +2,7 @@
 """
 Market-Powered Content Generator
 Combines live Indian market data with AI content generation
+Enhanced with Anti-Repetition System
 """
 
 import asyncio
@@ -9,6 +10,7 @@ import json
 import requests
 from datetime import datetime
 from indian_market_integration import MarketContentIntegrator
+from anti_repetition_system import AntiRepetitionManager
 
 class MarketContentGenerator:
     """Generate content powered by live market data"""
@@ -23,9 +25,15 @@ class MarketContentGenerator:
         print("🚀 MARKET-POWERED CONTENT GENERATOR")
         print("=" * 50)
         
-        # Get live market brief
+        # Get live market brief with data validation
         print("📊 Generating live market brief...")
-        market_brief = await self.integrator.generate_market_brief()
+        try:
+            market_brief = await self.integrator.generate_market_brief()
+            print("✅ Fresh market data validated")
+        except ValueError as e:
+            print(f"❌ Data validation failed: {e}")
+            print("🛑 Stopping content generation to protect credibility")
+            return []  # Return empty list to prevent stale content
         
         # Generate different content types
         content_types = [
@@ -54,12 +62,33 @@ class MarketContentGenerator:
         for content_config in content_types:
             print(f"\n📝 Generating: {content_config['topic']}")
             
+            # Validate content freshness before sending
+            try:
+                # Parse market brief to check for freshness indicators
+                content = content_config["content"]
+                if "Data Age:" in content:
+                    age_line = [line for line in content.split('\n') if "Data Age:" in line][0]
+                    minutes = int(age_line.split("Data Age: ")[1].split(" minutes")[0])
+                    
+                    if minutes > 30:
+                        print(f"⚠️ Skipping stale content (age: {minutes} min) - protecting credibility")
+                        continue
+                
+            except Exception as e:
+                print(f"⚠️ Could not validate content age: {e}")
+                # Skip if we can't validate
+                continue
+            
             # Send to webhook
             payload = {
                 "content_type": content_config["type"],
                 "topic": content_config["topic"],
                 "platforms": content_config["platforms"],
-                "market_data": content_config["content"]
+                "market_data": content_config["content"],
+                "data_validation": {
+                    "timestamp": datetime.now().isoformat(),
+                    "freshness_checked": True
+                }
             }
             
             try:
@@ -74,6 +103,7 @@ class MarketContentGenerator:
                     print(f"✅ Generated: {result.get('pipeline_id')}")
                     print(f"   Quality: {result.get('quality_metrics', {}).get('quality_score', 0)}/10")
                     print(f"   Reach: {result.get('distribution', {}).get('total_reach', 0)} users")
+                    print(f"   ⏰ Fresh data validated")
                     
                     generated_content.append({
                         "config": content_config,

@@ -149,7 +149,7 @@ No more complexity. Everything works from one menu.
 - simple_menu.py: FIXED and working
 - control_panel.py: Ready
 - .env: All keys configured
-- OpenAI: [API_KEY_CONFIGURED]
+- OpenAI: [REDACTED - Store in environment variables]
 
 ### Next Steps:
 1. Run: python3 simple_menu.py (THIS WORKS NOW)

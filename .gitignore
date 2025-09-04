@@ -1,0 +1,11 @@
+# Security - Never commit these!
+.env
+*.env
+secure_credentials/
+*credentials*.json
+*_api_key*
+*_secret*
+*.log
+__pycache__/
+*.pyc
+PROJECT_BRAIN.md

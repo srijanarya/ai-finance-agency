@@ -1,0 +1,67 @@
+{
+  "redis": {
+    "host": "localhost",
+    "port": 6379,
+    "db": 0,
+    "password": null,
+    "connection_pool_size": 10
+  },
+  "workers": {
+    "default_count": 4,
+    "max_count": 8,
+    "min_count": 1,
+    "scale_up_threshold": 80,
+    "scale_down_threshold": 30,
+    "task_timeout": 300,
+    "worker_restart_interval": 3600
+  },
+  "resources": {
+    "cpu_threshold": 90.0,
+    "memory_threshold": 85.0,
+    "throttle_enabled": true,
+    "monitoring_interval": 30,
+    "metrics_retention_hours": 168
+  },
+  "task_priorities": {
+    "content_generation": "MEDIUM",
+    "market_data_fetch": "HIGH", 
+    "telegram_post": "LOW",
+    "analytics_update": "BATCH",
+    "system_health_check": "CRITICAL",
+    "database_cleanup": "BATCH"
+  },
+  "rate_limits": {
+    "telegram_api": {
+      "requests_per_minute": 30,
+      "burst_limit": 5
+    },
+    "market_api": {
+      "requests_per_minute": 60,
+      "burst_limit": 10
+    }
+  },
+  "automation_tasks": {
+    "health_check_interval": 300,
+    "market_data_interval": 60,
+    "content_generation_interval": 1800,
+    "analytics_update_interval": 3600,
+    "database_cleanup_interval": 86400
+  },
+  "logging": {
+    "level": "INFO",
+    "max_file_size": "100MB",
+    "backup_count": 5,
+    "log_rotation": "daily"
+  },
+  "database": {
+    "path": "/Users/srijan/ai-finance-agency/data/task_manager.db",
+    "backup_interval": 3600,
+    "vacuum_interval": 86400
+  },
+  "notifications": {
+    "high_cpu_alert": 95.0,
+    "high_memory_alert": 90.0,
+    "worker_death_alert": true,
+    "task_failure_alert": true
+  }
+}

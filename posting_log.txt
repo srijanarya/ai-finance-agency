@@ -1,0 +1,4 @@
+  File "/Users/srijan/ai-finance-agency/tomorrow_scheduler.py", line 24
+    • NIFTY: {data['Close'].iloc[-1]:.2f} if not data.empty else 21850}
+                                                                      ^
+SyntaxError: f-string: single '}' is not allowed

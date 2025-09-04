@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Manager - AI Finance Agency</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        .stat {
+            flex: 1;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+        
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .nav-btn {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            color: #667eea;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .nav-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            position: relative;
+            border-left: 8px solid #e5e5e5;
+        }
+        
+        /* Relevance-based card styling */
+        .content-card.relevance-high {
+            border-left: 8px solid #16a34a;
+            background: linear-gradient(90deg, rgba(22, 163, 74, 0.08) 0%, white 20%);
+            box-shadow: 0 6px 20px rgba(22, 163, 74, 0.2);
+        }
+        
+        .content-card.relevance-medium {
+            border-left: 8px solid #eab308;
+            background: linear-gradient(90deg, rgba(234, 179, 8, 0.08) 0%, white 20%);
+        }
+        
+        .content-card.relevance-low {
+            border-left: 8px solid #f97316;
+            background: linear-gradient(90deg, rgba(249, 115, 22, 0.08) 0%, white 20%);
+        }
+        
+        .content-card.relevance-skip {
+            border-left: 8px solid #ef4444;
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.08) 0%, white 20%);
+            opacity: 0.7;
+        }
+        
+        .content-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        /* Prominent relevance badge */
+        .relevance-badge {
+            position: absolute;
+            top: -15px;
+            right: 15px;
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 10;
+            transform: scale(1.1);
+        }
+        
+        .relevance-badge.grade-a {
+            background: linear-gradient(135deg, #16a34a, #10b981);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        
+        .relevance-badge.grade-b {
+            background: linear-gradient(135deg, #eab308, #facc15);
+            color: white;
+        }
+        
+        .relevance-badge.grade-c {
+            background: linear-gradient(135deg, #f97316, #fb923c);
+            color: white;
+        }
+        
+        .relevance-badge.grade-f {
+            background: linear-gradient(135deg, #ef4444, #f87171);
+            color: white;
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4); }
+            50% { box-shadow: 0 4px 25px rgba(22, 163, 74, 0.6); }
+            100% { box-shadow: 0 4px 15px rgba(22, 163, 74, 0.4); }
+        }
+        
+        .grade-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1;
+        }
+        
+        .grade-letter {
+            font-size: 28px;
+            font-weight: 900;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .grade-score {
+            font-size: 13px;
+            opacity: 0.95;
+            margin-top: 2px;
+        }
+        
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+            margin-top: 15px;
+            padding-right: 120px;
+        }
+        
+        .content-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #333;
+            line-height: 1.4;
+        }
+        
+        .content-id {
+            color: #999;
+            font-size: 0.9rem;
+        }
+        
+        .content-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .meta-item {
+            font-size: 0.85rem;
+            color: #666;
+        }
+        
+        .urgency-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        
+        .urgency-high {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .urgency-medium {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        
+        .urgency-low {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+        
+        .keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .keyword-tag {
+            background: #f0f0f0;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #555;
+        }
+        
+        .content-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+        
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: #333;
+            color: white;
+            border-radius: 8px;
+            display: none;
+            z-index: 2000;
+        }
+        
+        .toast.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Content Manager</h1>
+            <p>Generate intelligent finance content from trending topics</p>
+            
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value" id="totalIdeas">0</div>
+                    <div class="stat-label">Total Ideas</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="pendingIdeas">0</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="generatedIdeas">0</div>
+                    <div class="stat-label">Generated</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="freshIdeas" style="color: #16a34a;">0</div>
+                    <div class="stat-label">Fresh (A+ Grade)</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="nav-buttons">
+            <button class="nav-btn" onclick="toggleIndiaFilter()">
+                🇮🇳 <span id="filterText">India Only: ON</span>
+            </button>
+            <button class="nav-btn" onclick="refreshContent()">
+                🔄 Refresh
+            </button>
+            <button class="nav-btn" onclick="window.location.href='/'">
+                📊 Dashboard
+            </button>
+            <!-- Visual editor integrated into content generation -->
+        </div>
+        
+        <div class="content-grid" id="contentGrid">
+            <!-- Content cards will be loaded here -->
+        </div>
+    </div>
+    
+    <!-- Generated Content Modal -->
+    <div class="modal" id="contentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Generated Content</h2>
+                <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer;">✕</button>
+            </div>
+            <div id="generatedContentDisplay"></div>
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button class="btn btn-primary" onclick="copyContent()">📋 Copy</button>
+                <button class="btn btn-secondary" onclick="downloadContent()">💾 Download</button>
+                <button class="btn btn-primary" onclick="postContent()">📤 Post to LinkedIn</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="toast" id="toast"></div>
+    
+    <script>
+        let indiaOnly = true;
+        let currentGeneratedContent = null;
+        
+        // Load content on page load
+        window.onload = () => {
+            loadContent();
+            loadStats();
+        };
+        
+        async function loadContent() {
+            try {
+                const response = await fetch(`/api/content/pending?india_only=${indiaOnly}&limit=50`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    displayContent(data.data);
+                    updateFreshCount(data.data);
+                }
+            } catch (error) {
+                console.error('Error loading content:', error);
+                showToast('Error loading content');
+            }
+        }
+        
+        function updateFreshCount(content) {
+            const freshCount = content.filter(item => 
+                item.relevance && item.relevance.score >= 80
+            ).length;
+            document.getElementById('freshIdeas').textContent = freshCount;
+        }
+        
+        function displayContent(content) {
+            const grid = document.getElementById('contentGrid');
+            
+            if (!content || content.length === 0) {
+                grid.innerHTML = '<div style="color: white; text-align: center; width: 100%;">No content ideas found. Run the scraper to add more!</div>';
+                return;
+            }
+            
+            grid.innerHTML = content.map(item => {
+                // Get relevance data
+                const relevance = item.relevance || {};
+                const score = relevance.score || 0;
+                const freshness = relevance.freshness || '📅';
+                const ageDisplay = relevance.age_display || '';
+                const priority = relevance.priority || '';
+                
+                // Determine grade and styling
+                let grade, gradeClass, cardClass;
+                if (score >= 80) {
+                    grade = 'A+';
+                    gradeClass = 'grade-a';
+                    cardClass = 'relevance-high';
+                } else if (score >= 60) {
+                    grade = 'B';
+                    gradeClass = 'grade-b';
+                    cardClass = 'relevance-medium';
+                } else if (score >= 40) {
+                    grade = 'C';
+                    gradeClass = 'grade-c';
+                    cardClass = 'relevance-low';
+                } else {
+                    grade = 'F';
+                    gradeClass = 'grade-f';
+                    cardClass = 'relevance-skip';
+                }
+                
+                return `
+                <div class="content-card ${cardClass}" data-id="${item.id}">
+                    <div class="relevance-badge ${gradeClass}">
+                        <span style="font-size: 24px;">${freshness}</span>
+                        <div class="grade-display">
+                            <span class="grade-letter">${grade}</span>
+                            <span class="grade-score">${score}%</span>
+                        </div>
+                    </div>
+                    <div class="content-header">
+                        <div class="content-title">${item.title}</div>
+                        <span class="content-id">#${item.id}</span>
+                    </div>
+                    <div class="content-meta">
+                        <div class="meta-item">
+                            <span class="urgency-badge urgency-${item.urgency}">${priority || item.urgency}</span>
+                        </div>
+                        <div class="meta-item">
+                            📊 ${item.content_type || 'general'}
+                        </div>
+                        <div class="meta-item">
+                            ⏰ ${ageDisplay || 'Unknown'}
+                        </div>
+                        <div class="meta-item">
+                            📈 Reach: ${(item.estimated_reach || 0).toLocaleString()}
+                        </div>
+                    </div>
+                    <div class="keywords">
+                        ${(item.keywords || []).slice(0, 5).map(k => 
+                            `<span class="keyword-tag">${k}</span>`
+                        ).join('')}
+                    </div>
+                    <div class="content-actions">
+                        <button class="btn btn-primary" onclick="generateContent(${item.id})" ${score < 40 ? 'disabled' : ''}>
+                            ${score < 40 ? '⚠️ Too Old' : '✨ Generate Content'}
+                        </button>
+                        <button class="btn btn-secondary" onclick="editContent(${item.id})">
+                            ✏️ Edit
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteContent(${item.id})">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            `}).join('');
+        }
+        
+        async function generateContent(id) {
+            const includeVisual = confirm('Would you like to include a visual with this content?');
+            showToast('Generating content...');
+            
+            try {
+                const response = await fetch('/api/content/generate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        content_id: id, 
+                        premium: true,
+                        include_visual: includeVisual
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    currentGeneratedContent = result;
+                    showGeneratedContent(result);
+                    showToast('Content generated successfully!');
+                    
+                    if (includeVisual && result.visual_path) {
+                        showToast('Visual created! Check: ' + result.visual_path);
+                    }
+                } else {
+                    showToast('Error: ' + (result.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Error generating content');
+            }
+        }
+        
+        function showGeneratedContent(content) {
+            const modal = document.getElementById('contentModal');
+            const display = document.getElementById('generatedContentDisplay');
+            
+            display.innerHTML = `
+                <h3>${content.title}</h3>
+                <div style="margin: 20px 0; padding: 20px; background: #f5f5f5; border-radius: 8px;">
+                    <pre style="white-space: pre-wrap; font-family: inherit;">${content.content}</pre>
+                </div>
+                <div style="margin-top: 15px;">
+                    <strong>Hashtags:</strong><br>
+                    ${content.hashtags ? content.hashtags.join(' ') : 'No hashtags'}
+                </div>
+                ${content.visual_path ? `
+                    <div style="margin-top: 15px;">
+                        <strong>Visual:</strong> ${content.visual_path}
+                    </div>
+                ` : ''}
+                <div style="margin-top: 15px;">
+                    <strong>Quality Score:</strong> ${content.quality_score}/10
+                </div>
+            `;
+            
+            modal.classList.add('active');
+        }
+        
+        function closeModal() {
+            document.getElementById('contentModal').classList.remove('active');
+        }
+        
+        function copyContent() {
+            if (currentGeneratedContent) {
+                const text = `${currentGeneratedContent.title}\n\n${currentGeneratedContent.content}\n\n${currentGeneratedContent.hashtags.join(' ')}`;
+                navigator.clipboard.writeText(text);
+                showToast('Content copied to clipboard!');
+            }
+        }
+        
+        async function downloadContent() {
+            if (currentGeneratedContent) {
+                const content = JSON.stringify(currentGeneratedContent, null, 2);
+                const blob = new Blob([content], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `content_${Date.now()}.json`;
+                a.click();
+            }
+        }
+        
+        async function postContent() {
+            showToast('Posting to LinkedIn...');
+            // Implementation for LinkedIn posting
+        }
+        
+        function toggleIndiaFilter() {
+            indiaOnly = !indiaOnly;
+            document.getElementById('filterText').textContent = `India Only: ${indiaOnly ? 'ON' : 'OFF'}`;
+            loadContent();
+        }
+        
+        function refreshContent() {
+            loadContent();
+            loadStats();
+            showToast('Content refreshed!');
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                document.getElementById('totalIdeas').textContent = data.total_ideas || 0;
+                document.getElementById('pendingIdeas').textContent = data.pending_ideas || 0;
+                document.getElementById('generatedIdeas').textContent = data.generated_ideas || 0;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        async function editContent(id) {
+            // Implementation for editing
+            showToast('Edit feature coming soon!');
+        }
+        
+        async function deleteContent(id) {
+            if (confirm('Are you sure you want to delete this content idea?')) {
+                try {
+                    const response = await fetch(`/api/content/${id}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (response.ok) {
+                        showToast('Content deleted!');
+                        loadContent();
+                    }
+                } catch (error) {
+                    showToast('Error deleting content');
+                }
+            }
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>

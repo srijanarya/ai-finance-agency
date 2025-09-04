@@ -1,0 +1,20 @@
+{
+  "id": "20250827_144704",
+  "title": "Reliance just announced results. Here's what investors need to know",
+  "content": "Let me break this down:\n\nWalked into the trading room this morning to an unusual sight\n\nFIIs were selling, but someone was buying everything\n\nConsider this: \u20b93,456 Cr absorbed by DIIs\nAnd then: Nifty held 24,700 despite pressure\n\nSometimes the best trades happen when nobody's watching\n\nAm I overthinking this?",
+  "personality": "straight_talker",
+  "visual_path": "posts/visuals/minimalist_20250827_144703.png",
+  "market_data": {
+    "nifty": "24,712",
+    "nifty_change": "0.00%",
+    "sensex": "80,787",
+    "sensex_change": "0.00%",
+    "fii": "\u20b9+1,132 Cr",
+    "dii": "\u20b9-1,359 Cr",
+    "top_sector": "Bank NIFTY (+0.0%)",
+    "market_sentiment": "Range-bound"
+  },
+  "style": "minimalist",
+  "no_deep_dive": true,
+  "accurate_data": true
+}

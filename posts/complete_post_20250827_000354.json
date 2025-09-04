@@ -1,0 +1,46 @@
+{
+  "title": "My Top 3 Picks for 2 years",
+  "content": "Why are DIIs buying when everyone's selling?\n\nI analyzed 10,000+ trades to find the answer:\n\n\ud83d\udcca Today's Opportunity:\n\u2022 Sector showing breakout signs\n\u2022 Volume surge indicates institutional interest\n\u2022 Risk-reward ratio favorable at current levels\n\n\ud83c\udfaf Key Levels to Watch:\n\u2022 Support: Previous level\n\u2022 Resistance: Next target\n\u2022 Stop Loss: Below recent low\n\n\ud83d\udcc8 Smart Money Move:\nStart accumulating in small quantities\n\n\n\u267b\ufe0f Repost if you found this valuable.",
+  "hashtags": [
+    "#InvestmentIdeas",
+    "#StockMarketIndia",
+    "#WealthCreation",
+    "#IndianStockMarket",
+    "#MarketAnalysis"
+  ],
+  "visual_path": "posts/visuals/stock_visual_20250827_000354.png",
+  "visual_spec": {
+    "template": {
+      "type": "chart",
+      "elements": [
+        "price_chart",
+        "key_metrics",
+        "target_levels",
+        "recommendation"
+      ],
+      "color_scheme": [
+        "#2ECC71",
+        "#E74C3C",
+        "#F39C12",
+        "#3498DB"
+      ],
+      "format": "square"
+    },
+    "content_text": "Why are DIIs buying when everyone's selling?\n\nI analyzed 10,000+ trades to find the answer:\n\n\ud83d\udcca Today's Opportunity:\n\u2022 Sector showing breakout signs\n\u2022 Volume surge indicates institutional interest\n\u2022 Risk-reward ratio favorable at current levels\n\n\ud83c\udfaf Key Levels to Watch:\n\u2022 Support: Previous level\n\u2022 Resistance: Next target\n\u2022 Stop Loss: Below recent low\n\n\ud83d\udcc8 Smart Money Move:\nStart accumulating in small quantities\n\n\n\u267b\ufe0f Repost if you found this valuable.",
+    "timestamp": "27 Aug 2025",
+    "branding": {
+      "name": "AI Finance Agency",
+      "tagline": "Data-Driven Insights",
+      "logo_position": "bottom-right"
+    },
+    "data": {
+      "stock": "TCS",
+      "cmp": "\u20b94,234",
+      "target": "\u20b94,500",
+      "stop_loss": "\u20b94,100",
+      "pe_ratio": "29.5",
+      "recommendation": "BUY"
+    }
+  },
+  "timestamp": "2025-08-27T00:03:54.921386"
+}

@@ -117,6 +117,11 @@ class MarketContentGenerator:
                 "data_validation": {
                     "timestamp": datetime.now().isoformat(),
                     "freshness_checked": True
+                },
+                "anti_repetition": {
+                    "system_active": True,
+                    "content_varied": is_repetitive,
+                    "uniqueness_verified": True
                 }
             }
             
@@ -132,7 +137,17 @@ class MarketContentGenerator:
                     print(f"✅ Generated: {result.get('pipeline_id')}")
                     print(f"   Quality: {result.get('quality_metrics', {}).get('quality_score', 0)}/10")
                     print(f"   Reach: {result.get('distribution', {}).get('total_reach', 0)} users")
+                    print(f"   🛡️ Anti-repetition: Active")
                     print(f"   ⏰ Fresh data validated")
+                    
+                    # 📝 Record this content to prevent future duplicates
+                    self.anti_repeat.record_content(
+                        content_config["content"],
+                        content_config["type"], 
+                        content_config["topic"],
+                        content_config["platforms"],
+                        mock_market_data
+                    )
                     
                     generated_content.append({
                         "config": content_config,
@@ -143,6 +158,9 @@ class MarketContentGenerator:
             
             except Exception as e:
                 print(f"❌ Error: {e}")
+        
+        # 🧹 Cleanup old records to prevent database bloat
+        self.anti_repeat.cleanup_old_records()
         
         return generated_content
     

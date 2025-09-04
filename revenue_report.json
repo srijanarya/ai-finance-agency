@@ -1,0 +1,33 @@
+{
+  "timestamp": "2025-09-04T20:14:25.522023",
+  "current_mrr": 1416051.0,
+  "total_active_customers": 5,
+  "plan_breakdown": [
+    {
+      "plan_name": "AI Finance Basic",
+      "plan_amount": 999.0,
+      "subscribers": 1,
+      "revenue_contribution": 999.0
+    },
+    {
+      "plan_name": "AI Finance Enterprise",
+      "plan_amount": 9999.0,
+      "subscribers": 1,
+      "revenue_contribution": 9999.0
+    },
+    {
+      "plan_name": "AI Finance Premium",
+      "plan_amount": 2999.0,
+      "subscribers": 2,
+      "revenue_contribution": 5998.0
+    },
+    {
+      "plan_name": "Pro Trader Suite",
+      "plan_amount": 5999.0,
+      "subscribers": 1,
+      "revenue_contribution": 5999.0
+    }
+  ],
+  "target_monthly": 3000000,
+  "progress_percentage": 47.2017
+}

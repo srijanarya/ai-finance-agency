@@ -555,12 +555,41 @@ class MarketContentIntegrator:
 """
         
         brief += "\n💡 Market Insight: "
-        if summary['indices'].get('NIFTY', {}).get('change_pct', 0) > 1:
-            brief += "Strong bullish momentum. Consider booking profits."
-        elif summary['indices'].get('NIFTY', {}).get('change_pct', 0) < -1:
-            brief += "Market correction. Look for value buying opportunities."
+        nifty_change = summary['indices'].get('NIFTY', {}).get('change_pct', 0)
+        
+        if nifty_change > 1.5:
+            insights = [
+                "Strong bullish momentum. Consider booking partial profits at resistance levels.",
+                "Euphoria building up. Remember - trees don't grow to the sky.",
+                "Green across the board! But don't let greed cloud your judgment."
+            ]
+        elif nifty_change > 0.5:
+            insights = [
+                "Positive sentiment prevailing. Look for quality stocks with good fundamentals.",
+                "Moderate gains suggest healthy market behavior. Stay selective.",
+                "Bulls are in control but remain cautious about valuations."
+            ]
+        elif nifty_change < -1.5:
+            insights = [
+                "Sharp correction underway. Quality stocks might offer good entry points.",
+                "Fear gripping the market. This could be opportunity knocking for patient investors.",
+                "Red sea everywhere! But remember - fortunes are made in bear markets."
+            ]
+        elif nifty_change < -0.5:
+            insights = [
+                "Market showing weakness. Consider defensive sectors and cash positions.",
+                "Profit booking visible. Watch for support levels closely.",
+                "Bears flexing muscles. Time to review your stop losses."
+            ]
         else:
-            brief += "Range-bound movement. Wait for clear direction."
+            insights = [
+                "Range-bound consolidation. Wait for clear directional breakout.",
+                "Sideways grind continues. Focus on individual stock stories.",
+                "Market indecisive. Better to stay on the sidelines and observe."
+            ]
+        
+        import random
+        brief += random.choice(insights)
         
         return brief
 

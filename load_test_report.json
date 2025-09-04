@@ -1,0 +1,31 @@
+{
+  "timestamp": "2025-09-04T20:12:56.651364",
+  "total_test_time": 8.69493293762207,
+  "total_requests": 245,
+  "overall_success_rate": 100.0,
+  "average_response_time": 0.5053033332435453,
+  "estimated_monthly_capacity": 73035640.93660206,
+  "target_capacity_ratio": 146.0712818732041,
+  "endpoint_stats": {
+    "/enterprise/analytics/fingpt": {
+      "total_requests": 75,
+      "successful_requests": 75,
+      "average_response_time": 0.20235766728719076
+    },
+    "/enterprise/chatwoot/conversations": {
+      "total_requests": 30,
+      "successful_requests": 30,
+      "average_response_time": 0.5496521711349487
+    },
+    "/enterprise/dashboard": {
+      "total_requests": 100,
+      "successful_requests": 100,
+      "average_response_time": 0.23745256900787354
+    },
+    "/webhook/n8n/trigger": {
+      "total_requests": 40,
+      "successful_requests": 40,
+      "average_response_time": 1.7096917390823365
+    }
+  }
+}

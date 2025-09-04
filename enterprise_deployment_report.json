@@ -1,0 +1,29 @@
+{
+  "deployment_time": "2025-09-04T20:12:44.540081",
+  "services": {
+    "chatwoot": {
+      "status": "running",
+      "port": 3000
+    },
+    "billing": {
+      "status": "running",
+      "port": 8080
+    },
+    "messaging": {
+      "status": "running",
+      "port": 9092
+    }
+  },
+  "endpoints": {
+    "chatwoot": "http://localhost:3000/api/v1/accounts/1",
+    "billing": "http://localhost:8080/1.0/kb",
+    "messaging": "http://localhost:9092"
+  },
+  "features": [
+    "Customer conversation management",
+    "Subscription billing system",
+    "High-performance messaging",
+    "Enterprise APIs ready",
+    "Revenue generation enabled"
+  ]
+}

@@ -18,11 +18,13 @@ class MarketContentGenerator:
     def __init__(self):
         self.integrator = MarketContentIntegrator()
         self.webhook_url = "http://localhost:5001/webhook/n8n/trigger"
+        self.anti_repeat = AntiRepetitionManager()  # Add anti-repetition system
     
     async def generate_market_content(self):
         """Generate various types of market-powered content"""
         
         print("🚀 MARKET-POWERED CONTENT GENERATOR")
+        print("🛡️ Anti-Repetition System: ACTIVE")
         print("=" * 50)
         
         # Get live market brief with data validation
@@ -60,7 +62,20 @@ class MarketContentGenerator:
         generated_content = []
         
         for content_config in content_types:
-            print(f"\n📝 Generating: {content_config['topic']}")
+            print(f"\n📝 Processing: {content_config['topic']}")
+            
+            # 🛡️ ANTI-REPETITION CHECKS
+            # Check posting frequency limits
+            should_skip_frequency = False
+            for platform in content_config['platforms']:
+                should_skip, reason = self.anti_repeat.should_skip_posting(content_config['type'], platform)
+                if should_skip:
+                    print(f"⏸️ Skipping {platform}: {reason}")
+                    should_skip_frequency = True
+                    break
+            
+            if should_skip_frequency:
+                continue
             
             # Validate content freshness before sending
             try:
@@ -78,6 +93,20 @@ class MarketContentGenerator:
                 print(f"⚠️ Could not validate content age: {e}")
                 # Skip if we can't validate
                 continue
+            
+            # 🔄 Check for repetitive content and apply variations
+            mock_market_data = {"indices": {}, "movers": {}, "market_status": "LIVE"}
+            is_repetitive, reason = self.anti_repeat.is_content_repetitive(
+                content, mock_market_data, content_config['type']
+            )
+            
+            if is_repetitive:
+                print(f"🔄 Applying variations: {reason}")
+                content = self.anti_repeat.vary_content_format(
+                    content, content_config['type'], mock_market_data
+                )
+                print("✨ Content enhanced with variations")
+                content_config["content"] = content
             
             # Send to webhook
             payload = {

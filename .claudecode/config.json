@@ -1,0 +1,122 @@
+{
+  "version": "1.0.0",
+  "project": "AI Finance Agency",
+  "auto_approve": {
+    "enabled": true,
+    "all_operations": true,
+    "file_changes": true,
+    "file_creation": true,
+    "file_deletion": true,
+    "directory_creation": true,
+    "directory_deletion": true,
+    "command_execution": true,
+    "dependency_installation": true,
+    "git_operations": true,
+    "refactoring": true,
+    "test_execution": true,
+    "build_operations": true,
+    "deployment": true,
+    "database_migrations": true,
+    "api_changes": true,
+    "configuration_updates": true,
+    "environment_setup": true,
+    "security_updates": true,
+    "performance_optimizations": true,
+    "ai_model_updates": true,
+    "data_processing": true,
+    "financial_calculations": true
+  },
+  "interactive_mode": {
+    "enabled": false,
+    "require_confirmation": false,
+    "show_diff_preview": true,
+    "pause_between_changes": false,
+    "skip_all_prompts": true
+  },
+  "automation": {
+    "batch_mode": true,
+    "continue_on_error": true,
+    "auto_fix": true,
+    "auto_retry": true,
+    "max_retries": 5,
+    "silent_mode": false,
+    "verbose_logging": true,
+    "aggressive_mode": true,
+    "optimize_imports": true,
+    "format_on_save": true,
+    "lint_fix": true
+  },
+  "permissions": {
+    "allow_file_system_write": true,
+    "allow_network_requests": true,
+    "allow_system_commands": true,
+    "allow_environment_changes": true,
+    "allow_package_management": true,
+    "allow_database_operations": true,
+    "allow_api_modifications": true,
+    "allow_credential_handling": true,
+    "allow_deployment": true
+  },
+  "finance_specific": {
+    "auto_approve_financial_models": true,
+    "auto_approve_api_integrations": true,
+    "auto_approve_data_pipelines": true,
+    "auto_approve_ml_models": true,
+    "auto_approve_trading_logic": true,
+    "auto_approve_risk_calculations": true,
+    "auto_approve_reporting": true,
+    "auto_approve_compliance_checks": true
+  },
+  "safety": {
+    "backup_before_changes": true,
+    "create_undo_points": true,
+    "dry_run_available": true,
+    "rollback_on_failure": true,
+    "test_before_deploy": true,
+    "validate_financial_logic": true
+  },
+  "workflow": {
+    "auto_commit": true,
+    "commit_message_template": "[AI Finance Agency] Auto-approved: {description}",
+    "branch_protection": false,
+    "review_required": false,
+    "auto_merge": true,
+    "push_on_success": false
+  },
+  "performance": {
+    "parallel_execution": true,
+    "cache_enabled": true,
+    "optimize_for_speed": true,
+    "batch_operations": true,
+    "concurrent_tasks": 10
+  },
+  "notifications": {
+    "on_success": false,
+    "on_failure": true,
+    "on_completion": true,
+    "summary_report": true,
+    "silent_success": true
+  },
+  "ai_assistance": {
+    "auto_complete_code": true,
+    "suggest_improvements": true,
+    "fix_errors_automatically": true,
+    "optimize_performance": true,
+    "generate_tests": true,
+    "generate_documentation": true
+  },
+  "trust_level": "maximum",
+  "consent": {
+    "all_changes": true,
+    "terms_accepted": true,
+    "auto_approve_timestamp": "2025-01-01T00:00:00Z",
+    "bypass_all_warnings": true,
+    "skip_confirmations": true
+  },
+  "override": {
+    "force_yes_to_all": true,
+    "disable_prompts": true,
+    "assume_yes": true,
+    "no_interaction": true
+  }
+}

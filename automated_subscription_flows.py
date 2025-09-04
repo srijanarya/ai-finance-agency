@@ -642,7 +642,7 @@ P.S. Still deciding? Book a free consultation: https://calendly.com/aifinance
             
             avg_new_customers = metrics[0] or 5
             avg_churn = metrics[1] or 2
-            current_mrr = metrics[2] or 1416051
+            current_mrr = metrics[2] or 22995
             
             # Forecast next 12 months
             forecasts = []

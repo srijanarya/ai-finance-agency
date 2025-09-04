@@ -1,0 +1,174 @@
+{
+  "name": "Telegram Group Sharing",
+  "uuid": "telegram-sharing-macro",
+  "actions": [
+    {
+      "action": "activate_app",
+      "app": "Telegram"
+    },
+    {
+      "action": "delay",
+      "time": 2
+    },
+    {
+      "action": "keystroke",
+      "keys": "cmd+k"
+    },
+    {
+      "action": "delay",
+      "time": 1
+    },
+    {
+      "action": "type_text",
+      "text": "@IndianStockMarketLive"
+    },
+    {
+      "action": "delay",
+      "time": 2
+    },
+    {
+      "action": "keystroke",
+      "keys": "return"
+    },
+    {
+      "action": "delay",
+      "time": 3
+    },
+    {
+      "action": "type_text",
+      "text": "\ud83d\udd25 Just discovered this amazing finance channel!\n\n@AIFinanceNews2024\n\n\ud83d\udee1\ufe0f They have CREDIBILITY PROTECTION:\n\u2705 Every data verified within 30 minutes\n\u2705 Multi-source validation (NSE, BSE, Yahoo)  \n\u2705 Never posts stale/old market data\n\u2705 8.8/10 quality score average\n\n\ud83d\ude80 8 AI agents working 24/7 for accuracy!\n\nNo fake tips, only verified data + education \ud83d\udcda"
+    },
+    {
+      "action": "keystroke",
+      "keys": "return"
+    },
+    {
+      "action": "delay",
+      "time": 1
+    },
+    {
+      "action": "type_text",
+      "text": "Found this really helpful for verified market data!"
+    },
+    {
+      "action": "keystroke",
+      "keys": "return"
+    },
+    {
+      "action": "delay",
+      "time": 30
+    },
+    {
+      "action": "activate_app",
+      "app": "Telegram"
+    },
+    {
+      "action": "delay",
+      "time": 2
+    },
+    {
+      "action": "keystroke",
+      "keys": "cmd+k"
+    },
+    {
+      "action": "delay",
+      "time": 1
+    },
+    {
+      "action": "type_text",
+      "text": "@StockMarketIndiaOfficial"
+    },
+    {
+      "action": "delay",
+      "time": 2
+    },
+    {
+      "action": "keystroke",
+      "keys": "return"
+    },
+    {
+      "action": "delay",
+      "time": 3
+    },
+    {
+      "action": "type_text",
+      "text": "\ud83d\udd25 Just discovered this amazing finance channel!\n\n@AIFinanceNews2024\n\n\ud83d\udee1\ufe0f They have CREDIBILITY PROTECTION:\n\u2705 Every data verified within 30 minutes\n\u2705 Multi-source validation (NSE, BSE, Yahoo)  \n\u2705 Never posts stale/old market data\n\u2705 8.8/10 quality score average\n\n\ud83d\ude80 8 AI agents working 24/7 for accuracy!\n\nNo fake tips, only verified data + education \ud83d\udcda"
+    },
+    {
+      "action": "keystroke",
+      "keys": "return"
+    },
+    {
+      "action": "delay",
+      "time": 1
+    },
+    {
+      "action": "type_text",
+      "text": "Finally, a channel that verifies data before posting! \ud83c\udfaf"
+    },
+    {
+      "action": "keystroke",
+      "keys": "return"
+    },
+    {
+      "action": "delay",
+      "time": 30
+    },
+    {
+      "action": "activate_app",
+      "app": "Telegram"
+    },
+    {
+      "action": "delay",
+      "time": 2
+    },
+    {
+      "action": "keystroke",
+      "keys": "cmd+k"
+    },
+    {
+      "action": "delay",
+      "time": 1
+    },
+    {
+      "action": "type_text",
+      "text": "@NSEBSETips"
+    },
+    {
+      "action": "delay",
+      "time": 2
+    },
+    {
+      "action": "keystroke",
+      "keys": "return"
+    },
+    {
+      "action": "delay",
+      "time": 3
+    },
+    {
+      "action": "type_text",
+      "text": "\ud83d\udd25 Just discovered this amazing finance channel!\n\n@AIFinanceNews2024\n\n\ud83d\udee1\ufe0f They have CREDIBILITY PROTECTION:\n\u2705 Every data verified within 30 minutes\n\u2705 Multi-source validation (NSE, BSE, Yahoo)  \n\u2705 Never posts stale/old market data\n\u2705 8.8/10 quality score average\n\n\ud83d\ude80 8 AI agents working 24/7 for accuracy!\n\nNo fake tips, only verified data + education \ud83d\udcda"
+    },
+    {
+      "action": "keystroke",
+      "keys": "return"
+    },
+    {
+      "action": "delay",
+      "time": 1
+    },
+    {
+      "action": "type_text",
+      "text": "Love their credibility protection system!"
+    },
+    {
+      "action": "keystroke",
+      "keys": "return"
+    },
+    {
+      "action": "delay",
+      "time": 30
+    }
+  ]
+}

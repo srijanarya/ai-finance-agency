@@ -1,0 +1,29 @@
+{
+  "real_mrr": 22995.0,
+  "annual_revenue": 275940.0,
+  "subscription_breakdown": {
+    "basic-plan": {
+      "customers": 1,
+      "price": 999.0,
+      "revenue": 999.0
+    },
+    "enterprise-plan": {
+      "customers": 1,
+      "price": 9999.0,
+      "revenue": 9999.0
+    },
+    "premium-plan": {
+      "customers": 2,
+      "price": 2999.0,
+      "revenue": 5998.0
+    },
+    "pro-trader-plan": {
+      "customers": 1,
+      "price": 5999.0,
+      "revenue": 5999.0
+    }
+  },
+  "target_achievement": 7.664999999999999,
+  "customers_total": 5,
+  "average_revenue_per_user": 4599.0
+}

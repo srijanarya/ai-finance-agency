@@ -46,13 +46,12 @@ class IndianMarketAPI:
             'post_close': ('15:40', '16:00')
         }
         
-        # Key Indian indices and stocks
+        # Key Indian indices and stocks  
         self.nse_indices = {
             'NIFTY': '^NSEI',
             'BANKNIFTY': '^NSEBANK',
-            'FINNIFTY': 'NIFTY_FIN_SERVICE.NS',
-            'MIDCAP': '^CNXMIDCAP',  # Fixed symbol
-            'SMALLCAP': '^CNXSMALLCAP'  # Fixed symbol
+            'FINNIFTY': 'NIFTY_FIN_SERVICE.NS'
+            # Removing problematic midcap/smallcap symbols until we find working ones
         }
         
         self.top_stocks = {
@@ -313,24 +312,33 @@ class IndianMarketAPI:
     def _parse_fii_dii_data(self, raw_data: Dict) -> Dict:
         """Parse FII/DII data from NSE API response"""
         try:
-            fii_data = raw_data.get('fiiDiiData', [])
-            if fii_data:
-                latest = fii_data[0]  # Most recent data
-                return {
-                    'date': latest.get('date'),
-                    'fii': {
-                        'buy': latest.get('fii', {}).get('buy', 0),
-                        'sell': latest.get('fii', {}).get('sell', 0),
-                        'net': latest.get('fii', {}).get('net', 0)
-                    },
-                    'dii': {
-                        'buy': latest.get('dii', {}).get('buy', 0),
-                        'sell': latest.get('dii', {}).get('sell', 0),
-                        'net': latest.get('dii', {}).get('net', 0)
+            # Handle both array and object response formats
+            if isinstance(raw_data, list):
+                fii_data = raw_data
+            else:
+                fii_data = raw_data.get('fiiDiiData', raw_data.get('data', []))
+            
+            if fii_data and len(fii_data) > 0:
+                latest = fii_data[0] if isinstance(fii_data, list) else fii_data
+                
+                # Handle different API response structures
+                if isinstance(latest, dict):
+                    return {
+                        'date': latest.get('date', latest.get('tradingDate', 'N/A')),
+                        'fii': {
+                            'buy': latest.get('fii', {}).get('buy', latest.get('fiiBuyValue', 0)),
+                            'sell': latest.get('fii', {}).get('sell', latest.get('fiiSellValue', 0)),
+                            'net': latest.get('fii', {}).get('net', latest.get('fiiNetValue', 0))
+                        },
+                        'dii': {
+                            'buy': latest.get('dii', {}).get('buy', latest.get('diiBuyValue', 0)),
+                            'sell': latest.get('dii', {}).get('sell', latest.get('diiSellValue', 0)),
+                            'net': latest.get('dii', {}).get('net', latest.get('diiNetValue', 0))
+                        }
                     }
-                }
         except Exception as e:
             self.logger.error(f"FII/DII parsing error: {e}")
+            self.logger.error(f"Raw data structure: {type(raw_data)} - {str(raw_data)[:200]}...")
         
         return self._get_mock_fii_dii_data()
     

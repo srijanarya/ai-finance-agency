@@ -5,6 +5,7 @@ Connects n8n workflow with AI Finance Agency
 """
 
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import sqlite3
 import json
 from datetime import datetime
@@ -14,6 +15,13 @@ import uuid
 from multi_agent_orchestrator import MultiAgentOrchestrator
 
 app = Flask(__name__)
+
+# Configure CORS for public website integration
+CORS(app, origins=[
+    "https://treum-algotech.surge.sh",
+    "http://localhost:3000",
+    "https://api.treum-algotech.com"
+], supports_credentials=True)
 
 # Initialize orchestrator
 orchestrator = MultiAgentOrchestrator()

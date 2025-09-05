@@ -22,6 +22,13 @@ class UnifiedAutomationHub:
                 'posts': 0,
                 'schedule': 'Every 20-30 min'
             },
+            'twitter': {
+                'script': 'twitter_auto_poster.py',
+                'name': 'Twitter/X Auto-Poster',
+                'status': '❌',
+                'posts': 0,
+                'schedule': 'Every 60-90 min'
+            },
             'linkedin': {
                 'script': 'linkedin_company_auto_poster.py',
                 'name': 'LinkedIn Company',
@@ -117,8 +124,8 @@ class UnifiedAutomationHub:
         # Platform-specific status
         print("\n📱 PLATFORM STATUS:")
         print("• Telegram: @AIFinanceNews2024 ✅")
+        print("• Twitter/X: Working with v2 API ✅")
         print("• LinkedIn: Needs OAuth token refresh ⚠️")
-        print("• Twitter/X: Requires API upgrade ($100/mo) ❌")
         
         # Dashboard link
         if self.check_process('simple_dashboard.py'):
@@ -135,14 +142,16 @@ class UnifiedAutomationHub:
             
             print("\n📋 COMMANDS:")
             print("1. Start Telegram Auto-Poster")
-            print("2. Start LinkedIn Company Poster")
-            print("3. Start Web Dashboard")
-            print("4. Start ALL Services")
-            print("5. Stop Telegram Auto-Poster")
-            print("6. Stop LinkedIn Company Poster")
-            print("7. Stop Web Dashboard")
-            print("8. Stop ALL Services")
-            print("9. Refresh Status")
+            print("2. Start Twitter/X Auto-Poster")
+            print("3. Start LinkedIn Company Poster")
+            print("4. Start Web Dashboard")
+            print("5. Start ALL Services")
+            print("6. Stop Telegram Auto-Poster")
+            print("7. Stop Twitter/X Auto-Poster")
+            print("8. Stop LinkedIn Company Poster")
+            print("9. Stop Web Dashboard")
+            print("10. Stop ALL Services")
+            print("11. Refresh Status")
             print("0. Exit")
             
             choice = input("\nEnter choice (0-9): ").strip()

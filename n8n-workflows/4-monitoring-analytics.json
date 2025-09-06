@@ -1,0 +1,152 @@
+{
+  "name": "Monitoring & Analytics",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "hourly-monitor",
+      "name": "Hourly Monitor",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [250, 350]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT platform, COUNT(*) as post_count, \n       COUNT(CASE WHEN status = 'success' THEN 1 END) as success_count,\n       COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_count\nFROM publishing_log \nWHERE posted_at > NOW() - INTERVAL '24 hours'\nGROUP BY platform"
+      },
+      "id": "get-stats",
+      "name": "Get Publishing Stats",
+      "type": "n8n-nodes-base.postgres",
+      "position": [450, 350]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Calculate performance metrics\nconst stats = $json;\n\nconst metrics = stats.map(platform => ({\n  platform: platform.platform,\n  successRate: ((platform.success_count / platform.post_count) * 100).toFixed(2),\n  totalPosts: platform.post_count,\n  failures: platform.failed_count,\n  health: platform.success_count / platform.post_count > 0.95 ? 'HEALTHY' : 'NEEDS_ATTENTION'\n}));\n\n// Check API rate limits\nconst rateLimits = {\n  linkedin: { limit: 100, used: stats.find(s => s.platform === 'linkedin')?.post_count || 0 },\n  twitter: { limit: 300, used: stats.find(s => s.platform === 'twitter')?.post_count || 0 },\n  telegram: { limit: 30, used: stats.find(s => s.platform === 'telegram')?.post_count || 0 }\n};\n\n// Generate alerts\nconst alerts = [];\nObject.entries(rateLimits).forEach(([platform, limits]) => {\n  if (limits.used / limits.limit > 0.8) {\n    alerts.push({\n      type: 'RATE_LIMIT_WARNING',\n      platform,\n      message: `${platform} approaching rate limit: ${limits.used}/${limits.limit}`\n    });\n  }\n});\n\nreturn {\n  metrics,\n  rateLimits,\n  alerts,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "calculate-metrics",
+      "name": "Calculate Metrics",
+      "type": "n8n-nodes-base.function",
+      "position": [650, 350]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.alerts.length > 0 }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-alerts",
+      "name": "Check for Alerts",
+      "type": "n8n-nodes-base.if",
+      "position": [850, 350]
+    },
+    {
+      "parameters": {
+        "message": "=⚠️ ALERT: {{ $json.alerts[0].message }}",
+        "additionalFields": {
+          "attachments": [
+            {
+              "color": "#ff0000",
+              "title": "Rate Limit Warning",
+              "text": "={{ JSON.stringify($json.alerts, null, 2) }}"
+            }
+          ]
+        }
+      },
+      "id": "send-alert",
+      "name": "Send Alert",
+      "type": "n8n-nodes-base.slack",
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Generate daily report\nconst metrics = $json.metrics;\nconst date = new Date().toLocaleDateString('en-IN');\n\nconst report = `\n📊 **Daily Performance Report - ${date}**\n\n**Platform Performance:**\n${ metrics.map(m => `\n${m.platform.toUpperCase()}\n- Total Posts: ${m.totalPosts}\n- Success Rate: ${m.successRate}%\n- Status: ${m.health}\n`).join('\\n')}\n\n**API Usage:**\n${Object.entries($json.rateLimits).map(([platform, limits]) => \n  `${platform}: ${limits.used}/${limits.limit} (${((limits.used/limits.limit)*100).toFixed(1)}%)`\n).join('\\n')}\n\n**System Health:** ${metrics.every(m => m.health === 'HEALTHY') ? '✅ All Systems Operational' : '⚠️ Attention Required'}\n`;\n\nreturn {\n  report,\n  timestamp: new Date().toISOString(),\n  shouldSend: new Date().getHours() === 20 // Send at 8 PM daily\n};"
+      },
+      "id": "generate-report",
+      "name": "Generate Daily Report",
+      "type": "n8n-nodes-base.function",
+      "position": [850, 450]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldSend }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-report-time",
+      "name": "Check Report Time",
+      "type": "n8n-nodes-base.if",
+      "position": [1050, 450]
+    },
+    {
+      "parameters": {
+        "message": "={{ $json.report }}",
+        "additionalFields": {
+          "channel": "#daily-reports"
+        }
+      },
+      "id": "send-report",
+      "name": "Send Daily Report",
+      "type": "n8n-nodes-base.slack",
+      "position": [1250, 450]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "system_metrics",
+        "columns": "metrics,alerts,timestamp"
+      },
+      "id": "store-metrics",
+      "name": "Store Metrics",
+      "type": "n8n-nodes-base.postgres",
+      "position": [850, 550]
+    }
+  ],
+  "connections": {
+    "hourly-monitor": {
+      "main": [[ { "node": "get-stats", "type": "main", "index": 0 } ]]
+    },
+    "get-stats": {
+      "main": [[ { "node": "calculate-metrics", "type": "main", "index": 0 } ]]
+    },
+    "calculate-metrics": {
+      "main": [[
+        { "node": "check-alerts", "type": "main", "index": 0 },
+        { "node": "generate-report", "type": "main", "index": 0 },
+        { "node": "store-metrics", "type": "main", "index": 0 }
+      ]]
+    },
+    "check-alerts": {
+      "main": [
+        [ { "node": "send-alert", "type": "main", "index": 0 } ],
+        []
+      ]
+    },
+    "generate-report": {
+      "main": [[ { "node": "check-report-time", "type": "main", "index": 0 } ]]
+    },
+    "check-report-time": {
+      "main": [
+        [ { "node": "send-report", "type": "main", "index": 0 } ],
+        []
+      ]
+    }
+  }
+}

@@ -1,0 +1,319 @@
+{
+  "name": "Enhanced Content Generation with Deduplication",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Hourly Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5001/generate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "platform",
+              "value": "linkedin"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "content-api",
+      "name": "Generate Unique Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json[\"success\"]}}",
+              "value2": true
+            },
+            {
+              "value1": "={{$json[\"unique\"]}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-success",
+      "name": "Verify Unique Content",
+      "type": "n8n-nodes-base.if",
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "linkedin_content",
+              "value": "={{$json[\"content\"]}}"
+            },
+            {
+              "name": "content_type",
+              "value": "={{$json[\"type\"]}}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{$json[\"timestamp\"]}}"
+            }
+          ]
+        }
+      },
+      "id": "format-content",
+      "name": "Format for LinkedIn",
+      "type": "n8n-nodes-base.set",
+      "position": [850, 250]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "requestMethod": "POST",
+        "url": "https://api.linkedin.com/v2/ugcPosts",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "author",
+              "value": "urn:li:organization:108595796"
+            },
+            {
+              "name": "lifecycleState",
+              "value": "PUBLISHED"
+            },
+            {
+              "name": "specificContent",
+              "value": {
+                "com.linkedin.ugc.ShareContent": {
+                  "shareCommentary": {
+                    "text": "={{$node[\"format-content\"].json[\"linkedin_content\"]}}"
+                  },
+                  "shareMediaCategory": "NONE"
+                }
+              }
+            },
+            {
+              "name": "visibility",
+              "value": {
+                "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
+              }
+            }
+          ]
+        }
+      },
+      "id": "post-linkedin",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1050, 250],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "linkedin-credentials",
+          "name": "LinkedIn - AI Finance"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:5001/generate",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "platform",
+              "value": "telegram"
+            }
+          ]
+        }
+      },
+      "id": "telegram-content",
+      "name": "Generate Telegram Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [850, 350]
+    },
+    {
+      "parameters": {
+        "chatId": "@AIFinanceNews2024",
+        "text": "={{$json[\"content\"]}}",
+        "additionalFields": {}
+      },
+      "id": "post-telegram",
+      "name": "Post to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1050, 350],
+      "credentials": {
+        "telegramApi": {
+          "id": "telegram-credentials",
+          "name": "Telegram Bot - AI Finance"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "table": "content_log",
+        "columns": "content,type,platform,timestamp,unique,posted",
+        "additionalFields": {}
+      },
+      "id": "log-database",
+      "name": "Log to Database",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-credentials",
+          "name": "PostgreSQL - AI Finance"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:5001/stats",
+        "options": {}
+      },
+      "id": "get-stats",
+      "name": "Get Generation Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1050, 450]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "error_message",
+              "value": "Content generation failed or duplicate detected"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{$now}}"
+            }
+          ]
+        }
+      },
+      "id": "error-handler",
+      "name": "Handle Errors",
+      "type": "n8n-nodes-base.set",
+      "position": [850, 450]
+    }
+  ],
+  "connections": {
+    "schedule-trigger": {
+      "main": [
+        [
+          {
+            "node": "content-api",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "content-api": {
+      "main": [
+        [
+          {
+            "node": "check-success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-success": {
+      "main": [
+        [
+          {
+            "node": "format-content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "error-handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "format-content": {
+      "main": [
+        [
+          {
+            "node": "post-linkedin",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "telegram-content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "post-linkedin": {
+      "main": [
+        [
+          {
+            "node": "log-database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "telegram-content": {
+      "main": [
+        [
+          {
+            "node": "post-telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "post-telegram": {
+      "main": [
+        [
+          {
+            "node": "log-database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "log-database": {
+      "main": [
+        [
+          {
+            "node": "get-stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

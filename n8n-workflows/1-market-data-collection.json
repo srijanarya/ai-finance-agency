@@ -1,0 +1,164 @@
+{
+  "name": "Market Data Collection",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/^NSEI",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0"
+          }
+        }
+      },
+      "id": "nifty-data",
+      "name": "Fetch NIFTY Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/^NSEBANK",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0"
+          }
+        }
+      },
+      "id": "banknifty-data",
+      "name": "Fetch BANKNIFTY Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 350]
+    },
+    {
+      "parameters": {
+        "url": "https://query1.finance.yahoo.com/v8/finance/chart/^BSESN",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0"
+          }
+        }
+      },
+      "id": "sensex-data",
+      "name": "Fetch SENSEX Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 500]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Process market data\nconst nifty = $node['nifty-data'].json;\nconst banknifty = $node['banknifty-data'].json;\nconst sensex = $node['sensex-data'].json;\n\nfunction extractMarketData(data, index) {\n  const chart = data.chart.result[0];\n  const quote = chart.indicators.quote[0];\n  const lastIndex = quote.close.length - 1;\n  \n  return {\n    index: index,\n    price: quote.close[lastIndex],\n    open: quote.open[lastIndex],\n    high: quote.high[lastIndex],\n    low: quote.low[lastIndex],\n    volume: quote.volume[lastIndex],\n    change: ((quote.close[lastIndex] - quote.open[lastIndex]) / quote.open[lastIndex] * 100).toFixed(2),\n    timestamp: new Date().toISOString()\n  };\n}\n\nconst marketData = {\n  nifty: extractMarketData(nifty, 'NIFTY'),\n  banknifty: extractMarketData(banknifty, 'BANKNIFTY'),\n  sensex: extractMarketData(sensex, 'SENSEX'),\n  marketStatus: new Date().getHours() >= 9 && new Date().getHours() < 16 ? 'OPEN' : 'CLOSED'\n};\n\n// Check for significant moves (>1% change)\nconst significantMove = \n  Math.abs(marketData.nifty.change) > 1 ||\n  Math.abs(marketData.banknifty.change) > 1 ||\n  Math.abs(marketData.sensex.change) > 1;\n\nreturn {\n  marketData,\n  significantMove,\n  triggerContent: significantMove\n};"
+      },
+      "id": "process-data",
+      "name": "Process Market Data",
+      "type": "n8n-nodes-base.function",
+      "position": [650, 350]
+    },
+    {
+      "parameters": {
+        "url": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
+        "options": {}
+      },
+      "id": "et-rss",
+      "name": "Economic Times RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "position": [450, 650]
+    },
+    {
+      "parameters": {
+        "url": "https://www.moneycontrol.com/rss/marketoutlook.xml",
+        "options": {}
+      },
+      "id": "mc-rss",
+      "name": "MoneyControl RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "position": [450, 750]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "market_data",
+        "columns": "index_name,price,open,high,low,volume,change_percent,timestamp",
+        "options": {}
+      },
+      "id": "store-market-data",
+      "name": "Store Market Data",
+      "type": "n8n-nodes-base.postgres",
+      "position": [850, 350]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.triggerContent }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-trigger",
+      "name": "Check If Content Trigger",
+      "type": "n8n-nodes-base.if",
+      "position": [1050, 350]
+    },
+    {
+      "parameters": {
+        "url": "{{ $env.N8N_WEBHOOK_URL }}/webhook/content-generation",
+        "method": "POST",
+        "body": "={{ $json }}",
+        "options": {}
+      },
+      "id": "trigger-content",
+      "name": "Trigger Content Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "schedule-trigger": {
+      "main": [[
+        { "node": "nifty-data", "type": "main", "index": 0 },
+        { "node": "banknifty-data", "type": "main", "index": 0 },
+        { "node": "sensex-data", "type": "main", "index": 0 },
+        { "node": "et-rss", "type": "main", "index": 0 },
+        { "node": "mc-rss", "type": "main", "index": 0 }
+      ]]
+    },
+    "nifty-data": {
+      "main": [[ { "node": "process-data", "type": "main", "index": 0 } ]]
+    },
+    "banknifty-data": {
+      "main": [[ { "node": "process-data", "type": "main", "index": 0 } ]]
+    },
+    "sensex-data": {
+      "main": [[ { "node": "process-data", "type": "main", "index": 0 } ]]
+    },
+    "process-data": {
+      "main": [[
+        { "node": "store-market-data", "type": "main", "index": 0 },
+        { "node": "check-trigger", "type": "main", "index": 0 }
+      ]]
+    },
+    "check-trigger": {
+      "main": [
+        [ { "node": "trigger-content", "type": "main", "index": 0 } ],
+        []
+      ]
+    }
+  }
+}

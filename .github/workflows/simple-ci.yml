@@ -3,6 +3,10 @@ name: Simple CI
 on:
   push:
     branches: [ main, develop ]
+    paths-ignore:
+      - '**.md'
+      - '.github/workflows/**'
+      - 'docs/**'
   pull_request:
     branches: [ main ]
 

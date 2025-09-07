@@ -1,12 +1,13 @@
-name: CI/CD Pipeline
+name: CI/CD Pipeline (Disabled)
 
 on:
-  push:
-    branches: [ main, develop, new-main ]
-  pull_request:
-    branches: [ main ]
-  schedule:
-    - cron: '0 0 * * *'  # Daily at midnight
+  workflow_dispatch:  # Only manual trigger for now
+  # push:
+  #   branches: [ main, develop, new-main ]
+  # pull_request:
+  #   branches: [ main ]
+  # schedule:
+  #   - cron: '0 0 * * *'  # Daily at midnight
 
 permissions:
   contents: read

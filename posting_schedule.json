@@ -1,0 +1,26 @@
+{
+  "linkedin": {
+    "times": [
+      "09:00",
+      "14:00",
+      "19:00"
+    ],
+    "enabled": true
+  },
+  "twitter": {
+    "times": [
+      "08:30",
+      "13:30",
+      "20:30"
+    ],
+    "enabled": true
+  },
+  "telegram": {
+    "times": [
+      "09:30",
+      "15:00",
+      "21:00"
+    ],
+    "enabled": true
+  }
+}

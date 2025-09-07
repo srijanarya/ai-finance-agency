@@ -23,7 +23,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests python-dotenv flask flask-cors
+        pip install requests python-dotenv flask flask-cors tweepy
     
     - name: Generate and Post Content
       env:

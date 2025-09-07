@@ -177,6 +177,39 @@ class CloudPoster:
             print(f"❌ LinkedIn post failed: {response.status_code}")
             return False
     
+    def post_to_twitter(self, content):
+        """Post to Twitter/X"""
+        # Using OAuth 1.0a for Twitter
+        import tweepy
+        
+        consumer_key = os.getenv('TWITTER_CONSUMER_KEY')
+        consumer_secret = os.getenv('TWITTER_CONSUMER_SECRET')
+        access_token = os.getenv('TWITTER_ACCESS_TOKEN')
+        access_token_secret = os.getenv('TWITTER_ACCESS_TOKEN_SECRET')
+        
+        if not all([consumer_key, consumer_secret, access_token, access_token_secret]):
+            print("❌ Missing Twitter credentials in GitHub Secrets")
+            return False
+        
+        try:
+            # Authenticate
+            auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+            auth.set_access_token(access_token, access_token_secret)
+            api = tweepy.API(auth)
+            
+            # Post tweet (280 char limit)
+            tweet_text = content['content']
+            if len(tweet_text) > 280:
+                tweet_text = tweet_text[:277] + "..."
+            
+            tweet = api.update_status(tweet_text)
+            print(f"✅ Posted to Twitter/X!")
+            print(f"   Tweet ID: {tweet.id}")
+            return True
+        except Exception as e:
+            print(f"❌ Twitter post failed: {e}")
+            return False
+    
     def post_to_telegram(self, content):
         """Post to Telegram"""
         bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -236,6 +269,13 @@ class CloudPoster:
         if content:
             if self.post_to_linkedin(content):
                 results.append('LinkedIn')
+        
+        # Post to Twitter/X
+        print("\n🐦 Twitter/X Post:")
+        content = self.generate_content('twitter')
+        if content:
+            if self.post_to_twitter(content):
+                results.append('Twitter')
         
         # Post to Telegram
         print("\n💬 Telegram Post:")

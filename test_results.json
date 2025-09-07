@@ -1,20 +1,82 @@
 {
-  "timestamp": "2025-08-29T22:43:53.145417",
-  "results": [
+  "test_run": "2025-09-06T00:20:36.090357",
+  "summary": {
+    "passed": 11,
+    "failed": 1,
+    "success_rate": "91.7%"
+  },
+  "details": [
     {
-      "name": "Reliance AGM Crash",
-      "grade": "F",
-      "score": 45
+      "test": "Ultra Fresh Generation",
+      "status": "\u2705 PASS",
+      "details": "Generated in 8.1s with live data",
+      "timestamp": "2025-09-06T00:20:34.812496"
     },
     {
-      "name": "Reliance Shares Lower",
-      "grade": "C",
-      "score": 55
+      "test": "Ultra Fresh Expiration",
+      "status": "\u2705 PASS",
+      "details": "Content expires in 1 hour",
+      "timestamp": "2025-09-06T00:20:34.812534"
     },
     {
-      "name": "HDFC Bank Buy Call",
-      "grade": "F",
-      "score": 25
+      "test": "Semi Fresh Template",
+      "status": "\u2705 PASS",
+      "details": "Template filled with live data at $646.30",
+      "timestamp": "2025-09-06T00:20:34.833442"
+    },
+    {
+      "test": "Semi Fresh Expiration",
+      "status": "\u2705 PASS",
+      "details": "Content expires in 4 hours",
+      "timestamp": "2025-09-06T00:20:34.833451"
+    },
+    {
+      "test": "Evergreen Generation",
+      "status": "\u2705 PASS",
+      "details": "Generated educational content on: Building a diversified portfol...",
+      "timestamp": "2025-09-06T00:20:34.833522"
+    },
+    {
+      "test": "Evergreen Expiration",
+      "status": "\u2705 PASS",
+      "details": "Content expires in 30 days",
+      "timestamp": "2025-09-06T00:20:34.833526"
+    },
+    {
+      "test": "Expiration Check - ultra_fresh",
+      "status": "\u2705 PASS",
+      "details": "2h old, EXPIRED",
+      "timestamp": "2025-09-06T00:20:34.833533"
+    },
+    {
+      "test": "Expiration Check - semi_fresh",
+      "status": "\u2705 PASS",
+      "details": "3h old, FRESH",
+      "timestamp": "2025-09-06T00:20:34.833537"
+    },
+    {
+      "test": "Expiration Check - evergreen",
+      "status": "\u2705 PASS",
+      "details": "24h old, FRESH",
+      "timestamp": "2025-09-06T00:20:34.833540"
+    },
+    {
+      "test": "Freshness Monitoring",
+      "status": "\u274c FAIL",
+      "details": "no such column: generated_at",
+      "timestamp": "2025-09-06T00:20:34.834580"
+    },
+    {
+      "test": "OpenAI API",
+      "status": "\u2705 PASS",
+      "details": "Connected successfully",
+      "timestamp": "2025-09-06T00:20:35.640881"
+    },
+    {
+      "test": "Market Data API",
+      "status": "\u2705 PASS",
+      "details": "SPY data retrieved",
+      "timestamp": "2025-09-06T00:20:36.088038"
     }
   ]
 }

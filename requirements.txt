@@ -10,15 +10,36 @@ flask>=3.0.0
 flask-cors>=4.0.0
 flask-socketio>=5.3.0
 
+# Database - NEW
+SQLAlchemy>=2.0.23
+psycopg2-binary>=2.9.9
+alembic>=1.12.1
+
+# Caching - NEW
+redis>=5.0.1
+hiredis>=2.2.3
+
+# Async Task Queue - NEW
+celery>=5.3.4
+flower>=2.0.1
+
+# Telegram - NEW
+python-telegram-bot>=20.6
+telethon>=1.32.0
+cryptg>=0.4.0
+
 # Data analysis
 ta-lib>=0.4.28
 scikit-learn>=1.3.0
 plotly>=5.17.0
+textblob>=0.17.1
 
 # API clients
 newsapi-python>=0.2.7
 alpha-vantage>=2.3.1
 finnhub-python>=2.4.19
+openai>=1.3.7
+tweepy>=4.14.0
 
 # Utilities
 python-dotenv>=1.0.0
@@ -34,7 +55,16 @@ apscheduler>=3.10.0
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 pytest-mock>=3.11.0
+pytest-cov>=4.1.0
+black>=23.12.0
+flake8>=6.1.0
 
 # Logging and monitoring
 loguru>=0.7.2
 sentry-sdk>=1.38.0
+prometheus-client>=0.19.0
+
+# Deployment - NEW
+gunicorn>=21.2.0
+uvicorn>=0.24.0
+supervisor>=4.2.5

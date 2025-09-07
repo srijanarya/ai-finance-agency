@@ -1,0 +1,42 @@
+{
+  "timestamp": "2025-09-05T02:12:10.307158",
+  "status": {
+    "telegram": {
+      "configured": true,
+      "status": "\ud83d\udfe2 Active",
+      "details": "Channel: @AIFinanceNews2024",
+      "automation": "\u2705 Posting every 4 hours during market hours"
+    },
+    "linkedin": {
+      "status": "\ud83d\udfe1 Waiting for verification",
+      "details": "App ID: 9a47c30f-c31a-4203-a678-523772eb8230 under review",
+      "automation": "\ud83d\udcdd Manual posting with content generator",
+      "personal_configured": true,
+      "company_configured": false
+    },
+    "twitter": {
+      "configured": true,
+      "status": "\ud83d\udfe2 Ready",
+      "details": "API credentials configured",
+      "automation": "\u23f3 Ready for testing"
+    },
+    "monitoring": {
+      "configured": true,
+      "status": "\ud83d\udfe2 Active",
+      "details": "Health reports directory ready",
+      "automation": "\ud83d\udcca 15-minute health checks + daily reports"
+    },
+    "automation": {
+      "configured": true,
+      "status": "\ud83d\udfe2 Active",
+      "details": "Cron jobs installed",
+      "schedule": [
+        "Telegram: 9 AM, 1 PM, 5 PM (Mon-Fri)",
+        "LinkedIn content: 8 AM daily (Mon-Fri)",
+        "Health checks: Every 15min (9 AM-4 PM)",
+        "Daily reports: 6 PM (Mon-Fri)"
+      ]
+    }
+  },
+  "overall_health": "operational"
+}

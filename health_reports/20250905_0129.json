@@ -1,0 +1,42 @@
+{
+  "timestamp": "2025-09-05T01:29:02.879696",
+  "system_uptime": "1:29  up 7 days, 13:24, 3 users, load averages: 22.41 26.96 28.97",
+  "overall_status": "HEALTHY",
+  "processes": {
+    "timestamp": "2025-09-05T01:29:01.623366",
+    "all_healthy": true,
+    "processes": {
+      "n8n_webhook_endpoint.py": {
+        "running": true,
+        "restart_count": 0,
+        "last_restart": null
+      },
+      "multi_agent_orchestrator.py": {
+        "running": true,
+        "restart_count": 0,
+        "last_restart": null
+      },
+      "automated_scheduler.py": {
+        "running": true,
+        "restart_count": 0,
+        "last_restart": null
+      }
+    }
+  },
+  "resources": {
+    "cpu_percent": 98.6,
+    "memory_percent": 82.2,
+    "disk_percent": 39.2,
+    "memory_available_gb": 1.42034912109375,
+    "disk_free_gb": 16.23265838623047
+  },
+  "api": {
+    "api_healthy": true,
+    "response_time": 0.132037,
+    "status_code": 200
+  },
+  "recommendations": [
+    "Consider scaling to multiple servers",
+    "Monitor memory leaks, consider server upgrade"
+  ]
+}

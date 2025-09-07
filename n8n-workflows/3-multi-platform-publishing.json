@@ -1,0 +1,204 @@
+{
+  "name": "Multi-Platform Publisher",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publish-content"
+      },
+      "id": "webhook",
+      "name": "Publishing Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 400]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Platform-specific scheduling logic\nconst content = $json;\nconst hour = new Date().getHours();\nconst minute = new Date().getMinutes();\n\nconst publishSchedule = {\n  linkedin: {\n    allowed: hour >= 9 && hour <= 19,\n    frequency: 120, // minutes\n    lastPost: null\n  },\n  twitter: {\n    allowed: hour >= 7 && hour <= 22,\n    frequency: 90,\n    lastPost: null\n  },\n  telegram: {\n    allowed: hour >= 9 && hour <= 16, // Market hours\n    frequency: 60,\n    lastPost: null\n  }\n};\n\n// Check rate limits and scheduling\nconst toPublish = content.filter(item => {\n  const schedule = publishSchedule[item.platform];\n  return schedule.allowed;\n});\n\nreturn toPublish;"
+      },
+      "id": "schedule-check",
+      "name": "Check Publishing Schedule",
+      "type": "n8n-nodes-base.function",
+      "position": [450, 400]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "platform"
+      },
+      "id": "split-platforms",
+      "name": "Split by Platform",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.platform }}",
+              "operation": "equals",
+              "value2": "linkedin"
+            }
+          ]
+        }
+      },
+      "id": "route-linkedin",
+      "name": "Route to LinkedIn",
+      "type": "n8n-nodes-base.switch",
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.platform }}",
+              "operation": "equals",
+              "value2": "twitter"
+            }
+          ]
+        }
+      },
+      "id": "route-twitter",
+      "name": "Route to Twitter",
+      "type": "n8n-nodes-base.switch",
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.platform }}",
+              "operation": "equals",
+              "value2": "telegram"
+            }
+          ]
+        }
+      },
+      "id": "route-telegram",
+      "name": "Route to Telegram",
+      "type": "n8n-nodes-base.switch",
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "text": "={{ $json.content }}\\n\\n{{ $json.hashtags }}\\n{{ $json.disclaimer }}",
+        "additionalFields": {
+          "visibility": "PUBLIC"
+        }
+      },
+      "id": "linkedin-post",
+      "name": "LinkedIn Post",
+      "type": "n8n-nodes-base.linkedin",
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.thread[0].content }}\\n\\n{{ $json.hashtags }}",
+        "additionalFields": {}
+      },
+      "id": "twitter-post",
+      "name": "Twitter Post",
+      "type": "n8n-nodes-base.twitter",
+      "position": [1050, 400]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_CHANNEL_ID }}",
+        "text": "={{ $json.content }}\\n{{ $json.metrics }}\\n\\n{{ $json.disclaimer }}\\n\\n{{ $json.readMore }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "telegram-post",
+      "name": "Telegram Post",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1050, 500]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Handle Twitter threads\nconst thread = $json.thread;\n\nif (thread.length > 1) {\n  // Post remaining tweets as replies\n  const replies = thread.slice(1);\n  return replies;\n}\n\nreturn [];"
+      },
+      "id": "twitter-thread",
+      "name": "Handle Twitter Thread",
+      "type": "n8n-nodes-base.function",
+      "position": [1250, 400]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "publishing_log",
+        "columns": "platform,status,content_id,posted_at,response"
+      },
+      "id": "log-success",
+      "name": "Log Success",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1450, 400]
+    },
+    {
+      "parameters": {
+        "message": "=Content published to {{ $json.platform }} successfully!",
+        "additionalFields": {}
+      },
+      "id": "success-notification",
+      "name": "Success Notification",
+      "type": "n8n-nodes-base.slack",
+      "position": [1650, 400]
+    }
+  ],
+  "connections": {
+    "webhook": {
+      "main": [[ { "node": "schedule-check", "type": "main", "index": 0 } ]]
+    },
+    "schedule-check": {
+      "main": [[ { "node": "split-platforms", "type": "main", "index": 0 } ]]
+    },
+    "split-platforms": {
+      "main": [[
+        { "node": "route-linkedin", "type": "main", "index": 0 },
+        { "node": "route-twitter", "type": "main", "index": 0 },
+        { "node": "route-telegram", "type": "main", "index": 0 }
+      ]]
+    },
+    "route-linkedin": {
+      "main": [
+        [ { "node": "linkedin-post", "type": "main", "index": 0 } ],
+        []
+      ]
+    },
+    "route-twitter": {
+      "main": [
+        [ { "node": "twitter-post", "type": "main", "index": 0 } ],
+        []
+      ]
+    },
+    "route-telegram": {
+      "main": [
+        [ { "node": "telegram-post", "type": "main", "index": 0 } ],
+        []
+      ]
+    },
+    "linkedin-post": {
+      "main": [[ { "node": "log-success", "type": "main", "index": 0 } ]]
+    },
+    "twitter-post": {
+      "main": [[
+        { "node": "twitter-thread", "type": "main", "index": 0 },
+        { "node": "log-success", "type": "main", "index": 0 }
+      ]]
+    },
+    "telegram-post": {
+      "main": [[ { "node": "log-success", "type": "main", "index": 0 } ]]
+    },
+    "twitter-thread": {
+      "main": [[ { "node": "log-success", "type": "main", "index": 0 } ]]
+    },
+    "log-success": {
+      "main": [[ { "node": "success-notification", "type": "main", "index": 0 } ]]
+    }
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "name": "AI Content Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-generation"
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 350]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM market_data ORDER BY timestamp DESC LIMIT 10"
+      },
+      "id": "get-recent-data",
+      "name": "Get Recent Market Data",
+      "type": "n8n-nodes-base.postgres",
+      "position": [450, 350]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Abid Hassan Options Strategy Implementation\nconst marketData = $json;\n\n// Determine content type based on market conditions\nfunction determineContentType(data) {\n  const hour = new Date().getHours();\n  const dayOfWeek = new Date().getDay();\n  \n  // Market volatility check\n  const volatility = Math.abs(data[0].change_percent);\n  \n  if (volatility > 2) {\n    return 'volatility_analysis';\n  } else if (hour === 9 && dayOfWeek !== 0 && dayOfWeek !== 6) {\n    return 'market_open_analysis';\n  } else if (hour === 15 && dayOfWeek !== 0 && dayOfWeek !== 6) {\n    return 'market_close_summary';\n  } else if (dayOfWeek === 1 && hour === 8) {\n    return 'weekly_outlook';\n  } else if (dayOfWeek === 5 && hour === 16) {\n    return 'weekly_review';\n  } else {\n    // Rotate through different content types\n    const types = [\n      'educational_options',\n      'market_analysis',\n      'sector_focus',\n      'options_strategy',\n      'risk_management'\n    ];\n    return types[Math.floor(Math.random() * types.length)];\n  }\n}\n\nconst contentType = determineContentType(marketData);\n\n// Generate prompts based on content type\nconst prompts = {\n  volatility_analysis: `Analyze the current market volatility with NIFTY at ${marketData[0].price} showing ${marketData[0].change_percent}% change. Focus on options strategies for volatile markets following Abid Hassan's methodology. Include specific strike prices and risk management.`,\n  \n  market_open_analysis: `Create a market opening analysis for Indian markets. NIFTY: ${marketData[0].price}, BANKNIFTY: ${marketData[1]?.price}, SENSEX: ${marketData[2]?.price}. Highlight key levels, options OI data, and potential intraday strategies.`,\n  \n  market_close_summary: `Summarize today's market action with closing data. Analyze the day's price action, volume patterns, and prepare outlook for tomorrow. Include options chain analysis.`,\n  \n  weekly_outlook: `Generate a comprehensive weekly outlook for Indian markets. Include technical analysis, event calendar, and options strategies for the week. Focus on NIFTY and BANKNIFTY levels.`,\n  \n  educational_options: `Create educational content about options trading concepts. Make it practical with current market examples. Topic: ${['Greeks', 'IV Crush', 'Options Spreads', 'Risk Management'][Math.floor(Math.random() * 4)]}`,\n  \n  options_strategy: `Explain an options strategy suitable for current market conditions. Include entry/exit rules, risk-reward ratios, and adjustment techniques as per Abid Hassan's approach.`,\n  \n  sector_focus: `Analyze a specific sector's performance and options opportunities. Include top stocks, sectoral rotation insights, and hedging strategies.`,\n  \n  risk_management: `Create content on risk management in options trading. Include position sizing, stop-loss strategies, and portfolio hedging techniques.`\n};\n\nreturn {\n  contentType,\n  prompt: prompts[contentType],\n  marketData: marketData[0],\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "generate-prompt",
+      "name": "Generate Content Prompt",
+      "type": "n8n-nodes-base.function",
+      "position": [650, 350]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert financial content creator specializing in Indian markets and options trading. Follow Abid Hassan's methodology. Always include disclaimers. Use professional but accessible language."
+            },
+            {
+              "role": "user",
+              "content": "={{ $json.prompt }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 1000
+        }
+      },
+      "id": "openai-generate",
+      "name": "OpenAI Generate Content",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [850, 350]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Format content for different platforms\nconst content = $json.choices[0].message.content;\nconst marketData = $node['generate-prompt'].json.marketData;\n\n// LinkedIn Version (Long-form)\nconst linkedinContent = {\n  platform: 'linkedin',\n  content: content,\n  hashtags: '#IndianStockMarket #NIFTY #OptionsTrading #StockMarket #Trading #FinancialMarkets #InvestmentStrategy',\n  disclaimer: '\\n\\n📊 Disclaimer: This is for educational purposes only. Not investment advice. Please consult your financial advisor.',\n  length: content.length\n};\n\n// Twitter Version (Thread)\nfunction createTwitterThread(text) {\n  const sentences = text.match(/[^.!?]+[.!?]+/g) || [];\n  const tweets = [];\n  let currentTweet = '';\n  \n  sentences.forEach(sentence => {\n    if ((currentTweet + sentence).length <= 250) {\n      currentTweet += sentence;\n    } else {\n      if (currentTweet) tweets.push(currentTweet.trim());\n      currentTweet = sentence;\n    }\n  });\n  \n  if (currentTweet) tweets.push(currentTweet.trim());\n  \n  // Add thread numbering\n  return tweets.map((tweet, i) => ({\n    content: `${i > 0 ? `${i+1}/` : ''}${tweets.length > 1 ? `${tweets.length} ` : ''}${tweet}`,\n    isThread: tweets.length > 1,\n    position: i + 1\n  }));\n}\n\nconst twitterContent = {\n  platform: 'twitter',\n  thread: createTwitterThread(content.substring(0, 1000)),\n  hashtags: '#NIFTY #OptionsTrading #StockMarket',\n  metrics: `NIFTY: ${marketData.price} (${marketData.change_percent}%)`\n};\n\n// Telegram Version (Concise)\nconst telegramContent = {\n  platform: 'telegram',\n  content: content.substring(0, 500) + '...',\n  metrics: `\n📈 NIFTY: ${marketData.price} (${marketData.change_percent}%)\n📊 Volume: ${(marketData.volume/1000000).toFixed(2)}M`,\n  disclaimer: '⚠️ Educational content only. Not investment advice.',\n  readMore: 'Full analysis on LinkedIn'\n};\n\nreturn [\n  linkedinContent,\n  twitterContent,\n  telegramContent\n];"
+      },
+      "id": "format-platforms",
+      "name": "Format for Platforms",
+      "type": "n8n-nodes-base.function",
+      "position": [1050, 350]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT content_hash FROM content_history WHERE created_at > NOW() - INTERVAL '7 days'"
+      },
+      "id": "check-duplicate",
+      "name": "Check Duplicate Content",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1250, 450]
+    },
+    {
+      "parameters": {
+        "functionCode": "// Check content uniqueness\nconst newContent = $node['format-platforms'].json;\nconst existingHashes = $json.map(row => row.content_hash);\n\nconst crypto = require('crypto');\n\nfunction generateHash(text) {\n  return crypto.createHash('md5').update(text).digest('hex');\n}\n\n// Check each platform's content\nconst results = newContent.map(item => {\n  const contentText = item.platform === 'twitter' \n    ? item.thread.map(t => t.content).join(' ')\n    : item.content;\n    \n  const hash = generateHash(contentText.substring(0, 200));\n  const isDuplicate = existingHashes.includes(hash);\n  \n  return {\n    ...item,\n    contentHash: hash,\n    isDuplicate: isDuplicate,\n    shouldPost: !isDuplicate\n  };\n});\n\nreturn results.filter(item => item.shouldPost);"
+      },
+      "id": "filter-unique",
+      "name": "Filter Unique Content",
+      "type": "n8n-nodes-base.function",
+      "position": [1450, 350]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "table": "content_history",
+        "columns": "platform,content,content_hash,content_type,created_at"
+      },
+      "id": "store-content",
+      "name": "Store Content History",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1650, 350]
+    },
+    {
+      "parameters": {
+        "url": "{{ $env.N8N_WEBHOOK_URL }}/webhook/publish-content",
+        "method": "POST",
+        "body": "={{ $json }}",
+        "options": {}
+      },
+      "id": "trigger-publish",
+      "name": "Trigger Publishing",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1850, 350]
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [[ { "node": "get-recent-data", "type": "main", "index": 0 } ]]
+    },
+    "get-recent-data": {
+      "main": [[ { "node": "generate-prompt", "type": "main", "index": 0 } ]]
+    },
+    "generate-prompt": {
+      "main": [[ { "node": "openai-generate", "type": "main", "index": 0 } ]]
+    },
+    "openai-generate": {
+      "main": [[ { "node": "format-platforms", "type": "main", "index": 0 } ]]
+    },
+    "format-platforms": {
+      "main": [[ { "node": "check-duplicate", "type": "main", "index": 0 } ]]
+    },
+    "check-duplicate": {
+      "main": [[ { "node": "filter-unique", "type": "main", "index": 0 } ]]
+    },
+    "filter-unique": {
+      "main": [[
+        { "node": "store-content", "type": "main", "index": 0 },
+        { "node": "trigger-publish", "type": "main", "index": 0 }
+      ]]
+    }
+  }
+}

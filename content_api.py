@@ -11,12 +11,14 @@ import json
 import os
 import sys
 from fix_content_generation import UniqueContentGenerator
+from pro_content_generator import ProContentGenerator
 
 app = Flask(__name__)
 CORS(app)  # Allow N8N to access this API
 
-# Initialize content generator
-generator = UniqueContentGenerator()
+# Initialize content generators
+old_generator = UniqueContentGenerator()
+pro_generator = ProContentGenerator()
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -35,22 +37,60 @@ def generate_content():
         data = request.get_json() or {}
         platform = data.get('platform', 'linkedin')
         
-        # Generate unique content
-        result = generator.generate_unique_content(platform=platform)
+        # Use professional content generator for better engagement
+        # Switch between generators based on platform or preference
+        use_pro = data.get('use_pro', True)  # Default to pro content
+        
+        if use_pro:
+            result = pro_generator.generate_content(platform=platform)
+            # Normalize pro generator response
+            if 'success' in result and result['success']:
+                content = result['content']
+                content_type = result['type'] 
+                timestamp = result['timestamp']
+                unique = True
+            else:
+                raise Exception("Pro generator failed")
+        else:
+            result = old_generator.generate_unique_content(platform=platform)
+            content = result['content']
+            content_type = result['type']
+            timestamp = result['timestamp'] 
+            unique = result.get('unique', True)
         
         # Format for different platforms
-        formatted_content = format_for_platform(result['content'], platform)
+        formatted_content = format_for_platform(content, platform)
+        
+        # Separate content and hashtags for N8N workflow
+        if platform == 'linkedin' and '\n\n#' in formatted_content:
+            content_parts = formatted_content.split('\n\n#')
+            main_content = content_parts[0]
+            hashtags = '#' + content_parts[1] if len(content_parts) > 1 else ''
+        else:
+            main_content = formatted_content
+            hashtags = ''
+        
+        # Create normalized result for logging
+        normalized_result = {
+            'content': content,
+            'type': content_type,
+            'timestamp': timestamp,
+            'platform': platform,
+            'unique': unique
+        }
         
         # Track generation in log
-        log_generation(result, platform)
+        log_generation(normalized_result, platform)
         
         return jsonify({
             "success": True,
-            "content": formatted_content,
-            "type": result['type'],
+            "content": main_content,
+            "hashtags": hashtags,
+            "disclaimer": "",
+            "type": content_type,
             "platform": platform,
-            "timestamp": result['timestamp'],
-            "unique": result['unique'],
+            "timestamp": timestamp,
+            "unique": unique,
             "metadata": {
                 "length": len(formatted_content),
                 "has_hashtags": '#' in formatted_content,
@@ -70,9 +110,9 @@ def get_stats():
     """Get content generation statistics"""
     try:
         stats = {
-            "total_generated": len(generator.content_history),
-            "content_types_available": len(generator.content_types),
-            "last_type_used": generator.last_content_type,
+            "total_generated": len(old_generator.content_history),
+            "content_types_available": len(old_generator.content_types),
+            "last_type_used": old_generator.last_content_type,
             "timestamp": datetime.now().isoformat()
         }
         
@@ -118,11 +158,9 @@ def format_for_platform(content: str, platform: str) -> str:
     """Format content for specific platform"""
     
     if platform == 'telegram':
-        # Telegram: Shorter, more direct
-        lines = content.split('\n')
-        if len(lines) > 5:
-            # Take first 3 lines and add read more
-            content = '\n'.join(lines[:3]) + '\n\n📖 Full analysis: @AIFinanceNews2024'
+        # Telegram: Keep full content but add channel link at end
+        if '@AIFinanceNews2024' not in content:
+            content = content + '\n\n📊 Follow: @AIFinanceNews2024'
             
     elif platform == 'twitter':
         # Twitter: 280 character limit

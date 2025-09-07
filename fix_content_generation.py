@@ -80,11 +80,11 @@ class UniqueContentGenerator:
             "investment_strategy"
         ]
         
-        if platform == 'linkedin':
-            # Use only LinkedIn-approved types
+        if platform in ['linkedin', 'twitter']:
+            # LinkedIn and Twitter use the same 7 professional types
             available_types = [t for t in linkedin_types if t != self.last_content_type]
         else:
-            # Other platforms get all 10 types
+            # Other platforms (Telegram, Slack) get all 10 types
             available_types = [t for t in self.content_types if t != self.last_content_type]
             
         next_type = random.choice(available_types)
@@ -97,6 +97,27 @@ class UniqueContentGenerator:
         
         for attempt in range(max_attempts):
             content_type = self.get_next_content_type(platform=platform)
+            
+            # For LinkedIn, use Treum Algotech professional style
+            if platform == 'linkedin' and content_type == 'market_analysis':
+                # Import the professional generator
+                try:
+                    from treum_algotech_content import TreumAlgotechContent
+                    treum = TreumAlgotechContent()
+                    professional_content = treum.generate_market_intelligence_report()
+                    
+                    if professional_content and not self.is_duplicate(professional_content):
+                        self.add_to_history(professional_content)
+                        return {
+                            "content": professional_content,
+                            "type": "market_intelligence_treum",
+                            "timestamp": datetime.now().isoformat(),
+                            "unique": True,
+                            "professional": True
+                        }
+                except Exception as e:
+                    print(f"Treum content generation failed: {e}")
+                    # Fall back to regular generation
             
             # Dynamic prompt based on content type
             prompts = {

@@ -11,6 +11,11 @@ import requests
 from datetime import datetime
 from coherent_content_generator import CoherentContentGenerator
 from engagement_optimizer_v2 import EngagementOptimizerV2
+from dotenv import load_dotenv
+
+# Load environment variables from .env if not in GitHub Actions
+if not os.getenv('GITHUB_ACTIONS'):
+    load_dotenv()
 
 class CloudPoster:
     """Posts content from GitHub Actions"""

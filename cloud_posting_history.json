@@ -1,9 +1,11 @@
 {
   "last_types": [
-    "trading_tool",
-    "options_win_story",
-    "smart_investment"
+    "tax_strategies",
+    "successful_trade",
+    "market_insight",
+    "options_loss_story",
+    "options_win_story"
   ],
-  "posts_today": 0,
+  "posts_today": 2,
   "last_post_date": "2025-09-07"
 }

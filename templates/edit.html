@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Content</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        .header {
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .metadata {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        
+        .metadata-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .metadata-label {
+            color: #666;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .metadata-value {
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .platform-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .linkedin { background: #0077B5; color: white; }
+        .twitter { background: #1DA1F2; color: white; }
+        .telegram { background: #0088cc; color: white; }
+        
+        .edit-section {
+            margin: 30px 0;
+        }
+        
+        .form-label {
+            color: #333;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .textarea-container {
+            position: relative;
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 300px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1.6;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .character-counter {
+            position: absolute;
+            bottom: 10px;
+            right: 15px;
+            background: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #666;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .counter-warning {
+            color: #e74c3c;
+            font-weight: 600;
+        }
+        
+        .counter-ok {
+            color: #27ae60;
+        }
+        
+        .guidelines {
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        
+        .guidelines h3 {
+            color: #2c3e50;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .guidelines ul {
+            color: #555;
+            font-size: 14px;
+            line-height: 1.8;
+            padding-left: 20px;
+        }
+        
+        .validation-result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .validation-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .validation-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .validation-issues {
+            margin-top: 10px;
+        }
+        
+        .issue-item {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-save {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-save:hover {
+            background: #229954;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+        }
+        
+        .btn-cancel {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-cancel:hover {
+            background: #7f8c8d;
+        }
+        
+        .btn-validate {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-validate:hover {
+            background: #2980b9;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .theme-selector {
+            margin: 20px 0;
+        }
+        
+        .theme-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .theme-btn {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .theme-btn:hover {
+            border-color: #667eea;
+            background: #f8f9ff;
+        }
+        
+        .theme-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✏️ Edit Content</h1>
+            <div class="metadata">
+                <div class="metadata-item">
+                    <span class="metadata-label">Platform:</span>
+                    <span class="platform-badge {{ content.platform }}">{{ content.platform }}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">ID:</span>
+                    <span class="metadata-value">{{ content.approval_id }}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Theme:</span>
+                    <span class="metadata-value">{{ content.theme|title|replace('_', ' ') }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="guidelines">
+            <h3>📝 Content Guidelines</h3>
+            <ul>
+                <li>NO specific market numbers (e.g., "Nifty at 26,000")</li>
+                <li>NO exact percentages or rates</li>
+                <li>Focus on trends, strategies, and insights</li>
+                <li>Use relative terms like "current levels", "recent highs"</li>
+                <li>Keep content educational and evergreen</li>
+                {% if content.platform == 'twitter' %}
+                <li>⚠️ Maximum 280 characters for Twitter</li>
+                {% endif %}
+            </ul>
+        </div>
+        
+        <div class="edit-section">
+            <label class="form-label" for="content-textarea">Content</label>
+            <div class="textarea-container">
+                <textarea id="content-textarea" placeholder="Enter your content here...">{{ content.content }}</textarea>
+                <div class="character-counter" id="char-counter">0 characters</div>
+            </div>
+        </div>
+        
+        <div class="validation-result" id="validation-result"></div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px; color: #666;">Validating content...</p>
+        </div>
+        
+        <div class="actions">
+            <button class="btn btn-save" onclick="saveContent()">
+                💾 Save & Validate
+            </button>
+            <button class="btn btn-validate" onclick="validateOnly()">
+                🔍 Validate Only
+            </button>
+            <button class="btn btn-cancel" onclick="cancelEdit()">
+                Cancel
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        const approvalId = '{{ content.approval_id }}';
+        const platform = '{{ content.platform }}';
+        const textarea = document.getElementById('content-textarea');
+        const charCounter = document.getElementById('char-counter');
+        const validationResult = document.getElementById('validation-result');
+        const loading = document.getElementById('loading');
+        
+        function updateCharCounter() {
+            const length = textarea.value.length;
+            let html = `${length} characters`;
+            
+            if (platform === 'twitter') {
+                if (length > 280) {
+                    html = `<span class="counter-warning">${length}/280 characters (will be truncated)</span>`;
+                } else {
+                    html = `<span class="counter-ok">${length}/280 characters</span>`;
+                }
+            }
+            
+            charCounter.innerHTML = html;
+        }
+        
+        textarea.addEventListener('input', updateCharCounter);
+        updateCharCounter();
+        
+        async function saveContent() {
+            const content = textarea.value.trim();
+            
+            if (!content) {
+                alert('Content cannot be empty');
+                return;
+            }
+            
+            loading.style.display = 'block';
+            validationResult.style.display = 'none';
+            
+            try {
+                const response = await fetch(`/edit/${approvalId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ content: content })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.safe) {
+                        validationResult.className = 'validation-result validation-success';
+                        validationResult.innerHTML = '✅ Content saved and validated successfully! No issues found.';
+                        
+                        setTimeout(() => {
+                            if (confirm('Content is safe! Return to dashboard?')) {
+                                window.location.href = '/';
+                            }
+                        }, 1500);
+                    } else {
+                        validationResult.className = 'validation-result validation-error';
+                        validationResult.innerHTML = '⚠️ Content saved but has validation issues. Please review and fix.';
+                    }
+                } else {
+                    validationResult.className = 'validation-result validation-error';
+                    validationResult.innerHTML = '❌ Failed to save content. Please try again.';
+                }
+                
+                validationResult.style.display = 'block';
+            } catch (error) {
+                validationResult.className = 'validation-result validation-error';
+                validationResult.innerHTML = '❌ Error saving content: ' + error.message;
+                validationResult.style.display = 'block';
+            }
+            
+            loading.style.display = 'none';
+        }
+        
+        async function validateOnly() {
+            const content = textarea.value.trim();
+            
+            if (!content) {
+                alert('Content cannot be empty');
+                return;
+            }
+            
+            loading.style.display = 'block';
+            validationResult.style.display = 'none';
+            
+            // Simulate validation (in real app, this would call an API)
+            setTimeout(() => {
+                const hasNumbers = /\d+[,.]?\d{3,}/.test(content);
+                const hasPercentages = /\d+(\.\d+)?%/.test(content);
+                
+                if (hasNumbers || hasPercentages) {
+                    validationResult.className = 'validation-result validation-error';
+                    validationResult.innerHTML = `
+                        <strong>⚠️ Validation Issues Found:</strong>
+                        <div class="validation-issues">
+                            ${hasNumbers ? '<div class="issue-item">• Contains specific numbers</div>' : ''}
+                            ${hasPercentages ? '<div class="issue-item">• Contains specific percentages</div>' : ''}
+                        </div>
+                    `;
+                } else {
+                    validationResult.className = 'validation-result validation-success';
+                    validationResult.innerHTML = '✅ Content is safe! No specific numbers or data found.';
+                }
+                
+                validationResult.style.display = 'block';
+                loading.style.display = 'none';
+            }, 1000);
+        }
+        
+        function cancelEdit() {
+            if (confirm('Are you sure you want to cancel? Unsaved changes will be lost.')) {
+                window.location.href = '/';
+            }
+        }
+        
+        // Auto-save draft every 30 seconds
+        setInterval(() => {
+            localStorage.setItem(`draft_${approvalId}`, textarea.value);
+        }, 30000);
+        
+        // Load draft if exists
+        window.addEventListener('load', () => {
+            const draft = localStorage.getItem(`draft_${approvalId}`);
+            if (draft && draft !== textarea.value) {
+                if (confirm('A draft was found. Would you like to restore it?')) {
+                    textarea.value = draft;
+                    updateCharCounter();
+                }
+            }
+        });
+        
+        // Clear draft on successful save
+        window.addEventListener('beforeunload', (e) => {
+            if (textarea.value !== '{{ content.content }}') {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+            }
+        });
+    </script>
+</body>
+</html>

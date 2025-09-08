@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Cloud-based poster for GitHub Actions
-Runs in the cloud without needing local Mac
+Now uses Centralized Posting Queue to prevent duplicates
 """
 import os
 import sys
@@ -11,6 +11,7 @@ import requests
 from datetime import datetime
 from content_quality_system import ContentQualitySystem
 from posting_monitor import PostingMonitor
+from centralized_posting_queue import posting_queue, Platform, Priority
 from dotenv import load_dotenv
 
 # Load environment variables from .env if not in GitHub Actions
@@ -42,39 +43,18 @@ class CloudPoster:
             'investment_mistake'
         ]
         
-        # Load posting history to avoid duplicates
-        self.history_file = 'cloud_posting_history.json'
-        self.load_history()
+        # Use centralized posting queue instead of local history
+        self.posting_queue = posting_queue
     
-    def load_history(self):
-        """Load posting history"""
-        if os.path.exists(self.history_file):
-            with open(self.history_file, 'r') as f:
-                self.history = json.load(f)
-        else:
-            self.history = {
-                'last_types': [],
-                'posts_today': 0,
-                'last_post_date': None
-            }
-    
-    def save_history(self):
-        """Save posting history"""
-        with open(self.history_file, 'w') as f:
-            json.dump(self.history, f, indent=2)
+    def get_queue_status(self):
+        """Get status from centralized queue"""
+        return self.posting_queue.get_queue_status()
     
     def get_next_content_type(self):
         """Get diverse content type"""
-        # Avoid repeating last 3 types
-        available = [ct for ct in self.content_types 
-                    if ct not in self.history['last_types'][-3:]]
-        
-        if not available:
-            available = self.content_types
-        
-        # Weight towards success and education
+        # Simple random selection - queue system handles deduplication
         weights = []
-        for ct in available:
+        for ct in self.content_types:
             if 'loss' in ct or 'mistake' in ct:
                 weights.append(0.5)  # Lower weight for losses
             elif 'win' in ct or 'successful' in ct:
@@ -85,17 +65,12 @@ class CloudPoster:
         # Normalize and select
         total = sum(weights)
         weights = [w/total for w in weights]
-        selected = random.choices(available, weights=weights)[0]
-        
-        # Update history
-        self.history['last_types'].append(selected)
-        if len(self.history['last_types']) > 5:
-            self.history['last_types'] = self.history['last_types'][-5:]
+        selected = random.choices(self.content_types, weights=weights)[0]
         
         return selected
     
-    def generate_content(self, platform):
-        """Generate optimized content using quality system"""
+    def generate_and_queue_content(self, platform):
+        """Generate content and add to centralized queue"""
         content_type = self.get_next_content_type()
         
         print(f"📝 Generating {content_type} for {platform}...")
@@ -113,210 +88,104 @@ class CloudPoster:
             if result.get('issues_fixed', 0) > 0:
                 print(f"   Auto-fixed {result['issues_fixed']} issues")
             
-            return result
+            # Add to centralized queue instead of posting directly
+            queue_result = self.posting_queue.add_to_queue(
+                content=result['content'],
+                platform=platform,
+                priority=Priority.NORMAL,
+                source='cloud_poster',
+                metadata={
+                    'content_type': content_type,
+                    'quality_score': result.get('quality_score'),
+                    'validation_status': result.get('validation_status')
+                }
+            )
+            
+            if queue_result['success']:
+                print(f"📋 Added to queue: {queue_result['item_id']}")
+                print(f"   Queue Position: {queue_result['queue_position']}")
+            else:
+                print(f"⚠️ Queue add failed: {queue_result['message']}")
+                if queue_result.get('reason') == 'duplicate':
+                    print(f"   Content hash: {queue_result['content_hash']}")
+            
+            return queue_result
         else:
             print(f"❌ Generation failed for {content_type}")
             print(f"   Issues: {result.get('issues', [])}")
             return None
     
-    def post_to_linkedin(self, content):
-        """Post to LinkedIn"""
-        token = os.getenv('LINKEDIN_ACCESS_TOKEN')
-        if not token:
-            print("❌ No LinkedIn token in GitHub Secrets")
-            return False
-        
-        # Get user ID
-        headers = {
-            'Authorization': f'Bearer {token}',
-            'X-Restli-Protocol-Version': '2.0.0'
-        }
-        
-        user_response = requests.get(
-            'https://api.linkedin.com/v2/userinfo',
-            headers=headers
-        )
-        
-        if user_response.status_code != 200:
-            print(f"❌ LinkedIn auth failed: {user_response.status_code}")
-            return False
-        
-        user_id = user_response.json().get('sub')
-        
-        # Post content
-        post_data = {
-            "author": f"urn:li:person:{user_id}",
-            "lifecycleState": "PUBLISHED",
-            "specificContent": {
-                "com.linkedin.ugc.ShareContent": {
-                    "shareCommentary": {
-                        "text": content['content'][:1300]
-                    },
-                    "shareMediaCategory": "NONE"
-                }
-            },
-            "visibility": {
-                "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"
-            }
-        }
-        
-        headers['Content-Type'] = 'application/json'
-        response = requests.post(
-            'https://api.linkedin.com/v2/ugcPosts',
-            headers=headers,
-            json=post_data
-        )
-        
-        if response.status_code in [200, 201]:
-            print(f"✅ Posted to LinkedIn!")
-            return True
-        else:
-            print(f"❌ LinkedIn post failed: {response.status_code}")
-            return False
-    
-    def post_to_twitter(self, content):
-        """Post to Twitter/X using API v2"""
-        import tweepy
-        
-        # Twitter API v2 credentials
-        bearer_token = os.getenv('TWITTER_BEARER_TOKEN')
-        consumer_key = os.getenv('TWITTER_CONSUMER_KEY')
-        consumer_secret = os.getenv('TWITTER_CONSUMER_SECRET')
-        access_token = os.getenv('TWITTER_ACCESS_TOKEN')
-        access_token_secret = os.getenv('TWITTER_ACCESS_TOKEN_SECRET')
-        
-        if not all([bearer_token, consumer_key, consumer_secret, access_token, access_token_secret]):
-            print("❌ Missing Twitter credentials in GitHub Secrets")
-            return False
-        
-        try:
-            # Use Twitter API v2 Client
-            client = tweepy.Client(
-                bearer_token=bearer_token,
-                consumer_key=consumer_key,
-                consumer_secret=consumer_secret,
-                access_token=access_token,
-                access_token_secret=access_token_secret,
-                wait_on_rate_limit=True
-            )
-            
-            # Post tweet (280 char limit)
-            tweet_text = content['content']
-            if len(tweet_text) > 280:
-                tweet_text = tweet_text[:277] + "..."
-            
-            # Use v2 API method
-            tweet = client.create_tweet(text=tweet_text)
-            print(f"✅ Posted to Twitter/X!")
-            print(f"   Tweet ID: {tweet.data['id']}")
-            return True
-        except Exception as e:
-            print(f"❌ Twitter post failed: {e}")
-            return False
-    
-    def post_to_telegram(self, content):
-        """Post to Telegram"""
-        bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-        channel_id = os.getenv('TELEGRAM_CHANNEL_ID', '@AIFinanceNews2024')
-        
-        if not bot_token:
-            print("❌ No Telegram token in GitHub Secrets")
-            return False
-        
-        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        
-        # Add channel link if not present
-        text = content['content']
-        if '@AIFinanceNews2024' not in text:
-            text += '\n\n📊 Follow: @AIFinanceNews2024'
-        
-        payload = {
-            'chat_id': channel_id,
-            'text': text[:4096],
-            'parse_mode': 'HTML'
-        }
-        
-        response = requests.post(url, json=payload)
-        
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('ok'):
-                print(f"✅ Posted to Telegram!")
-                return True
-        
-        print(f"❌ Telegram post failed")
-        return False
+    # Posting methods moved to centralized queue - no direct posting here
     
     def run(self):
-        """Main execution for GitHub Actions"""
+        """Main execution - Generate content and add to centralized queue"""
         print("="*60)
-        print("🌩️ CLOUD POSTER - GitHub Actions")
+        print("🌩️ CLOUD POSTER - Centralized Queue Mode")
         print("="*60)
         print(f"Time: {datetime.now()}")
         print(f"Running from: GitHub Actions (Cloud)")
         
-        # Check if we've already posted today
-        today = datetime.now().date().isoformat()
-        if self.history.get('last_post_date') == today:
-            if self.history['posts_today'] >= 3:
-                print("⚠️ Already posted 3 times today. Skipping.")
-                return
-        else:
-            self.history['posts_today'] = 0
-            self.history['last_post_date'] = today
+        # Get current queue status
+        status = self.get_queue_status()
+        print(f"\n📊 Current Queue Status:")
+        print(f"   Pending: {status['queue_counts'].get('pending', 0)}")
+        print(f"   Posted Today: {status['queue_counts'].get('posted', 0)}")
+        print(f"   Duplicates Prevented: {status['duplicate_stats']['duplicates_prevented']}")
         
-        results = []
+        queue_results = []
         
-        # Post to LinkedIn
-        print("\n📘 LinkedIn Post:")
-        content = self.generate_content('linkedin')
-        if content:
-            if self.post_to_linkedin(content):
-                results.append('LinkedIn')
+        # Generate and queue content for LinkedIn
+        print("\n📘 LinkedIn Content:")
+        result = self.generate_and_queue_content('linkedin')
+        if result:
+            queue_results.append(('LinkedIn', result))
         
-        # Post to Twitter/X
-        print("\n🐦 Twitter/X Post:")
-        content = self.generate_content('twitter')
-        if content:
-            if self.post_to_twitter(content):
-                results.append('Twitter')
+        # Generate and queue content for Twitter/X
+        print("\n🐦 Twitter/X Content:")
+        result = self.generate_and_queue_content('twitter')
+        if result:
+            queue_results.append(('Twitter', result))
         
-        # Post to Telegram
-        print("\n💬 Telegram Post:")
-        content = self.generate_content('telegram')
-        if content:
-            if self.post_to_telegram(content):
-                results.append('Telegram')
+        # Generate and queue content for Telegram
+        print("\n💬 Telegram Content:")
+        result = self.generate_and_queue_content('telegram')
+        if result:
+            queue_results.append(('Telegram', result))
         
-        # Update history
-        self.history['posts_today'] += len(results)
-        self.save_history()
+        # Process some items from the queue
+        print("\n🔄 Processing Queue:")
+        process_results = self.posting_queue.process_queue(max_items=3)
         
         # Summary
         print("\n" + "="*60)
-        print("📊 POSTING SUMMARY")
+        print("📊 EXECUTION SUMMARY")
         print("="*60)
         
-        if results:
-            print(f"✅ Successfully posted to: {', '.join(results)}")
-            print(f"📈 Posts today: {self.history['posts_today']}/3")
-            print("🚀 Running in the cloud - no Mac needed!")
-        else:
-            print("❌ No successful posts")
-            print("Check GitHub Secrets are configured:")
-            print("  - LINKEDIN_ACCESS_TOKEN")
-            print("  - TELEGRAM_BOT_TOKEN")
+        successful_queued = [platform for platform, result in queue_results if result and result.get('success')]
+        duplicates = [platform for platform, result in queue_results if result and result.get('reason') == 'duplicate']
         
-        # Commit history file back to repo
-        if results and os.getenv('GITHUB_ACTIONS'):
-            print("\n📝 Updating posting history...")
-            os.system(f"""
-                git config --local user.email "action@github.com"
-                git config --local user.name "GitHub Action"
-                git add {self.history_file}
-                git diff --staged --quiet || git commit -m "Update posting history [skip ci]"
-                git push || echo "Could not push history update"
-            """)
+        if successful_queued:
+            print(f"✅ Content queued for: {', '.join(successful_queued)}")
+        if duplicates:
+            print(f"⚠️ Duplicates prevented for: {', '.join(duplicates)}")
+        
+        print(f"\n🔄 Queue Processing:")
+        print(f"   Processed: {process_results['processed']}")
+        print(f"   Posted: {process_results['successful']}")
+        print(f"   Failed: {process_results['failed']}")
+        print(f"   Skipped: {process_results['skipped']}")
+        
+        print("\n🚀 Using centralized queue - no duplicates possible!")
+        print("📊 Dashboard: http://localhost:5001")
+        
+        # Return results for GitHub Actions
+        return {
+            'content_generated': len(queue_results),
+            'successfully_queued': len(successful_queued),
+            'duplicates_prevented': len(duplicates),
+            'posts_executed': process_results['successful'],
+            'posts_failed': process_results['failed']
+        }
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ import random
 import requests
 from datetime import datetime
 from content_quality_system import ContentQualitySystem
+from posting_monitor import PostingMonitor
 from dotenv import load_dotenv
 
 # Load environment variables from .env if not in GitHub Actions

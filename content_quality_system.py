@@ -36,11 +36,20 @@ class ContentQualitySystem:
         
         IMPORTANT: Use ONLY current date ({current_date}) in your content. Do NOT use old dates like 2023.
         
+        ACCURATE INDIAN MARKET DATA (Sept 2025):
+        - Nifty 50: ~26,000 points
+        - Sensex: ~85,000 points
+        - RBI Repo Rate: 6.5%
+        - India 10Y Bond: ~7.2%
+        - FY in India: April-March (FY25-26 ends March 2026)
+        - LTCG tax on equity: 12.5%
+        - STCG tax on equity: 20%
+        
         Provide:
-        1. Current market trend or event (as of {current_date})
-        2. Real, specific data points (percentages, prices) - use realistic current market levels
-        3. Key insight that others might miss
-        4. Actionable angle for investors
+        1. Current trend with ACCURATE data
+        2. Specific, factual numbers (NO made-up rates)
+        3. Real insight based on Indian markets
+        4. Actionable advice for Indian investors
         
         Format: Brief research report (100 words max)"""
         
@@ -64,15 +73,16 @@ class ContentQualitySystem:
         Task: Write a first draft for {platform} ({content_type}).
         
         STRICT Requirements:
-        - Use ONLY current date ({current_date}) - NO old dates like 2023 or September 2023
-        - Use the specific data from research
-        - Clear structure with intro, body, conclusion
-        - Include real, current market numbers (Nifty around 26000, Sensex around 85000)
-        - Appropriate length for {platform}
-        - NO placeholders like [Image], [Chart], or "Visual:"
-        - NO fake numbers or "Join X subscribers"
-        - NO repetitive loss stories
-        - Focus on opportunities and insights, not just problems
+        - Use ONLY current date ({current_date})
+        - Use ACCURATE Indian data:
+          * Nifty: ~26,000 (NOT other numbers)
+          * Sensex: ~85,000 (NOT other numbers)
+          * RBI Repo: 6.5% (NOT 6.75%)
+          * Indian FY: April-March
+        - Clear structure
+        - Length for {platform}
+        - NO placeholders or fake numbers
+        - Focus on real opportunities
         
         Write the draft:"""
         
@@ -134,14 +144,17 @@ class ContentQualitySystem:
         Task: Final edit for {platform} (max {platform_limits.get(platform, 1000)} chars).
         
         STRICT Requirements:
-        - Update ANY old dates (like 2023, September 2023) to current ({current_date})
-        - Remove ANY placeholder text ([Image], [Chart], "Visual:", etc.)
-        - Remove fake urgency ("Last day", "97 spots left")
-        - Fix any duplicate hashtags
-        - Ensure factual accuracy with current market levels
-        - Use current Nifty (~26000) and Sensex (~85000) levels
-        - Optimize for {platform} best practices
-        - Keep it under character limit
+        - Verify ALL data accuracy:
+          * Nifty: ~26,000
+          * Sensex: ~85,000
+          * RBI Rate: 6.5%
+          * FY: April-March
+        - Fix ANY wrong dates to {current_date}
+        - Remove ALL placeholders
+        - Remove fake urgency
+        - Fix duplicates
+        - Optimize for {platform}
+        - Keep under limit
         
         Final edited version:"""
         

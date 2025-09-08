@@ -2,10 +2,9 @@ name: Real-time News Monitor for Telegram
 
 on:
   schedule:
-    # Check for news every 15 minutes during market hours
-    - cron: '*/15 3-10 * * 1-5'  # Every 15 mins from 8:30 AM to 3:30 PM IST (Mon-Fri)
-    - cron: '0 3,11 * * 1-5'     # Pre-market at 8:30 AM and post-market at 4:30 PM IST
-    - cron: '0 1,14 * * 0,6'     # Weekend updates at 6:30 AM and 7:30 PM IST
+    # Reduced frequency to prevent duplicate posts
+    - cron: '0 4,9 * * 1-5'      # Only twice daily: 9:30 AM and 2:30 PM IST (Mon-Fri)
+    - cron: '0 1 * * 0,6'        # Once on weekends at 6:30 AM IST
   workflow_dispatch:  # Allow manual trigger
 
 jobs:

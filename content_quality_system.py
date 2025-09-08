@@ -28,12 +28,17 @@ class ContentQualitySystem:
         
     def research_agent(self, platform: str, content_type: str) -> str:
         """Research Agent - Gathers market insights"""
+        current_date = datetime.now().strftime("%B %Y")
         prompt = f"""You are a Market Research Analyst for Indian financial markets.
+        Current Date: {current_date}
+        
         Task: Identify a compelling topic for {platform} content ({content_type}).
         
+        IMPORTANT: Use ONLY current date ({current_date}) in your content. Do NOT use old dates like 2023.
+        
         Provide:
-        1. Current market trend or event
-        2. Specific data points (percentages, prices)
+        1. Current market trend or event (as of {current_date})
+        2. Real, specific data points (percentages, prices) - use realistic current market levels
         3. Key insight that others might miss
         4. Actionable angle for investors
         
@@ -50,19 +55,24 @@ class ContentQualitySystem:
     
     def junior_writer_agent(self, research: str, platform: str, content_type: str) -> str:
         """Junior Writer Agent - Creates first draft"""
+        current_date = datetime.now().strftime("%B %Y")
         prompt = f"""You are a Junior Financial Content Writer.
+        Current Date: {current_date}
         
         Research Brief: {research}
         
         Task: Write a first draft for {platform} ({content_type}).
         
-        Requirements:
+        STRICT Requirements:
+        - Use ONLY current date ({current_date}) - NO old dates like 2023 or September 2023
         - Use the specific data from research
         - Clear structure with intro, body, conclusion
-        - Include real numbers and examples
+        - Include real, current market numbers (Nifty around 26000, Sensex around 85000)
         - Appropriate length for {platform}
-        - NO placeholders like [Image] or [Chart]
+        - NO placeholders like [Image], [Chart], or "Visual:"
         - NO fake numbers or "Join X subscribers"
+        - NO repetitive loss stories
+        - Focus on opportunities and insights, not just problems
         
         Write the draft:"""
         
@@ -77,18 +87,23 @@ class ContentQualitySystem:
     
     def senior_writer_agent(self, draft: str, platform: str) -> str:
         """Senior Writer Agent - Enhances content"""
+        current_date = datetime.now().strftime("%B %Y")
         prompt = f"""You are a Senior Financial Content Strategist.
+        Current Date: {current_date}
         
         Draft to enhance: {draft}
         
         Task: Transform this into engaging, insightful {platform} content.
         
-        Improvements needed:
+        STRICT Improvements needed:
+        - Ensure all dates are current ({current_date}) - fix any old dates
         - Add personal insight or unique angle
-        - Include a compelling hook
-        - Make it more conversational and authentic
-        - Add specific call-to-action (no fake numbers)
-        - Ensure it feels valuable, not generic
+        - Include a compelling hook that's relevant to TODAY's market
+        - Make it conversational and authentic
+        - Add specific call-to-action (no fake numbers or urgency)
+        - Ensure it feels valuable and timely
+        - Remove any "Visual:" references or placeholders
+        - Focus on opportunities, not repetitive loss stories
         
         Enhanced version:"""
         
@@ -103,6 +118,7 @@ class ContentQualitySystem:
     
     def editor_agent(self, content: str, platform: str) -> str:
         """Editor Agent - Polish and optimize"""
+        current_date = datetime.now().strftime("%B %Y")
         
         platform_limits = {
             'linkedin': 1300,
@@ -111,16 +127,19 @@ class ContentQualitySystem:
         }
         
         prompt = f"""You are a Content Editor specializing in financial content.
+        Current Date: {current_date}
         
         Content to edit: {content}
         
         Task: Final edit for {platform} (max {platform_limits.get(platform, 1000)} chars).
         
-        Requirements:
-        - Remove ANY placeholder text ([Image], [Chart], etc.)
+        STRICT Requirements:
+        - Update ANY old dates (like 2023, September 2023) to current ({current_date})
+        - Remove ANY placeholder text ([Image], [Chart], "Visual:", etc.)
         - Remove fake urgency ("Last day", "97 spots left")
         - Fix any duplicate hashtags
-        - Ensure factual accuracy
+        - Ensure factual accuracy with current market levels
+        - Use current Nifty (~26000) and Sensex (~85000) levels
         - Optimize for {platform} best practices
         - Keep it under character limit
         

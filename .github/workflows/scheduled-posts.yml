@@ -87,6 +87,16 @@ jobs:
           exit 1
         fi
         
+        if [ ! -f "content_quality_system.py" ]; then
+          echo "❌ content_quality_system.py not found"
+          exit 1
+        fi
+        
+        if [ ! -f "content_validation_rules.py" ]; then
+          echo "❌ content_validation_rules.py not found"
+          exit 1
+        fi
+        
         if [ ! -f "coherent_content_generator.py" ]; then
           echo "❌ coherent_content_generator.py not found"
           exit 1

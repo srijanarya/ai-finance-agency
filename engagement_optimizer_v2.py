@@ -290,13 +290,13 @@ class EngagementOptimizerV2:
     def _generate_visual_description(self, chart_type: str, content: str) -> str:
         """Generate specific visual description"""
         descriptions = {
-            'bar_chart': f"📊 [Bar chart comparing performance metrics with clear winner highlighted in green]",
-            'line_graph': f"📈 [Line graph showing dramatic upward trajectory with key inflection points marked]",
-            'pie_chart': f"🥧 [Pie chart showing portfolio allocation with largest slice in warning red]",
-            'scatter_plot': f"🎯 [Scatter plot revealing hidden correlation patterns]",
-            'bubble_chart': f"🫧 [Bubble chart mapping risk vs return with opportunity zones highlighted]",
-            'infographic': f"🎨 [Infographic with 5 key data points and comparison arrows]",
-            'treemap': f"🗺️ [Market heatmap showing sector performance in red/green blocks]"
+            'bar_chart': f"📊 Bar chart comparing performance metrics with clear winner highlighted in green",
+            'line_graph': f"📈 Line graph showing dramatic upward trajectory with key inflection points marked",
+            'pie_chart': f"🥧 Pie chart showing portfolio allocation with largest slice in warning red",
+            'scatter_plot': f"🎯 Scatter plot revealing hidden correlation patterns",
+            'bubble_chart': f"🫧 Bubble chart mapping risk vs return with opportunity zones highlighted",
+            'infographic': f"🎨 Infographic with key data points and comparison arrows",
+            'treemap': f"🗺️ Market heatmap showing sector performance in red/green blocks"
         }
         return descriptions.get(chart_type, descriptions['infographic'])
     
@@ -306,11 +306,11 @@ class EngagementOptimizerV2:
         """
         # Time-limited urgency
         time_urgency = [
-            "⏰ Expires in 24 hours",
-            "🔥 Last day to act",
-            "⚡ Market closes at 4 PM",
-            "🚨 Final hours before close",
-            "⏳ Window closing today"
+            "⏰ Market session ends soon",
+            "🔥 Trading window closing",
+            "⚡ Market closes at 4 PM EST",
+            "🚨 Final trading hours today",
+            "⏳ Session ending soon"
         ]
         
         # Scarcity urgency
@@ -323,9 +323,9 @@ class EngagementOptimizerV2:
         
         # Social proof urgency
         social_urgency = [
-            f"{random.randint(1000,5000)} investors already enrolled",
-            "Join 10,000+ subscribers before it's too late",
-            "Trending #1 in Finance - Act now"
+            "Many investors are taking action",
+            "Join the growing community of informed investors",
+            "Trending in Finance circles"
         ]
         
         triggers = {
@@ -349,10 +349,10 @@ class EngagementOptimizerV2:
         Add social proof for 270% boost using v2.0 framework
         """
         user_count_proof = [
-            f"(2,847 investors already enrolled)",
-            f"(Join {random.randint(10,50)},000+ smart investors)",
-            f"({random.randint(5,15)},000+ traders use this daily)",
-            f"(Trusted by {random.randint(10,25)},000+ professionals)"
+            "(Growing investor community)",
+            "(Join smart investors taking action)",
+            "(Used by traders daily)",
+            "(Trusted by professionals)"
         ]
         
         authority_proof = [
@@ -363,16 +363,16 @@ class EngagementOptimizerV2:
         ]
         
         trending_proof = [
-            "(Trending #1 in Finance)",
-            "(Most shared strategy this week)",
-            f"(Viral on FinTwit - {random.randint(5,20)}K shares)",
-            "(Top post in r/investing)"
+            "(Trending in Finance circles)",
+            "(Widely shared strategy)",
+            "(Popular on FinTwit)",
+            "(Discussed in investment communities)"
         ]
         
         testimonial_proof = [
-            "(⭐⭐⭐⭐⭐ 4.9/5 from 10,000+ reviews)",
-            "(95% success rate verified)",
-            "(Saved users $50M+ collectively)"
+            "(Highly rated by users)",
+            "(Proven success rate)",
+            "(Helped users save significantly)"
         ]
         
         # Select type based on content
@@ -402,9 +402,9 @@ class EngagementOptimizerV2:
         """
         audience_ctas = {
             'retail_investors': [
-                "\n\n→ Join 10,247 smart investors getting weekly alpha [FREE]",
-                "\n\n→ Start with just $100 (2,847 began yesterday)",
-                "\n\n→ Get the calculator that saved me $50K [FREE]"
+                "\n\n→ Join smart investors getting weekly insights [FREE]",
+                "\n\n→ Start with a small investment amount",
+                "\n\n→ Get the free financial calculator [FREE]"
             ],
             'institutional': [
                 "\n\n→ Schedule your institutional consultation",
@@ -413,13 +413,13 @@ class EngagementOptimizerV2:
             ],
             'gen_z_beginners': [
                 "\n\n→ Try the free trading simulator (no risk!)",
-                "\n\n→ Start the 5-minute beginner course",
-                "\n\n→ Download the app (100K+ downloads)"
+                "\n\n→ Start the quick beginner course",
+                "\n\n→ Download the popular investing app"
             ],
             'crypto_natives': [
-                "\n\n→ Join our Discord (5,000+ active traders)",
-                "\n\n→ Connect wallet for exclusive alpha",
-                "\n\n→ Qualify for the upcoming drop"
+                "\n\n→ Join our active Discord community",
+                "\n\n→ Connect wallet for exclusive insights",
+                "\n\n→ Stay updated on opportunities"
             ]
         }
         
@@ -430,10 +430,10 @@ class EngagementOptimizerV2:
         # Add urgency booster (50% chance)
         if random.random() > 0.5:
             urgency_boosters = [
-                " (expires in 24 hours)",
-                " (97 spots left)",
-                " (closing at midnight)",
-                " (last chance today)"
+                " (limited time)",
+                " (act soon)",
+                " (don't miss out)",
+                " (opportunity window)"
             ]
             cta = cta.replace(']', f"{random.choice(urgency_boosters)}]")
         

@@ -9,8 +9,7 @@ import json
 import random
 import requests
 from datetime import datetime
-from coherent_content_generator import CoherentContentGenerator
-from engagement_optimizer_v2 import EngagementOptimizerV2
+from content_quality_system import ContentQualitySystem
 from dotenv import load_dotenv
 
 # Load environment variables from .env if not in GitHub Actions
@@ -21,8 +20,7 @@ class CloudPoster:
     """Posts content from GitHub Actions"""
     
     def __init__(self):
-        self.generator = CoherentContentGenerator()
-        self.optimizer = EngagementOptimizerV2()
+        self.quality_system = ContentQualitySystem()
         
         # Content rotation for diversity
         self.content_types = [
@@ -96,36 +94,29 @@ class CloudPoster:
         return selected
     
     def generate_content(self, platform):
-        """Generate optimized content"""
+        """Generate optimized content using quality system"""
         content_type = self.get_next_content_type()
         
         print(f"📝 Generating {content_type} for {platform}...")
         
-        # Generate coherent content
-        result = self.generator.generate_coherent_content(
-            content_type=content_type,
-            platform=platform
+        # Use the quality system with multi-agent pipeline and validation
+        result = self.quality_system.create_content(
+            platform=platform,
+            content_type=content_type
         )
         
-        if result['success']:
-            # Apply v2.0 optimization
-            optimized = self.optimizer.optimize_content(
-                result['content'],
-                platform=platform,
-                audience='retail_investors',
-                apply_all=True
-            )
-            
-            result['content'] = optimized['content']
-            result['engagement_score'] = optimized['engagement_score']
-            
+        if result.get('success'):
             print(f"✅ Generated: {content_type}")
-            print(f"   Coherence: {result.get('coherence_score')}/10")
-            print(f"   Engagement: {result.get('engagement_score')}x")
+            print(f"   Quality Score: {result.get('quality_score')}/10")
+            print(f"   Validation: {result.get('validation_status', 'N/A')}")
+            if result.get('issues_fixed', 0) > 0:
+                print(f"   Auto-fixed {result['issues_fixed']} issues")
             
             return result
-        
-        return None
+        else:
+            print(f"❌ Generation failed for {content_type}")
+            print(f"   Issues: {result.get('issues', [])}")
+            return None
     
     def post_to_linkedin(self, content):
         """Post to LinkedIn"""
@@ -183,33 +174,40 @@ class CloudPoster:
             return False
     
     def post_to_twitter(self, content):
-        """Post to Twitter/X"""
-        # Using OAuth 1.0a for Twitter
+        """Post to Twitter/X using API v2"""
         import tweepy
         
+        # Twitter API v2 credentials
+        bearer_token = os.getenv('TWITTER_BEARER_TOKEN')
         consumer_key = os.getenv('TWITTER_CONSUMER_KEY')
         consumer_secret = os.getenv('TWITTER_CONSUMER_SECRET')
         access_token = os.getenv('TWITTER_ACCESS_TOKEN')
         access_token_secret = os.getenv('TWITTER_ACCESS_TOKEN_SECRET')
         
-        if not all([consumer_key, consumer_secret, access_token, access_token_secret]):
+        if not all([bearer_token, consumer_key, consumer_secret, access_token, access_token_secret]):
             print("❌ Missing Twitter credentials in GitHub Secrets")
             return False
         
         try:
-            # Authenticate
-            auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-            auth.set_access_token(access_token, access_token_secret)
-            api = tweepy.API(auth)
+            # Use Twitter API v2 Client
+            client = tweepy.Client(
+                bearer_token=bearer_token,
+                consumer_key=consumer_key,
+                consumer_secret=consumer_secret,
+                access_token=access_token,
+                access_token_secret=access_token_secret,
+                wait_on_rate_limit=True
+            )
             
             # Post tweet (280 char limit)
             tweet_text = content['content']
             if len(tweet_text) > 280:
                 tweet_text = tweet_text[:277] + "..."
             
-            tweet = api.update_status(tweet_text)
+            # Use v2 API method
+            tweet = client.create_tweet(text=tweet_text)
             print(f"✅ Posted to Twitter/X!")
-            print(f"   Tweet ID: {tweet.id}")
+            print(f"   Tweet ID: {tweet.data['id']}")
             return True
         except Exception as e:
             print(f"❌ Twitter post failed: {e}")

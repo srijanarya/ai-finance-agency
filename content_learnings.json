@@ -1,0 +1,35 @@
+{
+  "learning_log": [
+    {
+      "timestamp": "2025-09-08T09:22:53.770051",
+      "platform": "linkedin",
+      "attempt": 1,
+      "issues": [
+        {
+          "severity": "CRITICAL",
+          "type": "visual_reference",
+          "description": "Contains \"Visual:\" reference",
+          "action": "MUST FIX before posting"
+        },
+        {
+          "severity": "CRITICAL",
+          "type": "chart_placeholder",
+          "description": "Contains chart placeholder",
+          "action": "MUST FIX before posting"
+        },
+        {
+          "severity": "WARNING",
+          "type": "missing_specific_data",
+          "description": "Must include specific numbers",
+          "action": "Add specific data"
+        }
+      ],
+      "issue_types": [
+        "visual_reference",
+        "missing_specific_data",
+        "chart_placeholder"
+      ]
+    }
+  ],
+  "last_updated": "2025-09-08T09:22:53.770203"
+}

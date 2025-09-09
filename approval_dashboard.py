@@ -179,7 +179,8 @@ if __name__ == '__main__':
     print("\n" + "="*60)
     print("🚀 CONTENT APPROVAL DASHBOARD")
     print("="*60)
-    print("\n📱 Access the dashboard at: http://localhost:5003")
+    port = int(os.environ.get('PORT', 5001))
+    print(f"\n📱 Access the dashboard at: http://localhost:{port}")
     print("\n✅ Features:")
     print("  - Review all pending content")
     print("  - Edit content before approval")
@@ -188,4 +189,5 @@ if __name__ == '__main__':
     print("  - Track all content status")
     print("\n" + "="*60)
     
-    app.run(debug=True, host='0.0.0.0', port=5003)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=True, host='0.0.0.0', port=port)

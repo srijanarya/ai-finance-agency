@@ -369,7 +369,7 @@ class CentralizedPostingQueue:
             )
             
             if user_response.status_code != 200:
-                return False, f"LinkedIn auth failed: {user_response.status_code}"
+                return False, f"LinkedIn auth failed: {user_response.status_code} - {user_response.text[:100]}"
             
             user_id = user_response.json().get('sub')
             
@@ -399,8 +399,16 @@ class CentralizedPostingQueue:
             
             if response.status_code in [200, 201]:
                 return True, "Posted successfully"
+            elif response.status_code == 401:
+                return False, "LinkedIn error: Authentication failed - token expired"
+            elif response.status_code == 403:
+                return False, "LinkedIn error: Access forbidden - check permissions"
+            elif response.status_code == 422:
+                return False, f"LinkedIn error: Invalid data format - {response.text[:100]}"
+            elif response.status_code == 429:
+                return False, "LinkedIn error: Rate limit exceeded"
             else:
-                return False, f"LinkedIn API error: {response.status_code}"
+                return False, f"LinkedIn API error: {response.status_code} - {response.text[:100]}"
                 
         except Exception as e:
             return False, f"LinkedIn posting error: {str(e)}"
@@ -420,7 +428,22 @@ class CentralizedPostingQueue:
             return True, f"Posted successfully (ID: {tweet.data['id']})"
             
         except Exception as e:
-            return False, f"Twitter posting error: {str(e)}"
+            error_str = str(e).lower()
+            
+            # Handle specific Twitter API errors
+            if '403' in error_str and 'forbidden' in error_str:
+                if 'duplicate' in error_str:
+                    return False, "Twitter error: Duplicate content detected"
+                elif 'not permitted' in error_str:
+                    return False, "Twitter error: Content violates platform policies or is duplicate"
+                else:
+                    return False, f"Twitter error: Access forbidden (403) - {str(e)}"
+            elif '429' in error_str:
+                return False, "Twitter error: Rate limit exceeded"
+            elif '401' in error_str:
+                return False, "Twitter error: Authentication failed"
+            else:
+                return False, f"Twitter posting error: {str(e)}"
     
     def post_to_telegram(self, content: str) -> Tuple[bool, str]:
         """Post content to Telegram"""
@@ -496,7 +519,23 @@ class CentralizedPostingQueue:
                 else:
                     # Increment retry count
                     new_retry_count = item.retry_count + 1
-                    new_status = 'failed' if new_retry_count >= item.max_retries else 'pending'
+                    
+                    # Check if error is due to policy violation or duplicate content
+                    # These should be rejected instead of retried
+                    policy_violation_keywords = [
+                        'content violates platform policies',
+                        'duplicate content detected',
+                        'not permitted to perform this action',
+                        'invalid data format'
+                    ]
+                    
+                    should_reject = any(keyword in message.lower() for keyword in policy_violation_keywords)
+                    
+                    if should_reject:
+                        new_status = 'rejected'
+                        logger.warning(f"Auto-rejecting {item.id} due to policy violation: {message}")
+                    else:
+                        new_status = 'failed' if new_retry_count >= item.max_retries else 'pending'
                     
                     conn.execute("""
                         UPDATE queue 
@@ -535,6 +574,9 @@ class CentralizedPostingQueue:
                 if "Too soon" in message or "limit exceeded" in message:
                     results["skipped"] += 1
                     logger.info(f"⏸️ Skipped {item.id}: {message}")
+                elif "content violates platform policies" in message.lower() or "duplicate content" in message.lower():
+                    results["failed"] += 1
+                    logger.warning(f"🚫 Auto-rejected {item.id}: {message}")
                 else:
                     results["failed"] += 1
                     logger.error(f"❌ Failed {item.id}: {message}")

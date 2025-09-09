@@ -164,7 +164,6 @@ def test_page():
     return render_template('test_queue.html')
 
 # Create HTML templates
-@app.before_first_request
 def create_templates():
     """Create HTML templates if they don't exist"""
     import os
@@ -663,15 +662,18 @@ def create_templates():
 
 def main():
     """Run the dashboard"""
+    # Create templates before starting the server
+    create_templates()
+    
     print("="*60)
     print("🎯 POSTING QUEUE DASHBOARD")
     print("="*60)
-    print("Dashboard URL: http://localhost:5001")
-    print("Test Page: http://localhost:5001/test")
-    print("API Status: http://localhost:5001/api/status")
+    print("Dashboard URL: http://localhost:5003")
+    print("Test Page: http://localhost:5003/test")
+    print("API Status: http://localhost:5003/api/status")
     print("="*60)
     
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5003, debug=True)
 
 if __name__ == "__main__":
     main()

@@ -236,7 +236,32 @@ dashboard_data = DashboardData(config.database.path)
 @app.route('/')
 def index():
     """Main dashboard page"""
-    return render_template('dashboard.html')
+    try:
+        # Get the stats data for the template
+        stats = dashboard_data.get_content_stats()
+        performance = dashboard_data.get_performance_data()
+        
+        # Combine stats and performance data
+        combined_stats = {
+            **stats,
+            **performance
+        }
+        
+        return render_template('dashboard.html', stats=combined_stats)
+    except Exception as e:
+        logger.error(f"Error loading dashboard: {e}")
+        # Provide default stats if there's an error
+        default_stats = {
+            'content_this_week': 0,
+            'avg_engagement': 0,
+            'total_reach': 0,
+            'new_leads': 0,
+            'ideas_pending': 0,
+            'ideas_approved': 0,
+            'ideas_posted': 0,
+            'ideas_total': 0
+        }
+        return render_template('dashboard.html', stats=default_stats)
 
 
 @app.route('/content')

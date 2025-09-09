@@ -120,13 +120,5 @@ jobs:
           exit 1
         }
     
-    - name: Upload Posting History
-      if: always()
-      # Updated to v4 to fix deprecation warning
-      uses: actions/upload-artifact@v4
-      with:
-        name: posting-history
-        path: |
-          cloud_posting_history.json
-          coherent_history.json
-          engagement_history_v2.json
+    # Temporarily removed upload-artifact to fix deprecation issue
+    # Will re-add in next commit to force GitHub to recognize v4

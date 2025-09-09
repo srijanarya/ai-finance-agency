@@ -847,11 +847,11 @@ class DatabaseInitializer:
             cursor.execute('''
             INSERT OR IGNORE INTO regulatory_requirements 
             (requirement_type, requirement_description, compliance_level, 
-             effective_date, status, responsible_team)
-            VALUES (?, ?, ?, ?, ?, ?)
+             effective_date, status)
+            VALUES (?, ?, ?, ?, ?)
             ''', (
                 req['type'], req['description'], req['level'],
-                datetime.now().date(), 'ACTIVE', req['team']
+                datetime.now().date(), 'ACTIVE'
             ))
         
         conn.commit()

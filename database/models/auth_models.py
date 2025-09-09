@@ -148,6 +148,7 @@ class User(Base):
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     email_verified = Column(Boolean, default=False, nullable=False)
     email_verified_at = Column(DateTime(timezone=True), nullable=True)
+    email_verification_token = Column(String(255), nullable=True, index=True)  # Email verification token
     
     # Security fields
     last_login_at = Column(DateTime(timezone=True), nullable=True)

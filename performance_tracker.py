@@ -95,7 +95,6 @@ class PerformanceTracker:
         # Asset class performance
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS asset_class_performance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
             date DATE,
             asset_class TEXT,
             total_signals INTEGER,
@@ -112,7 +111,6 @@ class PerformanceTracker:
         # Strategy performance by signal type
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS strategy_performance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
             date DATE,
             signal_type TEXT,
             strategy_subtype TEXT,
@@ -130,7 +128,6 @@ class PerformanceTracker:
         # Subscriber performance tracking
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS subscriber_performance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT,
             date DATE,
             subscription_tier TEXT,
@@ -147,7 +144,6 @@ class PerformanceTracker:
         # Benchmark data cache
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS benchmark_data (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
             symbol TEXT,
             date DATE,
             open_price REAL,

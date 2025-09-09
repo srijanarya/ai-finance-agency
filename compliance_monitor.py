@@ -77,7 +77,7 @@ class ComplianceMonitor:
             'general_risk': "Trading in securities involves risks and there is no assurance of returns. Past performance is not indicative of future results.",
             'advice_disclaimer': "This information is for educational purposes only and should not be considered as financial advice. Please consult with a qualified financial advisor before making investment decisions.",
             'sebi_compliance': "This service complies with SEBI guidelines for investment advisors. All recommendations are based on technical and fundamental analysis.",
-            'loss_warning": "Trading in derivatives and leveraged products can result in losses exceeding the initial investment."
+            'loss_warning': "Trading in derivatives and leveraged products can result in losses exceeding the initial investment."
         }
     
     def initialize_compliance_db(self):

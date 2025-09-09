@@ -174,7 +174,6 @@ class SubscriptionTierManager:
         # Usage tracking table
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS usage_tracking (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT NOT NULL,
             date DATE,
             signals_received INTEGER DEFAULT 0,
@@ -190,8 +189,7 @@ class SubscriptionTierManager:
         # Subscription analytics table
         cursor.execute('''
         CREATE TABLE IF NOT EXISTS subscription_analytics (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date DATE PRIMARY KEY,
+            date DATE,
             tier TEXT,
             new_subscriptions INTEGER DEFAULT 0,
             cancelled_subscriptions INTEGER DEFAULT 0,
@@ -634,7 +632,7 @@ class SubscriptionTierManager:
     
     def create_discount_code(self, code: str, discount_type: str, discount_value: float,
                            applicable_tiers: List[str], max_uses: int = None,
-                           valid_days: int = 30) -> bool:
+                           valid_days: int = 30, valid_from=None, valid_until=None) -> bool:
         """Create a new discount code"""
         try:
             conn = sqlite3.connect(self.db_path)

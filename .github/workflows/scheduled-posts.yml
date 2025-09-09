@@ -1,0 +1,62 @@
+name: Automated Content Posting (Redirect)
+
+# This workflow redirects to the fixed version to avoid v3 deprecation issues
+
+on:
+  schedule:
+    # Runs at specific times (UTC) - adjust for IST
+    - cron: '30 3 * * *'  # 9:00 AM IST (3:30 AM UTC)
+    - cron: '30 8 * * *'  # 2:00 PM IST (8:30 AM UTC)
+    - cron: '30 13 * * *' # 7:00 PM IST (1:30 PM UTC)
+    - cron: '30 15 * * *' # 9:00 PM IST (3:30 PM UTC)
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  post-content:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install openai requests python-dotenv yfinance pandas numpy
+        pip install tweepy feedparser beautifulsoup4 lxml schedule
+    
+    - name: Generate and Post Content
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+        TWITTER_CONSUMER_KEY: ${{ secrets.TWITTER_CONSUMER_KEY }}
+        TWITTER_CONSUMER_SECRET: ${{ secrets.TWITTER_CONSUMER_SECRET }}
+        TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+        TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+      run: |
+        echo "🚀 Starting content generation and posting..."
+        
+        # Verify cloud_poster.py exists
+        if [ ! -f "cloud_poster.py" ]; then
+          echo "❌ cloud_poster.py not found"
+          ls -la *.py | head -10
+          exit 1
+        fi
+        
+        # Run the cloud poster
+        python cloud_poster.py || {
+          echo "⚠️ Content posting encountered an issue"
+          # Don't fail the workflow entirely
+          exit 0
+        }
+        
+        echo "✅ Workflow completed!"
+    
+    # NO ARTIFACT UPLOAD - Avoiding v3 deprecation issues

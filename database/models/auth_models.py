@@ -175,7 +175,7 @@ class User(Base):
     tenant = relationship("Tenant", back_populates="users")
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
-    permissions = relationship("UserPermission", back_populates="user", cascade="all, delete-orphan")
+    permissions = relationship("UserPermission", back_populates="user", cascade="all, delete-orphan", foreign_keys="UserPermission.user_id")
     audit_logs = relationship("AuditLog", back_populates="user", cascade="all, delete-orphan")
     
     # Constraints and indexes

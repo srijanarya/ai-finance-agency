@@ -469,6 +469,9 @@ def check_database_health() -> Dict[str, Any]:
             health_check['checks']['connectivity'] = True
             
         # Check table existence
+        from database.connection import engine
+        if engine is None:
+            raise RuntimeError("Database engine not initialized")
         inspector = inspect(engine)
         required_tables = ['tenants', 'users', 'user_sessions', 'user_permissions']
         existing_tables = inspector.get_table_names()

@@ -53,8 +53,8 @@ def create_tables():
     """Create all database tables"""
     try:
         logger.info("Creating database tables...")
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database tables created successfully")
+        from database.connection import create_all_tables
+        create_all_tables()
         return True
     except Exception as e:
         logger.error(f"Failed to create tables: {e}")

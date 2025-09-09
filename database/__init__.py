@@ -5,7 +5,7 @@ Provides database connection, models, and utilities for the authentication syste
 
 from .connection import (
     init_database, get_db_session, get_async_db_session,
-    get_db, get_async_db, Base, DatabaseHealth, TenantContext
+    get_db, get_async_db, Base, DatabaseHealth, TenantContext, engine
 )
 from .models.auth_models import (
     User, Tenant, UserRole, UserStatus, UserSession, 
@@ -27,6 +27,7 @@ __all__ = [
     'Base',
     'DatabaseHealth',
     'TenantContext',
+    'engine',
     
     # Models
     'User',

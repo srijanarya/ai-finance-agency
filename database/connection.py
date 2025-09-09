@@ -8,7 +8,12 @@ from contextlib import asynccontextmanager, contextmanager
 from typing import AsyncGenerator, Generator, Optional
 from urllib.parse import urlparse
 
-import asyncpg
+try:
+    import asyncpg
+    ASYNC_SUPPORT = True
+except ImportError:
+    ASYNC_SUPPORT = False
+    asyncpg = None
 from sqlalchemy import create_engine, event, pool
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -51,22 +56,25 @@ def get_database_url(async_mode: bool = False) -> str:
         else:
             return f"postgresql+psycopg2://{parsed.username}:{parsed.password}@{parsed.hostname}:{parsed.port or 5432}{parsed.path}"
     
-    elif config.database_url:
-        # Use provided database URL
-        if async_mode:
-            return config.database_url.replace('postgresql://', 'postgresql+asyncpg://')
-        else:
-            return config.database_url.replace('postgresql://', 'postgresql+psycopg2://')
-    
     else:
-        # Construct from individual components
-        user = config.database_user or 'ai_finance_user'
-        password = config.database_password or 'change_me_in_prod'
-        host = config.database_host or 'localhost'
-        port = config.database_port or 5432
-        name = config.database_name or 'ai_finance_prod'
+        # Use PostgreSQL configuration or environment variable
+        import os
+        database_url = os.getenv('DATABASE_URL')
         
-        if async_mode:
+        if database_url:
+            if async_mode and ASYNC_SUPPORT:
+                return database_url.replace('postgresql://', 'postgresql+asyncpg://')
+            else:
+                return database_url.replace('postgresql://', 'postgresql+psycopg2://')
+        
+        # Construct from individual components
+        user = config.postgres_user or 'ai_finance_user'
+        password = config.postgres_password or 'change_me_in_prod'
+        host = config.postgres_host or 'localhost'
+        port = config.postgres_port or 5432
+        name = config.postgres_db or 'ai_finance_agency'
+        
+        if async_mode and ASYNC_SUPPORT:
             return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
         else:
             return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
@@ -86,7 +94,7 @@ def create_database_engine(async_mode: bool = False):
     
     # Common engine arguments
     engine_args = {
-        'echo': enhanced_config.app.debug,
+        'echo': False,  # Set to True for SQL debugging
         'pool_size': 10,
         'max_overflow': 20,
         'pool_timeout': 30,
@@ -109,7 +117,12 @@ def init_database():
     try:
         # Create engines
         engine = create_database_engine(async_mode=False)
-        async_engine = create_database_engine(async_mode=True)
+        
+        if ASYNC_SUPPORT:
+            async_engine = create_database_engine(async_mode=True)
+        else:
+            async_engine = None
+            logger.warning("Async engine not available - asyncpg not installed")
         
         # Create session makers
         SessionLocal = sessionmaker(
@@ -119,13 +132,16 @@ def init_database():
             expire_on_commit=False
         )
         
-        AsyncSessionLocal = async_sessionmaker(
-            async_engine,
-            class_=AsyncSession,
-            expire_on_commit=False,
-            autocommit=False,
-            autoflush=False
-        )
+        if ASYNC_SUPPORT and async_engine:
+            AsyncSessionLocal = async_sessionmaker(
+                async_engine,
+                class_=AsyncSession,
+                expire_on_commit=False,
+                autocommit=False,
+                autoflush=False
+            )
+        else:
+            AsyncSessionLocal = None
         
         logger.info("Database connections initialized successfully")
         
@@ -189,7 +205,10 @@ async def get_async_db_session() -> AsyncGenerator[AsyncSession, None]:
         SQLAlchemy AsyncSession instance
     """
     if AsyncSessionLocal is None:
-        raise RuntimeError("Database not initialized. Call init_database() first.")
+        if not ASYNC_SUPPORT:
+            raise RuntimeError("Async database operations not supported - asyncpg not installed")
+        else:
+            raise RuntimeError("Database not initialized. Call init_database() first.")
     
     async with AsyncSessionLocal() as session:
         try:

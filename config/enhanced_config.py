@@ -109,7 +109,15 @@ class DatabaseConfig:
     sqlite_path: str = "data/agency.db"
     sqlite_enabled: bool = True
     
-    # Supabase (Cloud)
+    # PostgreSQL (Primary)
+    postgres_host: str = "localhost"
+    postgres_port: int = 5432
+    postgres_db: str = "ai_finance_agency"
+    postgres_user: str = "postgres"
+    postgres_password: Optional[str] = None
+    postgres_enabled: bool = False
+    
+    # Supabase (Cloud PostgreSQL)
     supabase_url: Optional[str] = None
     supabase_key: Optional[str] = None
     supabase_enabled: bool = False
@@ -118,6 +126,11 @@ class DatabaseConfig:
     redis_url: str = "redis://localhost:6379"
     redis_password: Optional[str] = None
     redis_enabled: bool = False
+    
+    # Connection settings
+    pool_size: int = 10
+    pool_timeout: int = 30
+    pool_recycle: int = 3600
     
     # Backup settings
     backup_enabled: bool = True
@@ -131,6 +144,29 @@ class DatabaseConfig:
         self.sqlite_path = os.getenv('DATABASE_PATH', self.sqlite_path)
         os.makedirs(os.path.dirname(self.sqlite_path), exist_ok=True)
         logger.info(f"✅ SQLite database: {self.sqlite_path}")
+        
+        # PostgreSQL
+        self.postgres_host = os.getenv('POSTGRES_HOST', self.postgres_host)
+        self.postgres_port = int(os.getenv('POSTGRES_PORT', str(self.postgres_port)))
+        self.postgres_db = os.getenv('POSTGRES_DB', self.postgres_db)
+        self.postgres_user = os.getenv('POSTGRES_USER', self.postgres_user)
+        self.postgres_password = os.getenv('POSTGRES_PASSWORD')
+        
+        # Check if PostgreSQL URL is provided (overrides individual settings)
+        database_url = os.getenv('DATABASE_URL')
+        if database_url:
+            self.postgres_enabled = True
+            logger.info("✅ PostgreSQL configured via DATABASE_URL")
+        elif self.postgres_password:
+            self.postgres_enabled = True
+            logger.info(f"✅ PostgreSQL configured: {self.postgres_user}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}")
+        else:
+            logger.warning("⚠️ PostgreSQL not configured - set DATABASE_URL or POSTGRES_* variables")
+        
+        # Connection pool settings
+        self.pool_size = int(os.getenv('DB_POOL_SIZE', str(self.pool_size)))
+        self.pool_timeout = int(os.getenv('DB_POOL_TIMEOUT', str(self.pool_timeout)))
+        self.pool_recycle = int(os.getenv('DB_POOL_RECYCLE', str(self.pool_recycle)))
         
         # Supabase
         self.supabase_url = os.getenv('SUPABASE_URL')

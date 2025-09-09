@@ -123,7 +123,9 @@ def create_app() -> FastAPI:
     setup_middleware(app)
     
     # Add routers
+    from .users import users_router
     app.include_router(auth_router)
+    app.include_router(users_router)
     
     # Add exception handlers
     setup_exception_handlers(app)

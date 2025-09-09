@@ -1,0 +1,408 @@
+# CI/CD Pipeline for AI Finance Agency
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*', 'release/*' ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - '*.md'
+  pull_request:
+    branches: [ main, develop ]
+    types: [ opened, synchronize, reopened ]
+
+env:
+  # Docker registry settings
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ai-finance-agency
+  
+  # Application settings
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '18'
+  
+  # Deployment settings
+  KUBERNETES_NAMESPACE: ai-finance-agency
+
+# Allow manual trigger
+workflow_dispatch:
+  inputs:
+    environment:
+      description: 'Environment to deploy to'
+      required: true
+      default: 'staging'
+      type: choice
+      options:
+      - staging
+      - production
+    force_deploy:
+      description: 'Force deployment even if tests fail'
+      required: false
+      default: false
+      type: boolean
+
+jobs:
+  # Code quality and security checks
+  code-quality:
+    name: Code Quality & Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/dev.txt
+
+      - name: Run code formatting check (Black)
+        run: black --check --diff .
+
+      - name: Run import sorting check (isort)
+        run: isort --check-only --diff .
+
+      - name: Run linting (flake8)
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Run type checking (mypy)
+        run: mypy . --ignore-missing-imports
+
+      - name: Security scan (Bandit)
+        run: bandit -r . -f json -o bandit-report.json
+        continue-on-error: true
+
+      - name: Dependency vulnerability scan (Safety)
+        run: safety check --json --output safety-report.json
+        continue-on-error: true
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+
+  # Run tests
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/test.txt
+
+      - name: Set up test environment
+        run: |
+          cp .env.example .env.test
+          echo "TESTING=true" >> .env.test
+          echo "DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_db" >> .env.test
+          echo "REDIS_URL=redis://localhost:6379/1" >> .env.test
+
+      - name: Run database migrations
+        run: |
+          export DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_db
+          python -m alembic upgrade head
+        env:
+          TESTING: true
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v --cov=. --cov-report=xml --cov-report=html --junitxml=junit-unit.xml
+        env:
+          TESTING: true
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/1
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ -v --cov=. --cov-append --cov-report=xml --junitxml=junit-integration.xml
+        env:
+          TESTING: true
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/1
+
+      - name: Run API tests
+        run: |
+          pytest tests/api/ -v --cov=. --cov-append --cov-report=xml --junitxml=junit-api.xml
+        env:
+          TESTING: true
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/1
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: |
+            junit-*.xml
+            htmlcov/
+            coverage.xml
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: junit-*.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  # Build and push Docker image
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [code-quality, test]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 20
+
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=AI Finance Agency
+            org.opencontainers.image.description=AI-powered financial content generation platform
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infrastructure/docker/Dockerfile
+          target: runtime
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.meta.outputs.version }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Deploy to staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/develop' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
+    environment: staging
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.STAGING_KUBECONFIG }}
+
+      - name: Deploy to staging
+        run: |
+          # Update image tag in deployment
+          sed -i "s|ai-finance-agency:latest|${{ needs.build.outputs.image-tag }}|g" infrastructure/kubernetes/deployment.yaml
+          
+          # Apply configurations
+          kubectl apply -f infrastructure/kubernetes/namespace.yaml
+          kubectl apply -f infrastructure/kubernetes/configmap.yaml
+          kubectl apply -f infrastructure/kubernetes/secrets.yaml
+          kubectl apply -f infrastructure/kubernetes/pvc.yaml
+          kubectl apply -f infrastructure/kubernetes/rbac.yaml
+          kubectl apply -f infrastructure/kubernetes/deployment.yaml
+          kubectl apply -f infrastructure/kubernetes/service.yaml
+          kubectl apply -f infrastructure/kubernetes/ingress.yaml
+          kubectl apply -f infrastructure/kubernetes/hpa.yaml
+
+      - name: Wait for deployment
+        run: |
+          kubectl wait --for=condition=available --timeout=600s deployment/ai-finance-app -n ${{ env.KUBERNETES_NAMESPACE }}
+
+      - name: Run smoke tests
+        run: |
+          kubectl port-forward service/ai-finance-app-service 8080:8000 -n ${{ env.KUBERNETES_NAMESPACE }} &
+          sleep 10
+          curl -f http://localhost:8080/health || exit 1
+          curl -f http://localhost:8080/ready || exit 1
+
+  # Deploy to production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, deploy-staging]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
+    environment: production
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.PRODUCTION_KUBECONFIG }}
+
+      - name: Pre-deployment backup
+        run: |
+          kubectl create job backup-$(date +%s) --from=cronjob/database-backup -n ${{ env.KUBERNETES_NAMESPACE }}
+
+      - name: Deploy to production with rolling update
+        run: |
+          # Update image tag in deployment
+          sed -i "s|ai-finance-agency:latest|${{ needs.build.outputs.image-tag }}|g" infrastructure/kubernetes/deployment.yaml
+          
+          # Apply configurations (production namespace)
+          kubectl apply -f infrastructure/kubernetes/namespace.yaml
+          kubectl apply -f infrastructure/kubernetes/configmap.yaml
+          kubectl apply -f infrastructure/kubernetes/secrets.yaml
+          kubectl apply -f infrastructure/kubernetes/pvc.yaml
+          kubectl apply -f infrastructure/kubernetes/rbac.yaml
+          
+          # Rolling update deployment
+          kubectl set image deployment/ai-finance-app ai-finance-app=${{ needs.build.outputs.image-tag }} -n ${{ env.KUBERNETES_NAMESPACE }}
+          
+          # Apply other resources
+          kubectl apply -f infrastructure/kubernetes/service.yaml
+          kubectl apply -f infrastructure/kubernetes/ingress.yaml
+          kubectl apply -f infrastructure/kubernetes/hpa.yaml
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/ai-finance-app -n ${{ env.KUBERNETES_NAMESPACE }} --timeout=600s
+
+      - name: Run production health checks
+        run: |
+          # Wait for pods to be ready
+          kubectl wait --for=condition=ready pod -l app=ai-finance-agency -n ${{ env.KUBERNETES_NAMESPACE }} --timeout=300s
+          
+          # Check health endpoints
+          kubectl port-forward service/ai-finance-app-service 8080:8000 -n ${{ env.KUBERNETES_NAMESPACE }} &
+          sleep 10
+          curl -f http://localhost:8080/health || exit 1
+          curl -f http://localhost:8080/ready || exit 1
+
+      - name: Run post-deployment tests
+        run: |
+          # Run critical path tests
+          pytest tests/critical_path/ -v --tb=short
+        env:
+          TEST_BASE_URL: https://api.ai-finance-agency.com
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed, initiating rollback..."
+          kubectl rollout undo deployment/ai-finance-app -n ${{ env.KUBERNETES_NAMESPACE }}
+          kubectl rollout status deployment/ai-finance-app -n ${{ env.KUBERNETES_NAMESPACE }}
+
+  # Cleanup
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    timeout-minutes: 5
+
+    steps:
+      - name: Clean up old Docker images
+        run: |
+          # This would typically be done by a registry cleanup policy
+          echo "Docker image cleanup would be performed here"
+
+      - name: Update deployment status
+        run: |
+          echo "Deployment completed successfully"

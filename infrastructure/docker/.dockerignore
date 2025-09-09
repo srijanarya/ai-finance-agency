@@ -1,0 +1,122 @@
+# Docker ignore file for AI Finance Agency
+# Excludes unnecessary files from Docker context
+
+# Version control
+.git
+.gitignore
+.github/
+
+# Documentation
+README.md
+CHANGELOG.md
+*.md
+docs/
+stories/
+specs/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.env
+.venv/
+env/
+ENV/
+venv/
+pip-selfcheck.json
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.DS_Store?
+._*
+
+# Logs and databases
+*.log
+logs/
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary files
+*.tmp
+*.temp
+validation_report.txt
+.dashboard_pids.json
+
+# Project specific temporary files
+memory/
+PROJECT_BRAIN.md
+emergency_fix_report.txt
+sandbox_testing/
+COMPREHENSIVE_TEST_REPORT.md
+DASHBOARD_INVESTIGATION_REPORT.md
+PERFORMANCE_IMPROVEMENT_REPORT.md
+
+# Node modules (if any frontend assets)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Security - Never include these!
+secure_credentials/
+*credentials*.json
+*_api_key*
+*_secret*
+*.pem
+*.key
+*.crt
+
+# Large data files
+data/
+uploads/
+static/uploads/
+
+# Backup files
+*.bak
+*.backup
+*.dump
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+.Spotlight-V100
+.Trashes
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Local development files
+docker-compose.override.yml
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

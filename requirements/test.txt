@@ -1,0 +1,174 @@
+# Testing Dependencies for AI Finance Agency
+# Include base requirements
+-r base.txt
+
+# ==================== CORE TESTING FRAMEWORK ====================
+# Main testing framework
+pytest==7.4.4
+pytest-asyncio==0.21.1
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+pytest-xdist==3.5.0
+pytest-html==4.1.1
+pytest-json-report==1.5.0
+pytest-timeout==2.2.0
+
+# Test fixtures and factories
+factory-boy==3.3.0
+faker==21.0.0
+freezegun==1.4.0
+
+# ==================== WEB APPLICATION TESTING ====================
+# Flask testing
+pytest-flask==1.3.0
+flask-testing==0.8.1
+
+# FastAPI testing
+httpx==0.26.0
+starlette==0.32.0
+
+# API testing
+requests-mock==1.11.0
+responses==0.24.1
+tavern==2.5.0
+
+# ==================== DATABASE TESTING ====================
+# Database fixtures
+pytest-postgresql==5.0.0
+pytest-redis==3.0.2
+sqlalchemy-utils==0.41.1
+
+# In-memory databases for testing
+sqlite3  # Built-in Python module
+
+# Database factories
+factory-boy==3.3.0
+
+# ==================== ASYNC TESTING ====================
+# Async test utilities
+pytest-asyncio==0.21.1
+aioresponses==0.7.4
+asynctest==0.13.0
+
+# ==================== MOCK & STUB LIBRARIES ====================
+# Mocking
+pytest-mock==3.12.0
+unittest-mock==1.0.1
+mock==5.1.0
+
+# HTTP mocking
+httpretty==1.1.4
+responses==0.24.1
+requests-mock==1.11.0
+
+# External service mocking
+betamax==0.8.1
+vcr.py==5.1.0
+
+# ==================== AI/ML TESTING ====================
+# Model testing
+hypothesis==6.92.1
+pytest-benchmark==4.0.0
+
+# Data validation testing
+great-expectations==0.18.8
+pandera==0.17.2
+
+# ==================== PERFORMANCE TESTING ====================
+# Load testing
+locust==2.17.0
+pytest-benchmark==4.0.0
+
+# Memory testing
+memory-profiler==0.61.0
+psutil==5.9.6
+
+# ==================== SOCIAL MEDIA API TESTING ====================
+# Twitter API mocking
+tweepy==4.14.0  # Same version as base
+
+# Telegram bot testing
+python-telegram-bot==20.7  # Same version as base
+
+# ==================== MARKET DATA TESTING ====================
+# Financial data mocking
+yfinance==0.2.33  # Same version as base
+responses==0.24.1  # For mocking HTTP requests
+
+# ==================== SECURITY TESTING ====================
+# Security testing
+bandit==1.7.5
+safety==2.3.5
+
+# ==================== CONFIGURATION TESTING ====================
+# Environment testing
+pytest-env==1.1.1
+python-dotenv==1.0.0
+
+# ==================== REPORTING & COVERAGE ====================
+# Coverage reporting
+coverage==7.3.4
+pytest-cov==4.1.0
+codecov==2.1.13
+
+# Test reporting
+pytest-html==4.1.1
+pytest-json-report==1.5.0
+allure-pytest==2.13.2
+
+# ==================== BROWSER TESTING ====================
+# Web browser automation
+selenium==4.15.2
+pytest-selenium==4.1.0
+
+# Headless browser
+playwright==1.40.0
+pytest-playwright==0.4.3
+
+# ==================== DATA TESTING ====================
+# Data validation
+cerberus==1.3.5
+schema==0.7.5
+voluptuous==0.14.2
+
+# Data comparison
+deepdiff==6.7.1
+pytest-datadir==1.5.0
+
+# ==================== SNAPSHOT TESTING ====================
+# Visual regression testing
+pytest-snapshot==0.9.0
+snapshottest==0.6.0
+
+# ==================== PARALLEL TESTING ====================
+# Parallel test execution
+pytest-xdist==3.5.0
+pytest-parallel==0.1.1
+
+# ==================== TEST UTILITIES ====================
+# Test data generation
+mimesis==12.1.0
+hypothesis==6.92.1
+
+# Time manipulation
+freezegun==1.4.0
+time-machine==2.13.0
+
+# Temporary files
+pytest-tmp-files==0.0.2
+
+# ==================== CI/CD TESTING ====================
+# GitHub Actions testing
+act==0.2.61  # Local GitHub Actions runner
+
+# Docker testing
+testcontainers==3.7.1
+docker==7.0.0
+
+# ==================== INTEGRATION TESTING ====================
+# End-to-end testing
+pytest-bdd==7.0.0
+behave==1.2.6
+
+# API integration testing
+dredd-hooks==0.2.0

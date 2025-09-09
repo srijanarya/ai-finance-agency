@@ -1,0 +1,160 @@
+# Service Account for AI Finance Agency
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-finance-service-account
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: rbac
+automountServiceAccountToken: true
+
+---
+# Cluster Role for AI Finance Agency
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ai-finance-cluster-role
+  labels:
+    app: ai-finance-agency
+    component: rbac
+rules:
+# Allow reading pods, services, and endpoints for service discovery
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+# Allow reading configmaps and secrets (limited scope)
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get"]
+# Allow reading nodes for resource monitoring
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+# Allow reading metrics
+- apiGroups: ["metrics.k8s.io"]
+  resources: ["pods", "nodes"]
+  verbs: ["get", "list"]
+
+---
+# Role for namespace-specific operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ai-finance-namespace-role
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: rbac
+rules:
+# Full access to own namespace resources
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints", "configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+# Limited secret access
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+# Allow creating and managing events
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+# Allow managing persistent volume claims
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list", "create", "update", "patch"]
+
+---
+# Cluster Role Binding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ai-finance-cluster-role-binding
+  labels:
+    app: ai-finance-agency
+    component: rbac
+subjects:
+- kind: ServiceAccount
+  name: ai-finance-service-account
+  namespace: ai-finance-agency
+roleRef:
+  kind: ClusterRole
+  name: ai-finance-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Role Binding for namespace operations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ai-finance-namespace-role-binding
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: rbac
+subjects:
+- kind: ServiceAccount
+  name: ai-finance-service-account
+  namespace: ai-finance-agency
+roleRef:
+  kind: Role
+  name: ai-finance-namespace-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Service Account for monitoring
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: monitoring-service-account
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: monitoring
+
+---
+# Cluster Role for monitoring
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: monitoring-cluster-role
+  labels:
+    app: ai-finance-agency
+    component: monitoring
+rules:
+# Allow reading all resources for monitoring
+- apiGroups: [""]
+  resources: ["nodes", "nodes/proxy", "services", "endpoints", "pods"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get"]
+- apiGroups: ["extensions"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
+  verbs: ["get"]
+
+---
+# Cluster Role Binding for monitoring
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: monitoring-cluster-role-binding
+  labels:
+    app: ai-finance-agency
+    component: monitoring
+subjects:
+- kind: ServiceAccount
+  name: monitoring-service-account
+  namespace: ai-finance-agency
+roleRef:
+  kind: ClusterRole
+  name: monitoring-cluster-role
+  apiGroup: rbac.authorization.k8s.io

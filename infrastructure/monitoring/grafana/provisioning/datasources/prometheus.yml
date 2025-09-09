@@ -1,0 +1,78 @@
+# Grafana datasource configuration for Prometheus
+apiVersion: 1
+
+datasources:
+  # Primary Prometheus datasource
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+      queryTimeout: "60s"
+      httpMethod: "POST"
+      manageAlerts: true
+      alertmanagerUid: alertmanager
+    secureJsonData: {}
+    version: 1
+
+  # Alertmanager datasource
+  - name: Alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    uid: alertmanager
+    editable: true
+    jsonData:
+      handleGrafanaManagedAlerts: true
+      implementation: prometheus
+    version: 1
+
+  # Loki for logs (if available)
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - datasourceUid: prometheus
+          matcherRegex: "trace_id=(\\w+)"
+          name: TraceID
+          url: "$${__value.raw}"
+    version: 1
+
+  # PostgreSQL datasource for application data
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: ai_finance_prod
+    user: grafana_readonly
+    editable: true
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1500
+      timescaledb: false
+    secureJsonData:
+      password: grafana_readonly_password
+    version: 1
+
+  # Redis datasource (if plugin available)
+  - name: Redis
+    type: redis-datasource
+    access: proxy
+    url: redis:6379
+    editable: true
+    jsonData:
+      client: standalone
+      poolSize: 5
+      timeout: 10
+      pingInterval: 0
+      pipelineWindow: 0
+    secureJsonData:
+      password: redis_password
+    version: 1

@@ -12,6 +12,7 @@ from datetime import datetime
 from content_quality_system import ContentQualitySystem
 from posting_monitor import PostingMonitor
 from centralized_posting_queue import posting_queue, Platform, Priority
+from content_variety_enhancer import ContentVarietyEnhancer
 from dotenv import load_dotenv
 
 # Load environment variables from .env if not in GitHub Actions
@@ -23,6 +24,7 @@ class CloudPoster:
     
     def __init__(self):
         self.quality_system = ContentQualitySystem()
+        self.variety_enhancer = ContentVarietyEnhancer()
         
         # Content rotation for diversity
         self.content_types = [
@@ -51,8 +53,15 @@ class CloudPoster:
         return self.posting_queue.get_queue_status()
     
     def get_next_content_type(self):
-        """Get diverse content type"""
-        # Simple random selection - queue system handles deduplication
+        """Get diverse content type using variety enhancer"""
+        # Get suggestions from variety enhancer
+        suggestions = self.variety_enhancer.get_content_suggestions()
+        
+        # Use the suggested content type
+        if suggestions and suggestions.get('content_type'):
+            return suggestions['content_type']
+        
+        # Fallback to weighted random selection
         weights = []
         for ct in self.content_types:
             if 'loss' in ct or 'mistake' in ct:
@@ -73,12 +82,18 @@ class CloudPoster:
         """Generate content and add to centralized queue"""
         content_type = self.get_next_content_type()
         
+        # Get variety suggestions for enhanced content
+        variety_suggestions = self.variety_enhancer.get_content_suggestions()
+        
         print(f"📝 Generating {content_type} for {platform}...")
+        print(f"   Using theme: {variety_suggestions['themes'][0] if variety_suggestions.get('themes') else 'default'}")
+        print(f"   Market focus: {variety_suggestions['market_data'].get('focus_sector', 'General')}")
         
         # Use the quality system with multi-agent pipeline and validation
         result = self.quality_system.create_content(
             platform=platform,
-            content_type=content_type
+            content_type=content_type,
+            variety_hints=variety_suggestions  # Pass variety suggestions
         )
         
         if result.get('success'):

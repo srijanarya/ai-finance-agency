@@ -343,8 +343,8 @@ class ContentQualitySystem:
             'recommendation': 'Approve for publishing' if final_score >= 7 else 'Needs revision'
         }
     
-    def create_content(self, platform: str, content_type: str = 'market_insight') -> Dict:
-        """Create content through multi-agent pipeline"""
+    def create_content(self, platform: str, content_type: str = 'market_insight', variety_hints: Dict = None) -> Dict:
+        """Create content through multi-agent pipeline with variety enhancement"""
         
         print(f"\n{'='*60}")
         print(f"🚀 MULTI-AGENT CONTENT CREATION - {platform.upper()}")

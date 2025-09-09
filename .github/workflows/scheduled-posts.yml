@@ -40,6 +40,7 @@ jobs:
         TWITTER_CONSUMER_SECRET: ${{ secrets.TWITTER_CONSUMER_SECRET }}
         TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
         TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+        AUTO_RECOVER: "true"  # Enable automatic recovery in posting_monitor
       run: |
         echo "🚀 Starting content generation and posting..."
         

@@ -190,10 +190,26 @@ def main():
         
         # Could automatically trigger recovery here
         import subprocess
-        response = input("\nRecover missed posts now? (y/n): ")
-        if response.lower() == 'y':
+        import os
+        
+        # Check for auto-recovery setting (for non-interactive environments like GitHub Actions)
+        auto_recover = os.environ.get("AUTO_RECOVER", "false").lower()
+        
+        if auto_recover == "true":
+            print("\n🔄 Auto-recovery enabled. Starting recovery...")
             subprocess.run(['python', 'cloud_poster.py'])
             print("✅ Recovery complete!")
+        elif os.environ.get('GITHUB_ACTIONS'):
+            print("\n💡 Set AUTO_RECOVER=true in GitHub Actions to enable automatic recovery")
+        else:
+            # Only prompt for input in interactive environments
+            try:
+                response = input("\nRecover missed posts now? (y/n): ")
+                if response.lower() == 'y':
+                    subprocess.run(['python', 'cloud_poster.py'])
+                    print("✅ Recovery complete!")
+            except EOFError:
+                print("\n⚠️ Non-interactive environment detected. Set AUTO_RECOVER=true to enable recovery")
     else:
         print("\n✅ All posts on schedule!")
     

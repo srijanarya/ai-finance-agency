@@ -81,9 +81,9 @@ class CentralizedPostingQueue:
         self.lock = Lock()
         self.min_gap_minutes = 30  # Minimum gap between posts
         self.platform_limits = {
-            Platform.LINKEDIN.value: {"daily": 5, "hourly": 2},
-            Platform.TWITTER.value: {"daily": 20, "hourly": 5},
-            Platform.TELEGRAM.value: {"daily": 50, "hourly": 10}
+            Platform.LINKEDIN.value: {"daily": 50, "hourly": 10},  # Increased for testing
+            Platform.TWITTER.value: {"daily": 100, "hourly": 20},  # Increased for testing
+            Platform.TELEGRAM.value: {"daily": 200, "hourly": 50}  # Increased for testing
         }
         
         # Initialize database and API clients

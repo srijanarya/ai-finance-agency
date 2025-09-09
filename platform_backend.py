@@ -221,6 +221,19 @@ class TemplateEngine:
                 'category': 'tools',
                 'inputs': ['content', 'length'],
                 'prompt': '''Summarize this content to {length} words: {content}'''
+            },
+            
+            'twitter_thread': {
+                'name': 'Twitter Thread',
+                'icon': '🐦',
+                'category': 'social',
+                'inputs': ['topic', 'hook', 'call_to_action'],
+                'prompt': '''Create a Twitter/X thread about {topic}.
+                        Hook: {hook}
+                        Call to action: {call_to_action}
+                        
+                        Format as numbered tweets (1/n format), each under 280 characters.
+                        Include relevant hashtags and make it engaging.'''
             }
         }
     
@@ -250,29 +263,32 @@ class AIEngine:
         self.writesonic = WritesonicIntegration()
         self.finance_data = RealTimeFinanceData()
     
-    async def generate(self, prompt: str, model: str = 'gpt-4', options: Dict = None) -> str:
+    def generate(self, prompt: str, model: str = 'gpt-4', options: Dict = None) -> str:
         """Generate content using specified model"""
         options = options or {}
         
         try:
             if model == 'gpt-4':
-                return await self.generate_with_gpt4(prompt, options)
+                return self.generate_with_gpt4(prompt, options)
             elif model == 'gpt-3.5':
-                return await self.generate_with_gpt35(prompt, options)
+                return self.generate_with_gpt35(prompt, options)
             elif model == 'writesonic':
                 return self.generate_with_writesonic(prompt, options)
             elif model == 'hybrid':
-                return await self.generate_hybrid(prompt, options)
+                return self.generate_hybrid(prompt, options)
             else:
                 raise ValueError(f"Unknown model: {model}")
                 
         except Exception as e:
             logger.error(f"Generation error: {e}")
-            return await self.fallback_generation(prompt, options)
+            return self.fallback_generation(prompt, options)
     
-    async def generate_with_gpt4(self, prompt: str, options: Dict) -> str:
+    def generate_with_gpt4(self, prompt: str, options: Dict) -> str:
         """Generate using GPT-4"""
-        response = openai.ChatCompletion.create(
+        from openai import OpenAI
+        client = OpenAI()
+        
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are an expert content writer specializing in finance."},
@@ -287,9 +303,12 @@ class AIEngine:
         # Apply compliance
         return self.ensure_compliance(content)
     
-    async def generate_with_gpt35(self, prompt: str, options: Dict) -> str:
+    def generate_with_gpt35(self, prompt: str, options: Dict) -> str:
         """Generate using GPT-3.5"""
-        response = openai.ChatCompletion.create(
+        from openai import OpenAI
+        client = OpenAI()
+        
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are an expert content writer."},
@@ -315,15 +334,15 @@ class AIEngine:
         
         return result['content'] if result else "Content generation failed"
     
-    async def generate_hybrid(self, prompt: str, options: Dict) -> str:
+    def generate_hybrid(self, prompt: str, options: Dict) -> str:
         """Use multiple models for best results"""
         # Use GPT-3.5 for structure
         structure_prompt = f"Create an outline for: {prompt[:200]}"
-        structure = await self.generate_with_gpt35(structure_prompt, {'max_tokens': 500})
+        structure = self.generate_with_gpt35(structure_prompt, {'max_tokens': 500})
         
         # Use GPT-4 for main content
         full_prompt = f"Based on this outline:\n{structure}\n\nNow write:\n{prompt}"
-        content = await self.generate_with_gpt4(full_prompt, options)
+        content = self.generate_with_gpt4(full_prompt, options)
         
         return content
     
@@ -345,10 +364,10 @@ class AIEngine:
         
         return content
     
-    async def fallback_generation(self, prompt: str, options: Dict) -> str:
+    def fallback_generation(self, prompt: str, options: Dict) -> str:
         """Fallback to simpler model if primary fails"""
         try:
-            return await self.generate_with_gpt35(prompt, options)
+            return self.generate_with_gpt35(prompt, options)
         except:
             return "Content generation temporarily unavailable. Please try again."
 
@@ -364,7 +383,7 @@ def index():
     return render_template('content_platform.html')
 
 @app.route('/api/generate', methods=['POST'])
-async def generate_content():
+def generate_content():
     """Generate content endpoint"""
     data = request.json
     
@@ -392,12 +411,50 @@ async def generate_content():
         
         # Fill template
         template_id = data.get('template', 'market_analysis')
-        inputs = {
-            'asset': data.get('topic', 'Market'),
-            'timeframe': 'Current',
-            'data_points': data.get('keyPoints', 'Key metrics'),
-            'audience': data.get('audience', 'Investors')
-        }
+        template = template_engine.get_template(template_id)
+        
+        # Map frontend fields to template inputs dynamically
+        inputs = {}
+        if template:
+            for input_field in template.get('inputs', []):
+                if input_field == 'asset' or input_field == 'topic':
+                    inputs[input_field] = data.get('topic', 'Market')
+                elif input_field == 'company':
+                    inputs[input_field] = data.get('topic', 'Company')
+                elif input_field == 'audience':
+                    inputs[input_field] = data.get('audience', 'Investors')
+                elif input_field == 'timeframe':
+                    inputs[input_field] = 'Current'
+                elif input_field == 'data_points' or input_field == 'key_points':
+                    inputs[input_field] = data.get('keyPoints', 'Key metrics')
+                elif input_field == 'metrics':
+                    inputs[input_field] = data.get('keyPoints', 'Performance metrics')
+                elif input_field == 'comparison':
+                    inputs[input_field] = 'Industry peers'
+                elif input_field == 'strategy_type':
+                    inputs[input_field] = data.get('tone', 'Balanced')
+                elif input_field == 'assets':
+                    inputs[input_field] = data.get('topic', 'Diversified portfolio')
+                elif input_field == 'risk_level':
+                    inputs[input_field] = 'Moderate'
+                elif input_field == 'cta' or input_field == 'call_to_action':
+                    inputs[input_field] = data.get('cta', 'Learn more')
+                elif input_field == 'product':
+                    inputs[input_field] = data.get('topic', 'Product')
+                elif input_field == 'goal':
+                    inputs[input_field] = 'Increase engagement'
+                elif input_field == 'hook':
+                    inputs[input_field] = data.get('hook', 'Attention-grabbing opening')
+                elif input_field == 'tone':
+                    inputs[input_field] = data.get('tone', 'professional')
+                elif input_field == 'content':
+                    inputs[input_field] = data.get('content', data.get('topic', 'Content'))
+                elif input_field == 'improvement_type':
+                    inputs[input_field] = 'clarity'
+                elif input_field == 'length':
+                    inputs[input_field] = '200'
+                else:
+                    inputs[input_field] = data.get(input_field, '')
         
         prompt = template_engine.fill_template(template_id, inputs)
         
@@ -408,7 +465,7 @@ async def generate_content():
             'max_tokens': 2000 if data.get('length') == 'long' else 1000
         }
         
-        content = await ai_engine.generate(prompt, model, options)
+        content = ai_engine.generate(prompt, model, options)
         
         # Save to history
         cursor.execute('''

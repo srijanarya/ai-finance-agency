@@ -147,14 +147,15 @@ class CentralizedPostingQueue:
         
         # Twitter/X
         try:
+            # Don't require bearer_token - use OAuth 1.0a authentication
             self.twitter_client = tweepy.Client(
-                bearer_token=os.getenv('TWITTER_BEARER_TOKEN'),
                 consumer_key=os.getenv('TWITTER_CONSUMER_KEY'),
                 consumer_secret=os.getenv('TWITTER_CONSUMER_SECRET'),
                 access_token=os.getenv('TWITTER_ACCESS_TOKEN'),
                 access_token_secret=os.getenv('TWITTER_ACCESS_TOKEN_SECRET'),
                 wait_on_rate_limit=True
             )
+            logger.info("Twitter client initialized successfully")
         except Exception as e:
             logger.warning(f"Twitter client initialization failed: {e}")
             self.twitter_client = None

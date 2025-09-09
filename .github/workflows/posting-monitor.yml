@@ -21,7 +21,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
+        # Use minimal requirements file for GitHub Actions
+        pip install -r requirements-github-actions.txt || {
+          echo "Failed to install from requirements file, using full requirements..."
+          pip install -r requirements.txt
+        }
     
     - name: Check for missed posts
       env:

@@ -67,8 +67,12 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install requests python-dotenv openai
-        pip install tweepy || echo "Tweepy installation failed, continuing without Twitter support"
+        # Use minimal requirements file for GitHub Actions
+        pip install -r requirements-github-actions.txt || {
+          echo "Failed to install from requirements file, installing manually..."
+          pip install requests python-dotenv openai yfinance pandas numpy
+          pip install tweepy feedparser beautifulsoup4 lxml schedule
+        }
     
     - name: Generate and Post Content
       env:
@@ -107,8 +111,14 @@ jobs:
           exit 1
         fi
         
-        # Run the cloud poster
-        python cloud_poster.py || echo "Posting completed with some errors"
+        # Run the cloud poster with better error handling
+        echo "Starting cloud poster..."
+        python cloud_poster.py || {
+          echo "❌ Cloud poster failed with exit code: $?"
+          echo "Error details:"
+          python -c "import traceback; import sys; traceback.print_exc()"
+          exit 1
+        }
     
     - name: Upload Posting History
       if: always()

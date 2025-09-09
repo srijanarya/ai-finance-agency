@@ -763,12 +763,15 @@ Market consensus suggests potential rate cuts in H2 2024, contingent on inflatio
         
         // API endpoint for backend integration
         const API_BASE = '/api';
+        let contentVariations = [];
+        let currentVariation = 0;
         
         async function generateContent() {
             const btn = document.querySelector('.generate-btn');
             btn.classList.add('generating');
             btn.disabled = true;
             
+            const numVariations = parseInt(document.getElementById('variationsSelect').value) || 1;
             const requestData = {
                 template: document.querySelector('.template-item.active').dataset.template,
                 topic: document.getElementById('topicInput').value,
@@ -778,21 +781,41 @@ Market consensus suggests potential rate cuts in H2 2024, contingent on inflatio
                 model: document.querySelector('.model-option.active').dataset.model,
                 creativity: document.getElementById('creativitySlider').value,
                 length: document.getElementById('lengthSelect').value,
-                compliance: document.getElementById('complianceSelect').value
+                compliance: document.getElementById('complianceSelect').value,
+                variations: numVariations
             };
             
             try {
-                // Call backend API
-                const response = await fetch(`${API_BASE}/generate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(requestData)
-                });
+                // Clear previous variations
+                contentVariations = [];
                 
-                const data = await response.json();
+                // Generate requested number of variations
+                for (let i = 0; i < numVariations; i++) {
+                    const response = await fetch(`${API_BASE}/generate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            ...requestData,
+                            variation_seed: i
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data && data.content) {
+                        contentVariations.push(data.content);
+                    }
+                }
                 
-                // Update output
-                document.getElementById('outputContent').innerHTML = data.content;
+                // Update variation tabs
+                updateVariationTabs(numVariations);
+                
+                // Display first variation
+                if (contentVariations.length > 0) {
+                    displayVariation(0);
+                } else {
+                    document.getElementById('outputContent').textContent = 'Error: No content received';
+                }
                 
                 // Update stats
                 updateStats();
@@ -827,23 +850,23 @@ Market consensus suggests potential rate cuts in H2 2024, contingent on inflatio
         }
         
         function copyContent() {
-            const content = document.getElementById('outputContent').innerText;
+            const content = contentVariations[currentVariation] || document.getElementById('outputContent').innerText;
             navigator.clipboard.writeText(content);
             alert('Content copied to clipboard!');
         }
         
         function downloadContent() {
-            const content = document.getElementById('outputContent').innerText;
+            const content = contentVariations[currentVariation] || document.getElementById('outputContent').innerText;
             const blob = new Blob([content], { type: 'text/plain' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'generated_content.txt';
+            a.download = `generated_content_v${currentVariation + 1}.txt`;
             a.click();
         }
         
         async function addToQueue() {
-            const content = document.getElementById('outputContent').innerText;
+            const content = contentVariations[currentVariation] || document.getElementById('outputContent').innerText;
             
             try {
                 const response = await fetch(`${API_BASE}/queue/add`, {
@@ -867,7 +890,47 @@ Market consensus suggests potential rate cuts in H2 2024, contingent on inflatio
         }
         
         function regenerateContent() {
-            generateContent();
+            // Regenerate only the current variation
+            regenerateVariation(currentVariation);
+        }
+        
+        async function regenerateVariation(index) {
+            const btn = document.querySelector('.generate-btn');
+            btn.classList.add('generating');
+            btn.disabled = true;
+            
+            try {
+                const requestData = {
+                    template: document.querySelector('.template-item.active').dataset.template,
+                    topic: document.getElementById('topicInput').value,
+                    audience: document.getElementById('audienceSelect').value,
+                    keyPoints: document.getElementById('keyPointsInput').value,
+                    tone: document.getElementById('toneSelect').value,
+                    model: document.querySelector('.model-option.active').dataset.model,
+                    creativity: document.getElementById('creativitySlider').value,
+                    length: document.getElementById('lengthSelect').value,
+                    compliance: document.getElementById('complianceSelect').value,
+                    variation_seed: index + Math.random() // Add randomness for new variation
+                };
+                
+                const response = await fetch(`${API_BASE}/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.json();
+                
+                if (data && data.content) {
+                    contentVariations[index] = data.content;
+                    displayVariation(index);
+                }
+            } catch (error) {
+                console.error('Regeneration error:', error);
+            } finally {
+                btn.classList.remove('generating');
+                btn.disabled = false;
+            }
         }
         
         async function updateQueueStatus() {
@@ -899,6 +962,43 @@ Market consensus suggests potential rate cuts in H2 2024, contingent on inflatio
                 if (config) {
                     document.getElementById('templateTitle').textContent = config.title;
                     document.getElementById('topicInput').placeholder = config.placeholder;
+                }
+            });
+        });
+        
+        // Variation display functions
+        function displayVariation(index) {
+            if (contentVariations[index]) {
+                document.getElementById('outputContent').textContent = contentVariations[index];
+                currentVariation = index;
+                
+                // Update active tab
+                document.querySelectorAll('.variation-tab').forEach((tab, i) => {
+                    if (i === index) {
+                        tab.classList.add('active');
+                    } else {
+                        tab.classList.remove('active');
+                    }
+                });
+            }
+        }
+        
+        function updateVariationTabs(count) {
+            const variationTabs = document.querySelectorAll('.variation-tab');
+            variationTabs.forEach((tab, index) => {
+                if (index < count) {
+                    tab.style.display = 'inline-block';
+                } else {
+                    tab.style.display = 'none';
+                }
+            });
+        }
+        
+        // Variation tab click handlers
+        document.querySelectorAll('.variation-tab').forEach((tab, index) => {
+            tab.addEventListener('click', function() {
+                if (contentVariations[index]) {
+                    displayVariation(index);
                 }
             });
         });

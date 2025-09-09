@@ -7,28 +7,101 @@ Professional content creation with quality gates (lightweight version)
 import os
 import json
 import re
+import yfinance as yf
+import logging
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from coherent_content_generator import CoherentContentGenerator
 from engagement_optimizer_v2 import EngagementOptimizerV2
 from content_validation_rules import LearningIntegrator
 from dotenv import load_dotenv
 from openai import OpenAI
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 load_dotenv()
 
 class ContentQualitySystem:
-    """Lightweight multi-agent content creation system"""
+    """Lightweight multi-agent content creation system with REAL market data"""
     
     def __init__(self):
         self.client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
         self.generator = CoherentContentGenerator()
         self.optimizer = EngagementOptimizerV2()
         self.learning_integrator = LearningIntegrator()  # Add validation integration
+        self.market_data_cache = {}  # Cache for market data
+        self.cache_timestamp = None
         
+    def get_real_market_data(self) -> Dict:
+        """Fetch REAL market data from Yahoo Finance"""
+        # Cache for 5 minutes to avoid too many API calls
+        if self.cache_timestamp and (datetime.now() - self.cache_timestamp).seconds < 300:
+            return self.market_data_cache
+            
+        try:
+            data = {}
+            
+            # Indian Indices
+            nifty = yf.Ticker('^NSEI')
+            sensex = yf.Ticker('^BSESN')
+            
+            # Get current and historical data
+            nifty_hist = nifty.history(period='5d')
+            sensex_hist = sensex.history(period='5d')
+            
+            if not nifty_hist.empty:
+                data['nifty'] = {
+                    'current': nifty_hist['Close'].iloc[-1],
+                    'prev_close': nifty_hist['Close'].iloc[-2] if len(nifty_hist) > 1 else nifty_hist['Close'].iloc[-1],
+                    'change_pct': ((nifty_hist['Close'].iloc[-1] - nifty_hist['Close'].iloc[-2]) / nifty_hist['Close'].iloc[-2] * 100) if len(nifty_hist) > 1 else 0
+                }
+            
+            if not sensex_hist.empty:
+                data['sensex'] = {
+                    'current': sensex_hist['Close'].iloc[-1],
+                    'prev_close': sensex_hist['Close'].iloc[-2] if len(sensex_hist) > 1 else sensex_hist['Close'].iloc[-1],
+                    'change_pct': ((sensex_hist['Close'].iloc[-1] - sensex_hist['Close'].iloc[-2]) / sensex_hist['Close'].iloc[-2] * 100) if len(sensex_hist) > 1 else 0
+                }
+            
+            # USD/INR
+            usdinr = yf.Ticker('INR=X')
+            usdinr_hist = usdinr.history(period='5d')
+            if not usdinr_hist.empty:
+                data['usdinr'] = {
+                    'current': usdinr_hist['Close'].iloc[-1],
+                    'change_pct': ((usdinr_hist['Close'].iloc[-1] - usdinr_hist['Close'].iloc[-2]) / usdinr_hist['Close'].iloc[-2] * 100) if len(usdinr_hist) > 1 else 0
+                }
+            
+            # Cache the data
+            self.market_data_cache = data
+            self.cache_timestamp = datetime.now()
+            
+            logger.info(f"Fetched real market data: Nifty={data.get('nifty', {}).get('current', 'N/A'):.2f}, Sensex={data.get('sensex', {}).get('current', 'N/A'):.2f}")
+            return data
+            
+        except Exception as e:
+            logger.error(f"Error fetching market data: {e}")
+            # Return last cached data if available
+            if self.market_data_cache:
+                return self.market_data_cache
+            # Fallback to empty dict
+            return {}
+    
     def research_agent(self, platform: str, content_type: str) -> str:
-        """Research Agent - Gathers market insights"""
+        """Research Agent - Gathers market insights with REAL data"""
         current_date = datetime.now().strftime("%B %Y")
+        
+        # Get REAL market data
+        market_data = self.get_real_market_data()
+        
+        # Format real data for prompt
+        nifty_price = market_data.get('nifty', {}).get('current', 24773)
+        nifty_change = market_data.get('nifty', {}).get('change_pct', 0)
+        sensex_price = market_data.get('sensex', {}).get('current', 80787)
+        sensex_change = market_data.get('sensex', {}).get('change_pct', 0)
+        usdinr_rate = market_data.get('usdinr', {}).get('current', 87.93)
+        
         prompt = f"""You are a Market Research Analyst for Indian financial markets.
         Current Date: {current_date}
         
@@ -36,9 +109,10 @@ class ContentQualitySystem:
         
         IMPORTANT: Use ONLY current date ({current_date}) in your content. Do NOT use old dates like 2023.
         
-        ACCURATE INDIAN MARKET DATA (Sept 2025):
-        - Nifty 50: ~26,000 points
-        - Sensex: ~85,000 points
+        REAL INDIAN MARKET DATA (Live):
+        - Nifty 50: {nifty_price:.2f} ({nifty_change:+.2f}% today)
+        - Sensex: {sensex_price:.2f} ({sensex_change:+.2f}% today)
+        - USD/INR: ₹{usdinr_rate:.2f}
         - RBI Repo Rate: 6.5%
         - India 10Y Bond: ~7.2%
         - FY in India: April-March (FY25-26 ends March 2026)
@@ -46,9 +120,9 @@ class ContentQualitySystem:
         - STCG tax on equity: 20%
         
         Provide:
-        1. Current trend with ACCURATE data
-        2. Specific, factual numbers (NO made-up rates)
-        3. Real insight based on Indian markets
+        1. Current trend with REAL data (use the exact numbers provided)
+        2. Specific, factual numbers from the data above
+        3. Real insight based on today's market movement
         4. Actionable advice for Indian investors
         
         Format: Brief research report (100 words max)"""
@@ -63,8 +137,15 @@ class ContentQualitySystem:
         return response.choices[0].message.content.strip()
     
     def junior_writer_agent(self, research: str, platform: str, content_type: str) -> str:
-        """Junior Writer Agent - Creates first draft"""
+        """Junior Writer Agent - Creates first draft with REAL data"""
         current_date = datetime.now().strftime("%B %Y")
+        
+        # Get REAL market data for reference
+        market_data = self.get_real_market_data()
+        nifty_price = market_data.get('nifty', {}).get('current', 24773)
+        sensex_price = market_data.get('sensex', {}).get('current', 80787)
+        usdinr_rate = market_data.get('usdinr', {}).get('current', 87.93)
+        
         prompt = f"""You are a Junior Financial Content Writer.
         Current Date: {current_date}
         
@@ -74,10 +155,11 @@ class ContentQualitySystem:
         
         STRICT Requirements:
         - Use ONLY current date ({current_date})
-        - Use ACCURATE Indian data:
-          * Nifty: ~26,000 (NOT other numbers)
-          * Sensex: ~85,000 (NOT other numbers)
-          * RBI Repo: 6.5% (NOT 6.75%)
+        - Use REAL Indian market data:
+          * Nifty: {nifty_price:.0f} (EXACT, not rounded to thousands)
+          * Sensex: {sensex_price:.0f} (EXACT, not rounded)
+          * USD/INR: ₹{usdinr_rate:.2f}
+          * RBI Repo: 6.5%
           * Indian FY: April-March
         - Clear structure
         - Length for {platform}
@@ -127,8 +209,14 @@ class ContentQualitySystem:
         return response.choices[0].message.content.strip()
     
     def editor_agent(self, content: str, platform: str) -> str:
-        """Editor Agent - Polish and optimize"""
+        """Editor Agent - Polish and optimize with REAL data verification"""
         current_date = datetime.now().strftime("%B %Y")
+        
+        # Get REAL market data for verification
+        market_data = self.get_real_market_data()
+        nifty_price = market_data.get('nifty', {}).get('current', 24773)
+        sensex_price = market_data.get('sensex', {}).get('current', 80787)
+        usdinr_rate = market_data.get('usdinr', {}).get('current', 87.93)
         
         platform_limits = {
             'linkedin': 1300,
@@ -144,11 +232,14 @@ class ContentQualitySystem:
         Task: Final edit for {platform} (max {platform_limits.get(platform, 1000)} chars).
         
         STRICT Requirements:
-        - Verify ALL data accuracy:
-          * Nifty: ~26,000
-          * Sensex: ~85,000
+        - Verify and CORRECT market data to REAL values:
+          * Nifty MUST be: {nifty_price:.0f} (NOT 26,000)
+          * Sensex MUST be: {sensex_price:.0f} (NOT 85,000)
+          * USD/INR: ₹{usdinr_rate:.2f}
           * RBI Rate: 6.5%
           * FY: April-March
+        - If content mentions Nifty as 26,000 or similar, REPLACE with {nifty_price:.0f}
+        - If content mentions Sensex as 85,000 or similar, REPLACE with {sensex_price:.0f}
         - Fix ANY wrong dates to {current_date}
         - Remove ALL placeholders
         - Remove fake urgency

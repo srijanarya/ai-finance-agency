@@ -1,0 +1,9 @@
+{
+  "version": "4.43.0",
+  "projectPath": "/Users/srijan/ai-finance-agency",
+  "installedPacks": ["core"],
+  "settings": {
+    "autoStart": false,
+    "defaultAgent": "orchestrator"
+  }
+}

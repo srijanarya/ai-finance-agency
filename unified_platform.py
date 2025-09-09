@@ -32,6 +32,9 @@ import openai
 from bs4 import BeautifulSoup
 import re
 
+from database_helper import get_db_connection, get_redis_client, cache_get, cache_set
+
+
 # Import all our systems
 from content_quality_system import ContentQualitySystem
 from centralized_posting_queue import posting_queue, CentralizedPostingQueue

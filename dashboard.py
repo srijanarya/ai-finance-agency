@@ -23,6 +23,9 @@ from reliable_data_fetcher import ReliableDataFetcher
 from tradingview_content_system import TradingViewContentGenerator
 from pro_content_creator import ProContentCreator
 
+from database_helper import get_db_connection, get_redis_client, cache_get, cache_set
+
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

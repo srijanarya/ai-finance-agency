@@ -56,12 +56,12 @@ class AgentConfig:
 @dataclass
 class DashboardConfig:
     """Dashboard configuration"""
-    port: int = 8088
+    port: int = 5000
     debug: bool = False
     secret_key: str = "dev-key-change-in-production"
     
     def __post_init__(self):
-        self.port = int(os.getenv('FLASK_PORT', self.port))
+        self.port = int(os.getenv('PORT', os.getenv('FLASK_PORT', self.port)))
         self.debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
         self.secret_key = os.getenv('SECRET_KEY', self.secret_key)
 

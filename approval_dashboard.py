@@ -11,6 +11,9 @@ from datetime import datetime
 from safe_content_generator import SafeContentGenerator, ManualApprovalGate
 from cloud_poster_safe import SafeCloudPoster
 
+from database_helper import get_db_connection, get_redis_client, cache_get, cache_set
+
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 

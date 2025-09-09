@@ -23,6 +23,9 @@ import yfinance as yf
 import feedparser
 from dotenv import load_dotenv
 
+from database_helper import get_db_connection, get_redis_client, cache_get, cache_set
+
+
 # Import our systems
 from content_quality_system import ContentQualitySystem
 from centralized_posting_queue import posting_queue, Platform, Priority

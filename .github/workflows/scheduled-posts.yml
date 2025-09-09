@@ -1,4 +1,4 @@
-name: Automated Content Posting
+name: Automated Content Posting v2
 
 on:
   schedule:
@@ -122,6 +122,7 @@ jobs:
     
     - name: Upload Posting History
       if: always()
+      # Updated to v4 to fix deprecation warning
       uses: actions/upload-artifact@v4
       with:
         name: posting-history

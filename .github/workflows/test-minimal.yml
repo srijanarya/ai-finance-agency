@@ -1,0 +1,84 @@
+name: Test Minimal Workflow
+
+on:
+  workflow_dispatch:  # Manual trigger only
+
+jobs:
+  test-minimal:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Test Python
+      run: |
+        echo "Testing Python installation..."
+        python --version
+        pip --version
+        echo "✅ Python is working"
+    
+    - name: Install minimal dependencies
+      run: |
+        echo "Installing dependencies..."
+        python -m pip install --upgrade pip
+        pip install openai requests python-dotenv
+        echo "✅ Basic dependencies installed"
+    
+    - name: Test imports
+      run: |
+        python -c "
+        import os
+        import sys
+        print('Python:', sys.version)
+        print('Working directory:', os.getcwd())
+        print('Files in directory:', len(os.listdir('.')))
+        print('✅ Basic Python working')
+        "
+    
+    - name: Install yfinance
+      run: |
+        echo "Installing yfinance..."
+        pip install yfinance
+        python -c "import yfinance; print('✅ yfinance installed')"
+    
+    - name: Install remaining dependencies
+      run: |
+        echo "Installing remaining dependencies..."
+        pip install pandas numpy tweepy feedparser beautifulsoup4 lxml schedule
+        echo "✅ All dependencies installed"
+    
+    - name: Test cloud_poster exists
+      run: |
+        if [ -f "cloud_poster.py" ]; then
+          echo "✅ cloud_poster.py exists"
+          echo "File size: $(wc -c < cloud_poster.py) bytes"
+        else
+          echo "❌ cloud_poster.py not found"
+          ls -la *.py | head -10
+          exit 1
+        fi
+    
+    - name: Test imports from cloud_poster
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'test-key' }}
+      run: |
+        echo "Testing if cloud_poster can be imported..."
+        python -c "
+        import sys
+        import os
+        os.environ['OPENAI_API_KEY'] = os.environ.get('OPENAI_API_KEY', 'test-key')
+        try:
+            from cloud_poster import CloudPoster
+            print('✅ CloudPoster imported successfully')
+        except Exception as e:
+            print(f'❌ Error: {e}')
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+        "

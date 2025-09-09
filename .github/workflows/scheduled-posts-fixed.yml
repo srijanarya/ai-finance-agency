@@ -73,6 +73,42 @@ jobs:
         pip install tweepy feedparser beautifulsoup4 lxml schedule
         echo "✅ All dependencies installed successfully"
     
+    - name: Verify files exist
+      run: |
+        echo "Checking required files..."
+        files=("cloud_poster.py" "content_quality_system.py" "centralized_posting_queue.py" 
+               "coherent_content_generator.py" "engagement_optimizer_v2.py" "content_validation_rules.py")
+        
+        for file in "${files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "✅ $file exists"
+          else
+            echo "❌ $file not found"
+            echo "Listing Python files:"
+            ls -la *.py | head -20
+            exit 1
+          fi
+        done
+    
+    - name: Test imports
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'dummy-key-for-import-test' }}
+      run: |
+        echo "Testing if all modules can be imported..."
+        python -c "
+        import os
+        os.environ['OPENAI_API_KEY'] = os.environ.get('OPENAI_API_KEY', 'dummy-key')
+        try:
+            print('Importing cloud_poster...')
+            from cloud_poster import CloudPoster
+            print('✅ All imports successful')
+        except Exception as e:
+            print(f'❌ Import error: {e}')
+            import traceback
+            traceback.print_exc()
+            exit(1)
+        "
+    
     - name: Generate and Post Content
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -84,20 +120,13 @@ jobs:
         TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
         TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
       run: |
-        # Check if required files exist
-        if [ ! -f "cloud_poster.py" ]; then
-          echo "❌ cloud_poster.py not found"
-          exit 1
-        fi
-        
-        if [ ! -f "content_quality_system.py" ]; then
-          echo "❌ content_quality_system.py not found"
-          exit 1
-        fi
-        
-        # Run the cloud poster
         echo "🚀 Starting content generation and posting..."
-        python cloud_poster.py
+        python cloud_poster.py || {
+          echo "❌ Error occurred during posting"
+          echo "Attempting to show error details..."
+          python -c "import traceback; traceback.print_exc()" || true
+          exit 1
+        }
         echo "✅ Content posting completed!"
     
     # NO ARTIFACT UPLOAD - This avoids the v3 deprecation issue entirely

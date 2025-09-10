@@ -1,0 +1,5 @@
+#!/bin/bash
+# BMAD Method Launcher
+echo "🚀 BMAD Method - AI Agent Framework"
+echo "Type *help for available commands"
+echo "Starting BMAD Orchestrator..."

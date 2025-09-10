@@ -1,0 +1,596 @@
+syntax = "proto3";
+
+package marketdata;
+
+import "common.proto";
+import "google/protobuf/empty.proto";
+
+// Market Data Service
+service MarketDataService {
+  // Real-time market data
+  rpc GetRealtimeData(GetRealtimeDataRequest) returns (MarketDataResponse);
+  rpc GetBatchRealtimeData(GetBatchRealtimeDataRequest) returns (BatchMarketDataResponse);
+  rpc StreamMarketData(StreamMarketDataRequest) returns (stream MarketDataResponse);
+  
+  // Historical data
+  rpc GetHistoricalData(GetHistoricalDataRequest) returns (HistoricalDataResponse);
+  rpc GetOHLCData(GetOHLCDataRequest) returns (OHLCDataResponse);
+  rpc GetVolumeProfile(GetVolumeProfileRequest) returns (VolumeProfileResponse);
+  
+  // Technical indicators
+  rpc GetRSI(GetRSIRequest) returns (RSIResponse);
+  rpc GetMACD(GetMACDRequest) returns (MACDResponse);
+  rpc GetBollingerBands(GetBollingerBandsRequest) returns (BollingerBandsResponse);
+  rpc GetMovingAverage(GetMovingAverageRequest) returns (MovingAverageResponse);
+  rpc GetStochastic(GetStochasticRequest) returns (StochasticResponse);
+  rpc GetVolumeIndicators(GetVolumeIndicatorsRequest) returns (VolumeIndicatorsResponse);
+  rpc GetComprehensiveAnalysis(GetComprehensiveAnalysisRequest) returns (ComprehensiveAnalysisResponse);
+  
+  // Alerts
+  rpc CreateAlert(CreateAlertRequest) returns (AlertResponse);
+  rpc UpdateAlert(UpdateAlertRequest) returns (AlertResponse);
+  rpc DeleteAlert(DeleteAlertRequest) returns (google.protobuf.Empty);
+  rpc GetUserAlerts(GetUserAlertsRequest) returns (UserAlertsResponse);
+  rpc GetAlertStatistics(GetAlertStatisticsRequest) returns (AlertStatisticsResponse);
+  
+  // Watchlist
+  rpc AddToWatchlist(AddToWatchlistRequest) returns (WatchlistItemResponse);
+  rpc RemoveFromWatchlist(RemoveFromWatchlistRequest) returns (google.protobuf.Empty);
+  rpc GetUserWatchlist(GetUserWatchlistRequest) returns (UserWatchlistResponse);
+  rpc UpdateWatchlistItem(UpdateWatchlistItemRequest) returns (WatchlistItemResponse);
+  rpc GetWatchlistStatistics(GetWatchlistStatisticsRequest) returns (WatchlistStatisticsResponse);
+  
+  // Symbol search
+  rpc SearchSymbols(SearchSymbolsRequest) returns (SearchSymbolsResponse);
+}
+
+// Enums
+enum DataSource {
+  DATA_SOURCE_UNSPECIFIED = 0;
+  DATA_SOURCE_ALPHA_VANTAGE = 1;
+  DATA_SOURCE_IEX = 2;
+  DATA_SOURCE_YAHOO_FINANCE = 3;
+  DATA_SOURCE_BINANCE = 4;
+  DATA_SOURCE_COINBASE = 5;
+}
+
+enum TimeInterval {
+  TIME_INTERVAL_UNSPECIFIED = 0;
+  TIME_INTERVAL_ONE_MINUTE = 1;
+  TIME_INTERVAL_FIVE_MINUTES = 2;
+  TIME_INTERVAL_FIFTEEN_MINUTES = 3;
+  TIME_INTERVAL_THIRTY_MINUTES = 4;
+  TIME_INTERVAL_ONE_HOUR = 5;
+  TIME_INTERVAL_FOUR_HOURS = 6;
+  TIME_INTERVAL_ONE_DAY = 7;
+  TIME_INTERVAL_ONE_WEEK = 8;
+  TIME_INTERVAL_ONE_MONTH = 9;
+}
+
+enum AlertType {
+  ALERT_TYPE_UNSPECIFIED = 0;
+  ALERT_TYPE_PRICE_ABOVE = 1;
+  ALERT_TYPE_PRICE_BELOW = 2;
+  ALERT_TYPE_PRICE_CHANGE = 3;
+  ALERT_TYPE_VOLUME_SPIKE = 4;
+  ALERT_TYPE_TECHNICAL_INDICATOR = 5;
+  ALERT_TYPE_NEWS_SENTIMENT = 6;
+}
+
+enum AlertStatus {
+  ALERT_STATUS_UNSPECIFIED = 0;
+  ALERT_STATUS_ACTIVE = 1;
+  ALERT_STATUS_TRIGGERED = 2;
+  ALERT_STATUS_DISABLED = 3;
+  ALERT_STATUS_EXPIRED = 4;
+}
+
+enum AlertPriority {
+  ALERT_PRIORITY_UNSPECIFIED = 0;
+  ALERT_PRIORITY_LOW = 1;
+  ALERT_PRIORITY_MEDIUM = 2;
+  ALERT_PRIORITY_HIGH = 3;
+  ALERT_PRIORITY_CRITICAL = 4;
+}
+
+// Messages for Market Data
+message MarketDataPoint {
+  string symbol = 1;
+  double price = 2;
+  optional double bid = 3;
+  optional double ask = 4;
+  optional double bid_size = 5;
+  optional double ask_size = 6;
+  int64 volume = 7;
+  optional double previous_close = 8;
+  optional double change = 9;
+  optional double change_percent = 10;
+  optional double day_high = 11;
+  optional double day_low = 12;
+  optional int64 market_cap = 13;
+  DataSource source = 14;
+  int64 timestamp = 15; // Unix timestamp
+  bool is_market_open = 16;
+  optional string market_session = 17;
+}
+
+message HistoricalDataPoint {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  double open = 3;
+  double high = 4;
+  double low = 5;
+  double close = 6;
+  optional double adjusted_close = 7;
+  int64 volume = 8;
+  optional double vwap = 9;
+  DataSource source = 10;
+  int64 timestamp = 11;
+  optional int32 trade_count = 12;
+}
+
+message Alert {
+  string id = 1;
+  string user_id = 2;
+  string symbol = 3;
+  AlertType alert_type = 4;
+  string title = 5;
+  optional string description = 6;
+  map<string, string> conditions = 7;
+  optional double target_price = 8;
+  optional double percentage_threshold = 9;
+  optional int64 volume_threshold = 10;
+  AlertStatus status = 11;
+  AlertPriority priority = 12;
+  bool is_recurring = 13;
+  optional int64 expires_at = 14;
+  optional int64 triggered_at = 15;
+  optional double triggered_price = 16;
+  int32 trigger_count = 17;
+  optional int64 last_notification_at = 18;
+  repeated string notification_methods = 19;
+  int64 created_at = 20;
+  int64 updated_at = 21;
+}
+
+message WatchlistItem {
+  string id = 1;
+  string user_id = 2;
+  string symbol = 3;
+  optional string display_name = 4;
+  optional string notes = 5;
+  repeated string tags = 6;
+  int32 sort_order = 7;
+  optional double target_buy_price = 8;
+  optional double target_sell_price = 9;
+  optional double stop_loss_price = 10;
+  bool is_active = 11;
+  bool enable_alerts = 12;
+  optional double added_at_price = 13;
+  int64 created_at = 14;
+  int64 updated_at = 15;
+}
+
+message WatchlistItemWithMarketData {
+  WatchlistItem watchlist_item = 1;
+  optional MarketDataPoint market_data = 2;
+}
+
+// RSI (Relative Strength Index)
+message RSIValue {
+  int64 timestamp = 1;
+  double rsi = 2;
+}
+
+message RSI {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  repeated RSIValue values = 3;
+  double current_rsi = 4;
+  string signal = 5; // "overbought", "oversold", "neutral"
+}
+
+// MACD (Moving Average Convergence Divergence)
+message MACDValue {
+  int64 timestamp = 1;
+  double macd = 2;
+  double signal = 3;
+  double histogram = 4;
+}
+
+message MACDCurrent {
+  double macd = 1;
+  double signal = 2;
+  double histogram = 3;
+}
+
+message MACD {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  repeated MACDValue values = 3;
+  MACDCurrent current_macd = 4;
+  string crossover = 5; // "bullish", "bearish", "none"
+}
+
+// Bollinger Bands
+message BollingerBandsValue {
+  int64 timestamp = 1;
+  double upper = 2;
+  double middle = 3;
+  double lower = 4;
+  double price = 5;
+}
+
+message BollingerBandsCurrent {
+  double upper = 1;
+  double middle = 2;
+  double lower = 3;
+  double price = 4;
+}
+
+message BollingerBands {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  repeated BollingerBandsValue values = 3;
+  BollingerBandsCurrent current_bands = 4;
+  string signal = 5; // "upper_breach", "lower_breach", "neutral"
+}
+
+// Moving Average
+message MovingAverageValue {
+  int64 timestamp = 1;
+  double ma = 2;
+  double price = 3;
+}
+
+message MovingAverage {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  string type = 3; // "SMA", "EMA"
+  int32 period = 4;
+  repeated MovingAverageValue values = 5;
+  double current_ma = 6;
+  double current_price = 7;
+  string signal = 8; // "above", "below", "neutral"
+}
+
+// Stochastic Oscillator
+message StochasticValue {
+  int64 timestamp = 1;
+  double k = 2;
+  double d = 3;
+}
+
+message StochasticCurrent {
+  double k = 1;
+  double d = 2;
+}
+
+message Stochastic {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  repeated StochasticValue values = 3;
+  StochasticCurrent current_stochastic = 4;
+  string signal = 5; // "overbought", "oversold", "neutral"
+}
+
+// Volume Indicators
+message OBVValue {
+  int64 timestamp = 1;
+  double obv = 2;
+}
+
+message VolumeSMAValue {
+  int64 timestamp = 1;
+  double volume_sma = 2;
+  double volume = 3;
+}
+
+message VolumeIndicators {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  repeated OBVValue obv = 3;
+  repeated VolumeSMAValue volume_sma = 4;
+  bool volume_spike = 5;
+  double current_obv = 6;
+}
+
+// Volume Profile
+message VolumeProfileLevel {
+  double price = 1;
+  double volume = 2;
+}
+
+// Signal
+message Signal {
+  string indicator = 1;
+  string signal = 2;
+  string strength = 3; // "strong", "moderate", "weak"
+}
+
+// Comprehensive Analysis
+message ComprehensiveAnalysis {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  int64 timestamp = 3;
+  RSI rsi = 4;
+  MACD macd = 5;
+  BollingerBands bollinger_bands = 6;
+  MovingAverage sma20 = 7;
+  MovingAverage ema20 = 8;
+  Stochastic stochastic = 9;
+  VolumeIndicators volume_indicators = 10;
+  string overall_signal = 11; // "bullish", "bearish", "neutral"
+  repeated Signal signals = 12;
+}
+
+// Request Messages
+message GetRealtimeDataRequest {
+  string symbol = 1;
+}
+
+message GetBatchRealtimeDataRequest {
+  repeated string symbols = 1;
+}
+
+message StreamMarketDataRequest {
+  repeated string symbols = 1;
+}
+
+message GetHistoricalDataRequest {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  optional int64 start_date = 3;
+  optional int64 end_date = 4;
+  optional int32 limit = 5;
+}
+
+message GetOHLCDataRequest {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  optional int64 start_date = 3;
+  optional int64 end_date = 4;
+  optional int32 limit = 5;
+}
+
+message GetVolumeProfileRequest {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  optional int32 days = 3;
+}
+
+message GetRSIRequest {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  optional int32 period = 3;
+  optional int32 days = 4;
+}
+
+message GetMACDRequest {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  optional int32 days = 3;
+}
+
+message GetBollingerBandsRequest {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  optional int32 period = 3;
+  optional int32 days = 4;
+}
+
+message GetMovingAverageRequest {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  string type = 3; // "SMA", "EMA"
+  optional int32 period = 4;
+  optional int32 days = 5;
+}
+
+message GetStochasticRequest {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  optional int32 period = 3;
+  optional int32 days = 4;
+}
+
+message GetVolumeIndicatorsRequest {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  optional int32 days = 3;
+}
+
+message GetComprehensiveAnalysisRequest {
+  string symbol = 1;
+  TimeInterval interval = 2;
+  optional int32 days = 3;
+}
+
+// Alert Requests
+message CreateAlertRequest {
+  string user_id = 1;
+  string symbol = 2;
+  AlertType alert_type = 3;
+  string title = 4;
+  optional string description = 5;
+  map<string, string> conditions = 6;
+  optional double target_price = 7;
+  optional double percentage_threshold = 8;
+  optional int64 volume_threshold = 9;
+  optional AlertPriority priority = 10;
+  optional bool is_recurring = 11;
+  optional int64 expires_at = 12;
+  repeated string notification_methods = 13;
+}
+
+message UpdateAlertRequest {
+  string alert_id = 1;
+  optional string title = 2;
+  optional string description = 3;
+  map<string, string> conditions = 4;
+  optional double target_price = 5;
+  optional double percentage_threshold = 6;
+  optional int64 volume_threshold = 7;
+  optional AlertPriority priority = 8;
+  optional AlertStatus status = 9;
+  optional bool is_recurring = 10;
+  optional int64 expires_at = 11;
+  repeated string notification_methods = 12;
+}
+
+message DeleteAlertRequest {
+  string alert_id = 1;
+}
+
+message GetUserAlertsRequest {
+  string user_id = 1;
+  optional AlertStatus status = 2;
+}
+
+message GetAlertStatisticsRequest {
+  string user_id = 1;
+}
+
+// Watchlist Requests
+message AddToWatchlistRequest {
+  string user_id = 1;
+  string symbol = 2;
+  optional string display_name = 3;
+  optional string notes = 4;
+  repeated string tags = 5;
+  optional double target_buy_price = 6;
+  optional double target_sell_price = 7;
+  optional double stop_loss_price = 8;
+  optional bool enable_alerts = 9;
+}
+
+message RemoveFromWatchlistRequest {
+  string watchlist_item_id = 1;
+}
+
+message GetUserWatchlistRequest {
+  string user_id = 1;
+}
+
+message UpdateWatchlistItemRequest {
+  string watchlist_item_id = 1;
+  optional string display_name = 2;
+  optional string notes = 3;
+  repeated string tags = 4;
+  optional int32 sort_order = 5;
+  optional double target_buy_price = 6;
+  optional double target_sell_price = 7;
+  optional double stop_loss_price = 8;
+  optional bool is_active = 9;
+  optional bool enable_alerts = 10;
+}
+
+message GetWatchlistStatisticsRequest {
+  string user_id = 1;
+}
+
+message SearchSymbolsRequest {
+  string query = 1;
+}
+
+// Response Messages
+message MarketDataResponse {
+  MarketDataPoint data = 1;
+}
+
+message BatchMarketDataResponse {
+  repeated MarketDataPoint data = 1;
+}
+
+message HistoricalDataResponse {
+  repeated HistoricalDataPoint data = 1;
+}
+
+message OHLCDataResponse {
+  repeated HistoricalDataPoint data = 1;
+}
+
+message VolumeProfileResponse {
+  repeated VolumeProfileLevel levels = 1;
+}
+
+message RSIResponse {
+  RSI data = 1;
+}
+
+message MACDResponse {
+  MACD data = 1;
+}
+
+message BollingerBandsResponse {
+  BollingerBands data = 1;
+}
+
+message MovingAverageResponse {
+  MovingAverage data = 1;
+}
+
+message StochasticResponse {
+  Stochastic data = 1;
+}
+
+message VolumeIndicatorsResponse {
+  VolumeIndicators data = 1;
+}
+
+message ComprehensiveAnalysisResponse {
+  ComprehensiveAnalysis data = 1;
+}
+
+message AlertResponse {
+  Alert alert = 1;
+}
+
+message UserAlertsResponse {
+  repeated Alert alerts = 1;
+}
+
+message AlertStatisticsResponse {
+  int32 total = 1;
+  int32 active = 2;
+  int32 triggered = 3;
+  int32 expired = 4;
+  repeated SymbolCount by_symbol = 5;
+  repeated TypeCount by_type = 6;
+}
+
+message SymbolCount {
+  string symbol = 1;
+  int32 count = 2;
+}
+
+message TypeCount {
+  AlertType type = 1;
+  int32 count = 2;
+}
+
+message WatchlistItemResponse {
+  WatchlistItem item = 1;
+}
+
+message UserWatchlistResponse {
+  repeated WatchlistItemWithMarketData items = 1;
+}
+
+message WatchlistStatisticsResponse {
+  int32 total_symbols = 1;
+  int32 active_symbols = 2;
+  repeated TagCount symbols_by_tags = 3;
+  int32 price_alerts = 4;
+  repeated WatchlistItemWithMarketData top_gainers = 5;
+  repeated WatchlistItemWithMarketData top_losers = 6;
+}
+
+message TagCount {
+  string tag = 1;
+  int32 count = 2;
+}
+
+message SearchSymbolsResponse {
+  repeated string symbols = 1;
+}

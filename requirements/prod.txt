@@ -1,0 +1,215 @@
+# Production Dependencies for AI Finance Agency
+# Include base requirements
+-r base.txt
+
+# ==================== PRODUCTION WSGI/ASGI SERVERS ====================
+# High-performance WSGI server
+gunicorn==21.2.0
+gevent==23.9.1
+
+# High-performance ASGI server
+uvicorn[standard]==0.27.0
+uvloop==0.19.0
+
+# ==================== PERFORMANCE OPTIMIZATIONS ====================
+# Memory optimization
+psutil==5.9.6
+memory-profiler==0.61.0
+
+# HTTP optimization
+httptools==0.6.1
+uvloop==0.19.0
+
+# JSON optimization
+orjson==3.9.10
+ujson==5.9.0
+
+# ==================== MONITORING & OBSERVABILITY ====================
+# Application monitoring
+sentry-sdk[flask,sqlalchemy]==1.39.1
+elastic-apm==6.20.0
+newrelic==9.4.0
+
+# Metrics and monitoring
+prometheus-client==0.19.0
+statsd==4.0.1
+
+# Health checks
+py-healthcheck==1.10.1
+
+# ==================== LOGGING ====================
+# Structured logging
+structlog==23.2.0
+python-json-logger==2.0.7
+
+# Log aggregation
+fluent-logger==0.10.0
+pythonjsonlogger==2.0.7
+
+# ==================== SECURITY ====================
+# Security headers
+flask-talisman==1.1.0
+secure==0.3.0
+
+# Rate limiting (production-grade)
+flask-limiter==3.5.0
+redis==5.0.1
+
+# Authentication & authorization
+PyJWT==2.8.0
+cryptography==41.0.7
+passlib[bcrypt]==1.7.4
+
+# ==================== DATABASE PRODUCTION ====================
+# Connection pooling
+SQLAlchemy==2.0.25
+psycopg2-binary==2.9.9
+
+# Database migration
+alembic==1.13.1
+
+# Connection monitoring
+sqlalchemy-utils==0.41.1
+
+# ==================== CACHING ====================
+# Production Redis
+redis==5.0.1
+hiredis==2.2.3
+
+# Redis cluster support
+redis-py-cluster==2.1.3
+
+# Cache warming
+flask-caching==2.1.0
+
+# ==================== TASK QUEUE PRODUCTION ====================
+# Production Celery
+celery[redis]==5.3.4
+kombu==5.3.4
+
+# Task monitoring
+flower==2.0.1
+celery-redbeat==2.0.0
+
+# ==================== REVERSE PROXY & LOAD BALANCING ====================
+# NGINX integration utilities
+nginx-python-module==1.0.0
+
+# Load balancer health checks
+uwsgi==2.0.23
+
+# ==================== SSL/TLS ====================
+# SSL certificate management
+certifi==2023.11.17
+urllib3==2.1.0
+
+# ==================== BACKUP & RECOVERY ====================
+# Database backup
+pg-dump==0.1.0
+redis-dump-load==1.1
+
+# File backup utilities
+boto3==1.34.0  # AWS S3 integration
+azure-storage-blob==12.19.0  # Azure Blob Storage
+
+# ==================== CONFIGURATION MANAGEMENT ====================
+# Production config
+pydantic-settings==2.1.0
+dynaconf==3.2.4
+
+# Environment validation
+environs==11.0.0
+
+# ==================== PROCESS MANAGEMENT ====================
+# Process supervision
+supervisor==4.2.5
+
+# Service management
+systemd-python==235
+
+# ==================== NETWORKING ====================
+# HTTP client optimization
+httpx==0.26.0
+aiohttp==3.9.1
+
+# DNS resolution
+dnspython==2.4.2
+
+# ==================== EMAIL & NOTIFICATIONS ====================
+# Email backend
+sendgrid==6.11.0
+mailgun3==0.1.1
+
+# SMS notifications
+twilio==8.11.1
+
+# Push notifications
+pyfcm==1.5.4
+
+# ==================== FILE HANDLING ====================
+# File upload handling
+flask-uploads==0.2.1
+
+# Image processing
+Pillow==10.1.0
+python-magic==0.4.27
+
+# PDF generation
+reportlab==4.0.8
+weasyprint==60.2
+
+# ==================== DATA EXPORT ====================
+# Excel export
+openpyxl==3.1.2
+xlsxwriter==3.1.9
+
+# CSV optimization
+pandas==2.1.4  # Same as base
+
+# ==================== COMPRESSION ====================
+# Response compression
+brotli==1.1.0
+zstandard==0.22.0
+
+# ==================== TIMEZONE HANDLING ====================
+# Production timezone support
+pytz==2023.3
+tzdata==2023.4
+
+# ==================== MEMORY OPTIMIZATION ====================
+# Memory profiling for production
+pympler==0.9
+objgraph==3.6.0
+
+# ==================== API RATE LIMITING ====================
+# Advanced rate limiting
+slowapi==0.1.9
+limits==3.7.0
+
+# ==================== GRACEFUL SHUTDOWN ====================
+# Graceful process termination
+psutil==5.9.6
+
+# ==================== HEALTH MONITORING ====================
+# Application health
+healthcheck==1.3.3
+py-healthcheck==1.10.1
+
+# ==================== FEATURE FLAGS ====================
+# Production feature toggles
+launchdarkly-server-sdk==9.2.0
+flipper-client==1.4.0
+
+# ==================== DISTRIBUTED TRACING ====================
+# OpenTelemetry
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-instrumentation==0.42b0
+
+# Jaeger tracing
+jaeger-client==4.8.0
+
+# ==================== CIRCUIT BREAKERS ====================
+# Fault tolerance
+pybreaker==1.0.2
+tenacity==8.2.3

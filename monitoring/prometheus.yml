@@ -1,0 +1,89 @@
+# Prometheus Configuration for TREUM Signal Service Monitoring
+# Comprehensive metrics collection for ₹60-90 Cr revenue tracking
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'treum-signals'
+    environment: 'production'
+
+rule_files:
+  - "rules/*.yml"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # TREUM Signal API metrics
+  - job_name: 'treum-signal-api'
+    static_configs:
+      - targets: ['signal-api:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 4s
+    params:
+      format: ['prometheus']
+
+  # NGINX metrics
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:9113']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # PostgreSQL metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 15s
+
+  # Redis metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+
+  # Celery metrics
+  - job_name: 'celery'
+    static_configs:
+      - targets: ['celery-exporter:8888']
+    scrape_interval: 30s
+
+  # Node exporter for system metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # cAdvisor for container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+
+  # Custom application metrics
+  - job_name: 'treum-custom-metrics'
+    static_configs:
+      - targets: ['signal-api:8000']
+    metrics_path: '/api/v1/metrics/custom'
+    scrape_interval: 30s
+    params:
+      format: ['prometheus']
+
+# Remote write configuration for long-term storage
+# remote_write:
+#   - url: "https://prometheus-prod-10-prod-us-central-0.grafana.net/api/prom/push"
+#     basic_auth:
+#       username: "your-username"
+#       password: "your-api-key"

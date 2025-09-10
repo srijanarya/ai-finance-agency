@@ -1,100 +1,1172 @@
-version: '3.8'
+# Docker Compose configuration for AI Finance Agency
 
 services:
+  # =================================================================================
+  # INFRASTRUCTURE SERVICES
+  # =================================================================================
+  
+  # PostgreSQL Database - Primary data store
   postgres:
     image: postgres:15-alpine
     container_name: ai_finance_postgres
     environment:
-      POSTGRES_DB: ai_finance_db
-      POSTGRES_USER: ai_finance_user
+      POSTGRES_DB: ${POSTGRES_DB:-ai_finance_db}
+      POSTGRES_USER: ${POSTGRES_USER:-ai_finance_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securepassword123}
+      POSTGRES_MULTIPLE_DATABASES: trading_db,signals_db,payment_db,education_db,risk_db,user_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./infrastructure/postgres/create-multiple-databases.sh:/docker-entrypoint-initdb.d/create-multiple-databases.sh:ro
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - ai_finance_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ai_finance_user"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ai_finance_user} -d ${POSTGRES_DB:-ai_finance_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    profiles:
+      - infrastructure
+      - development
+      - production
 
+  # Redis Cache - Session storage and caching
   redis:
     image: redis:7-alpine
     container_name: ai_finance_redis
-    command: redis-server --appendonly yes
+    command: >
+      redis-server 
+      --appendonly yes 
+      --maxmemory ${REDIS_MAX_MEMORY:-256mb} 
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-}
     volumes:
       - redis_data:/data
+      - ./infrastructure/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - ai_finance_network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+    profiles:
+      - infrastructure
+      - development
+      - production
 
-  app:
-    build: .
-    container_name: ai_finance_app
+  # RabbitMQ Message Broker - Inter-service communication
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ai_finance_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ai_finance_admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-securerabbitpass}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-ai_finance}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbit log_levels [{connection,error}]
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./infrastructure/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./infrastructure/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"   # AMQP port
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672" # Management UI
+    networks:
+      - ai_finance_network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    profiles:
+      - infrastructure
+      - development
+      - production
+      
+  # MongoDB - Document storage for content and analytics
+  mongodb:
+    image: mongo:7
+    container_name: ai_finance_mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-securepass123}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-ai_finance}
+    volumes:
+      - mongodb_data:/data/db
+      - ./infrastructure/mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    networks:
+      - ai_finance_network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    profiles:
+      - infrastructure
+      - development
+      - production
+
+  # =================================================================================
+  # MICROSERVICES LAYER
+  # =================================================================================
+  
+  # API Gateway - Entry point for all client requests
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+      target: runtime
+      args:
+        NODE_VERSION: ${NODE_VERSION:-20-alpine}
+        BUILD_DATE: ${BUILD_DATE}
+        VCS_REF: ${VCS_REF}
+        VERSION: ${VERSION:-latest}
+    container_name: ai_finance_api_gateway
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3000
+      SERVICE_NAME: api-gateway
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/${POSTGRES_DB:-ai_finance_db}
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      SERVICE_DISCOVERY_URL: http://consul:8500
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./services/api-gateway/src:/usr/src/app/src:ro
+      - ./services/api-gateway/config:/usr/src/app/config:ro
+      - api_gateway_logs:/usr/src/app/logs
+    ports:
+      - "${API_GATEWAY_PORT:-3000}:3000"
+    networks:
+      - ai_finance_network
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    profiles:
+      - microservices
+      - development
+      - production
+      
+  # User Management Service - Authentication and user profiles
+  user-management:
+    build:
+      context: .
+      dockerfile: services/user-management/Dockerfile
+      target: runtime
+      args:
+        NODE_VERSION: ${NODE_VERSION:-20-alpine}
+    container_name: ai_finance_user_management
     environment:
-      DATABASE_URL: postgresql://ai_finance_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/ai_finance_db
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3002
+      SERVICE_NAME: user-management
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/user_db
       REDIS_URL: redis://redis:6379
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-dev-encryption-key}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
-      - .:/app
+      - ./services/user-management/src:/usr/src/app/src:ro
+      - user_mgmt_logs:/usr/src/app/logs
     ports:
-      - "5000:5000"
-      - "8000:8000"
-    command: python master_control_system.py
-
-  celery_worker:
-    build: .
-    container_name: ai_finance_celery_worker
+      - "${USER_MANAGEMENT_PORT:-3002}:3002"
+    networks:
+      - ai_finance_network
     depends_on:
-      - redis
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '0.5'
+        reservations:
+          memory: 192M
+          cpus: '0.25'
+    profiles:
+      - microservices
+      - development
+      - production
+      
+  # Trading Service - Order management and execution
+  trading:
+    build:
+      context: .
+      dockerfile: services/trading/Dockerfile
+      target: runtime
+    container_name: ai_finance_trading
     environment:
-      DATABASE_URL: postgresql://ai_finance_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/ai_finance_db
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3004
+      SERVICE_NAME: trading
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/trading_db
       REDIS_URL: redis://redis:6379
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      MARKET_DATA_SERVICE_URL: http://market-data:3008
+      RISK_MANAGEMENT_SERVICE_URL: http://risk-management:3007
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
-      - .:/app
-    command: celery -A celery_app worker --loglevel=info
-
-  celery_beat:
-    build: .
-    container_name: ai_finance_celery_beat
+      - ./services/trading/src:/usr/src/app/src:ro
+      - trading_logs:/usr/src/app/logs
+    ports:
+      - "${TRADING_PORT:-3004}:3004"
+    networks:
+      - ai_finance_network
     depends_on:
-      - redis
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.75'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    profiles:
+      - microservices
+      - development
+      - production
+      
+  # Signals Service - Trading signals generation and analysis
+  signals:
+    build:
+      context: .
+      dockerfile: services/signals/Dockerfile
+      target: runtime
+    container_name: ai_finance_signals
     environment:
-      DATABASE_URL: postgresql://ai_finance_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/ai_finance_db
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3003
+      SERVICE_NAME: signals
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/signals_db
       REDIS_URL: redis://redis:6379
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      MARKET_DATA_SERVICE_URL: http://market-data:3008
+      AI_SERVICE_URL: ${AI_SERVICE_URL}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
-      - .:/app
-    command: celery -A celery_app beat --loglevel=info
-
-  telegram_growth:
-    build: .
-    container_name: ai_finance_telegram_growth
+      - ./services/signals/src:/usr/src/app/src:ro
+      - signals_logs:/usr/src/app/logs
+    ports:
+      - "${SIGNALS_PORT:-3003}:3003"
+    networks:
+      - ai_finance_network
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.75'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    profiles:
+      - microservices
+      - development
+      - production
+      
+  # Payment Service - Transaction processing and billing
+  payment:
+    build:
+      context: .
+      dockerfile: services/payment/Dockerfile
+      target: runtime
+    container_name: ai_finance_payment
     environment:
-      DATABASE_URL: postgresql://ai_finance_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/ai_finance_db
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+      SERVICE_NAME: payment
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/payment_db
       REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
-      - .:/app
-    command: python telegram_growth_engine.py
+      - ./services/payment/src:/usr/src/app/src:ro
+      - payment_logs:/usr/src/app/logs
+    ports:
+      - "${PAYMENT_PORT:-3001}:3001"
+    networks:
+      - ai_finance_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '0.5'
+        reservations:
+          memory: 192M
+          cpus: '0.25'
+    profiles:
+      - microservices
+      - development
+      - production
+      
+  # Education Service - Learning content and courses
+  education:
+    build:
+      context: .
+      dockerfile: services/education/Dockerfile
+      target: runtime
+    container_name: ai_finance_education
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3005
+      SERVICE_NAME: education
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/education_db
+      MONGODB_URL: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-securepass123}@mongodb:27017/${MONGO_DATABASE:-ai_finance}?authSource=admin
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      CONTENT_INTELLIGENCE_SERVICE_URL: http://content-intelligence:3009
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./services/education/src:/usr/src/app/src:ro
+      - education_logs:/usr/src/app/logs
+    ports:
+      - "${EDUCATION_PORT:-3005}:3005"
+    networks:
+      - ai_finance_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '0.5'
+        reservations:
+          memory: 192M
+          cpus: '0.25'
+    profiles:
+      - microservices
+      - development
+      - production
+      
+  # Market Data Service - Real-time and historical market data
+  market-data:
+    build:
+      context: .
+      dockerfile: services/market-data/Dockerfile
+      target: runtime
+    container_name: ai_finance_market_data
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3008
+      SERVICE_NAME: market-data
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/${POSTGRES_DB:-ai_finance_db}
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY}
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY}
+      POLYGON_API_KEY: ${POLYGON_API_KEY}
+      WEBSOCKET_ENABLED: ${WEBSOCKET_ENABLED:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./services/market-data/src:/usr/src/app/src:ro
+      - market_data_logs:/usr/src/app/logs
+    ports:
+      - "${MARKET_DATA_PORT:-3008}:3008"
+    networks:
+      - ai_finance_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.75'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    profiles:
+      - microservices
+      - development
+      - production
+      
+  # Risk Management Service - Risk assessment and monitoring
+  risk-management:
+    build:
+      context: .
+      dockerfile: services/risk-management/Dockerfile
+      target: runtime
+    container_name: ai_finance_risk_management
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3007
+      SERVICE_NAME: risk-management
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/risk_db
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      MARKET_DATA_SERVICE_URL: http://market-data:3008
+      AI_RISK_ANALYSIS_ENABLED: ${AI_RISK_ANALYSIS_ENABLED:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./services/risk-management/src:/usr/src/app/src:ro
+      - risk_mgmt_logs:/usr/src/app/logs
+    ports:
+      - "${RISK_MANAGEMENT_PORT:-3007}:3007"
+    networks:
+      - ai_finance_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.75'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    profiles:
+      - microservices
+      - development
+      - production
+      
+  # Notification Service - Email, SMS, push notifications
+  notification:
+    build:
+      context: .
+      dockerfile: services/notification/Dockerfile
+      target: runtime
+    container_name: ai_finance_notification
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3006
+      SERVICE_NAME: notification
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/${POSTGRES_DB:-ai_finance_db}
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./services/notification/src:/usr/src/app/src:ro
+      - notification_logs:/usr/src/app/logs
+    ports:
+      - "${NOTIFICATION_PORT:-3006}:3006"
+    networks:
+      - ai_finance_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '0.5'
+        reservations:
+          memory: 192M
+          cpus: '0.25'
+    profiles:
+      - microservices
+      - development
+      - production
+      
+  # Content Intelligence Service - AI-powered content analysis
+  content-intelligence:
+    build:
+      context: .
+      dockerfile: services/content-intelligence/Dockerfile
+      target: runtime
+    container_name: ai_finance_content_intelligence
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3009
+      SERVICE_NAME: content-intelligence
+      MONGODB_URL: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-securepass123}@mongodb:27017/${MONGO_DATABASE:-ai_finance}?authSource=admin
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      PERPLEXITY_API_KEY: ${PERPLEXITY_API_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./services/content-intelligence/src:/usr/src/app/src:ro
+      - content_intelligence_logs:/usr/src/app/logs
+    ports:
+      - "${CONTENT_INTELLIGENCE_PORT:-3009}:3009"
+    networks:
+      - ai_finance_network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3009/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.75'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    profiles:
+      - microservices
+      - development
+      - production
 
+  # =================================================================================
+  # SUPPORTING SERVICES
+  # =================================================================================
+  
+  # Service Discovery (Consul)
+  consul:
+    image: hashicorp/consul:latest
+    container_name: ai_finance_consul
+    command: >
+      consul agent 
+      -server 
+      -bootstrap 
+      -data-dir=/consul/data 
+      -config-dir=/consul/config 
+      -ui 
+      -client=0.0.0.0
+    volumes:
+      - consul_data:/consul/data
+      - ./infrastructure/consul:/consul/config
+    ports:
+      - "${CONSUL_PORT:-8500}:8500"   # HTTP API
+      - "${CONSUL_DNS_PORT:-8600}:8600"   # DNS
+    networks:
+      - ai_finance_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8500/v1/status/leader"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    profiles:
+      - infrastructure
+      - development
+      - production
+
+  # Database Migration Service
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrations
+    container_name: ai_finance_migrations
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/${POSTGRES_DB:-ai_finance_db}
+      POSTGRES_MULTIPLE_DATABASES: trading_db,signals_db,payment_db,education_db,risk_db,user_db
+    volumes:
+      - ./migrations:/app/migrations
+      - ./infrastructure/postgres:/app/postgres
+    networks:
+      - ai_finance_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: /app/postgres/run-migrations.sh
+    restart: "no"
+    profiles:
+      - infrastructure
+      - development
+      - production
+
+  # Background Task Worker
+  worker:
+    build:
+      context: .
+      dockerfile: infrastructure/worker/Dockerfile
+    container_name: ai_finance_worker
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/${POSTGRES_DB:-ai_finance_db}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-2}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./infrastructure/worker/src:/usr/src/app/src:ro
+      - worker_logs:/usr/src/app/logs
+    networks:
+      - ai_finance_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '0.5'
+        reservations:
+          memory: 192M
+          cpus: '0.25'
+    profiles:
+      - infrastructure
+      - development
+      - production
+
+  # Task Scheduler
+  scheduler:
+    build:
+      context: .
+      dockerfile: infrastructure/scheduler/Dockerfile
+    container_name: ai_finance_scheduler
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_finance_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/${RABBITMQ_VHOST:-ai_finance}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/${POSTGRES_DB:-ai_finance_db}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./infrastructure/scheduler/src:/usr/src/app/src:ro
+      - ./infrastructure/scheduler/config:/usr/src/app/config:ro
+      - scheduler_logs:/usr/src/app/logs
+    networks:
+      - ai_finance_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    profiles:
+      - infrastructure
+      - development
+      - production
+
+  # Nginx Load Balancer and Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: ai_finance_nginx
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./infrastructure/nginx/ssl:/etc/ssl:ro
+      - nginx_logs:/var/log/nginx
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    networks:
+      - ai_finance_network
+    depends_on:
+      - api-gateway
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+    profiles:
+      - production
+
+  # =================================================================================
+  # MONITORING & OBSERVABILITY
+  # =================================================================================
+  
+  # Prometheus - Metrics collection and monitoring
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: ai_finance_prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - ai_finance_network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    profiles:
+      - monitoring
+      - production
+
+  # Grafana - Metrics visualization and dashboards
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: ai_finance_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_SECURITY_ALLOW_EMBEDDING: true
+      GF_SECURITY_COOKIE_SAMESITE: none
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,grafana-piechart-panel
+      GF_FEATURE_TOGGLES_ENABLE: publicDashboards
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./monitoring/grafana/plugins:/var/lib/grafana/plugins:ro
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    networks:
+      - ai_finance_network
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    profiles:
+      - monitoring
+      - production
+      
+  # Jaeger - Distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.48
+    container_name: ai_finance_jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+      COLLECTOR_ZIPKIN_HOST_PORT: :9411
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"    # Jaeger UI
+      - "${JAEGER_COLLECTOR_PORT:-14268}:14268"    # HTTP collector
+      - "${JAEGER_OTLP_GRPC_PORT:-14250}:14250"    # OTLP gRPC
+      - "${JAEGER_OTLP_HTTP_PORT:-14269}:14269"    # OTLP HTTP
+    networks:
+      - ai_finance_network
+    volumes:
+      - jaeger_data:/tmp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:16686"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    profiles:
+      - monitoring
+      - development
+      - production
+      
+  # ELK Stack - Centralized logging
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+    container_name: ai_finance_elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: false
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+    networks:
+      - ai_finance_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    profiles:
+      - logging
+      - production
+      
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.9.0
+    container_name: ai_finance_kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "${KIBANA_PORT:-5601}:5601"
+    networks:
+      - ai_finance_network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    profiles:
+      - logging
+      - production
+      
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.9.0
+    container_name: ai_finance_logstash
+    volumes:
+      - ./monitoring/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    ports:
+      - "${LOGSTASH_PORT:-5044}:5044"
+    networks:
+      - ai_finance_network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      LS_JAVA_OPTS: -Xms256m -Xmx256m
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    profiles:
+      - logging
+      - production
+
+# =================================================================================
+# VOLUMES - Persistent data storage
+# =================================================================================
 volumes:
+  # Infrastructure data volumes
   postgres_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/postgres
   redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/redis
+  rabbitmq_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/rabbitmq
+  mongodb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/mongodb
+  consul_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/consul
+      
+  # Monitoring data volumes
+  prometheus_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/prometheus
+  grafana_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/grafana
+  elasticsearch_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/elasticsearch
+  jaeger_data:
+    driver: local
+    
+  # Application log volumes
+  api_gateway_logs:
+    driver: local
+  user_mgmt_logs:
+    driver: local
+  trading_logs:
+    driver: local
+  signals_logs:
+    driver: local
+  payment_logs:
+    driver: local
+  education_logs:
+    driver: local
+  market_data_logs:
+    driver: local
+  risk_mgmt_logs:
+    driver: local
+  notification_logs:
+    driver: local
+  content_intelligence_logs:
+    driver: local
+  worker_logs:
+    driver: local
+  scheduler_logs:
+    driver: local
+  nginx_logs:
+    driver: local
+
+# =================================================================================
+# NETWORKS - Service isolation and communication
+# =================================================================================
+networks:
+  # Main application network
+  ai_finance_network:
+    name: ai_finance_network
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.name: ai-finance-br0
+      com.docker.network.bridge.enable_ip_masquerade: 'true'
+      com.docker.network.bridge.enable_icc: 'true'
+      com.docker.network.driver.mtu: 1500
+      
+  # External network for production ingress
+  external_network:
+    external: true
+    name: traefik_default
+    
+  # Default network (fallback)
+  default:
+    name: ai_finance_default
+    driver: bridge

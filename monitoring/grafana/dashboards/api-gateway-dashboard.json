@@ -1,0 +1,137 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "API Gateway Dashboard",
+    "tags": ["ai-finance", "api-gateway"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "10s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Health",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"api-gateway\"}",
+            "legendFormat": "Status"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            },
+            "mappings": [
+              {"type": "value", "value": "0", "text": "DOWN"},
+              {"type": "value", "value": "1", "text": "UP"}
+            ]
+          }
+        },
+        "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"api-gateway\"}[5m])",
+            "legendFormat": "{{method}} {{handler}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/sec"},
+          {}
+        ],
+        "gridPos": {"h": 6, "w": 12, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Response Time",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, http_request_duration_seconds_bucket{job=\"api-gateway\"})",
+            "legendFormat": "50th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.95, http_request_duration_seconds_bucket{job=\"api-gateway\"})",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.99, http_request_duration_seconds_bucket{job=\"api-gateway\"})",
+            "legendFormat": "99th percentile"
+          }
+        ],
+        "yAxes": [
+          {"label": "Seconds"},
+          {}
+        ],
+        "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"api-gateway\",status=~\"4..\"}[5m])",
+            "legendFormat": "4xx errors"
+          },
+          {
+            "expr": "rate(http_requests_total{job=\"api-gateway\",status=~\"5..\"}[5m])",
+            "legendFormat": "5xx errors"
+          }
+        ],
+        "yAxes": [
+          {"label": "Errors/sec"},
+          {}
+        ],
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 6}
+      },
+      {
+        "id": 5,
+        "title": "Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "process_resident_memory_bytes{job=\"api-gateway\"}",
+            "legendFormat": "Memory Usage"
+          }
+        ],
+        "yAxes": [
+          {"label": "Bytes"},
+          {}
+        ],
+        "gridPos": {"h": 6, "w": 6, "x": 12, "y": 6}
+      },
+      {
+        "id": 6,
+        "title": "CPU Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total{job=\"api-gateway\"}[5m]) * 100",
+            "legendFormat": "CPU Usage %"
+          }
+        ],
+        "yAxes": [
+          {"label": "Percentage"},
+          {}
+        ],
+        "gridPos": {"h": 6, "w": 6, "x": 18, "y": 6}
+      }
+    ]
+  }
+}

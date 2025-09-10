@@ -1,0 +1,673 @@
+version: '3.8'
+
+services:
+  # Separated PostgreSQL Database Instances
+  
+  # User Management Database
+  postgres-users:
+    image: postgres:15-alpine
+    container_name: treum_postgres_users
+    environment:
+      POSTGRES_DB: treum_users
+      POSTGRES_USER: treum_user_service
+      POSTGRES_PASSWORD: ${POSTGRES_USERS_PASSWORD:-user_secure_pass_2024}
+    volumes:
+      - postgres_users_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init-separated-databases.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - ./infrastructure/postgres/01-users-db-init.sql:/docker-entrypoint-initdb.d/01-users.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_user_service -d treum_users"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Trading Database
+  postgres-trading:
+    image: postgres:15-alpine
+    container_name: treum_postgres_trading
+    environment:
+      POSTGRES_DB: treum_trading
+      POSTGRES_USER: treum_trading_service
+      POSTGRES_PASSWORD: ${POSTGRES_TRADING_PASSWORD:-trading_secure_pass_2024}
+    volumes:
+      - postgres_trading_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/02-trading-db-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_trading_service -d treum_trading"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Market Data Database (High Performance)
+  postgres-market-data:
+    image: postgres:15-alpine
+    container_name: treum_postgres_market_data
+    environment:
+      POSTGRES_DB: treum_market_data
+      POSTGRES_USER: treum_market_data_service
+      POSTGRES_PASSWORD: ${POSTGRES_MARKET_DATA_PASSWORD:-market_data_secure_pass_2024}
+    volumes:
+      - postgres_market_data_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/03-market-data-db-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_market_data_service -d treum_market_data"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Signals Database
+  postgres-signals:
+    image: postgres:15-alpine
+    container_name: treum_postgres_signals
+    environment:
+      POSTGRES_DB: treum_signals
+      POSTGRES_USER: treum_signals_service
+      POSTGRES_PASSWORD: ${POSTGRES_SIGNALS_PASSWORD:-signals_secure_pass_2024}
+    volumes:
+      - postgres_signals_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/04-signals-db-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_signals_service -d treum_signals"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 384M
+
+  # Payments Database (ACID Compliant)
+  postgres-payments:
+    image: postgres:15-alpine
+    container_name: treum_postgres_payments
+    environment:
+      POSTGRES_DB: treum_payments
+      POSTGRES_USER: treum_payments_service
+      POSTGRES_PASSWORD: ${POSTGRES_PAYMENTS_PASSWORD:-payments_secure_pass_2024}
+    volumes:
+      - postgres_payments_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/05-payments-db-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_payments_service -d treum_payments"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Notifications Database
+  postgres-notifications:
+    image: postgres:15-alpine
+    container_name: treum_postgres_notifications
+    environment:
+      POSTGRES_DB: treum_notifications
+      POSTGRES_USER: treum_notifications_service
+      POSTGRES_PASSWORD: ${POSTGRES_NOTIFICATIONS_PASSWORD:-notifications_secure_pass_2024}
+    volumes:
+      - postgres_notifications_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/06-notifications-db-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5437:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_notifications_service -d treum_notifications"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+        reservations:
+          memory: 192M
+
+  # Risk Management Database
+  postgres-risk:
+    image: postgres:15-alpine
+    container_name: treum_postgres_risk
+    environment:
+      POSTGRES_DB: treum_risk
+      POSTGRES_USER: treum_risk_service
+      POSTGRES_PASSWORD: ${POSTGRES_RISK_PASSWORD:-risk_secure_pass_2024}
+    volumes:
+      - postgres_risk_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/07-risk-db-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5438:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_risk_service -d treum_risk"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+        reservations:
+          memory: 384M
+
+  # Education Database
+  postgres-education:
+    image: postgres:15-alpine
+    container_name: treum_postgres_education
+    environment:
+      POSTGRES_DB: treum_education
+      POSTGRES_USER: treum_education_service
+      POSTGRES_PASSWORD: ${POSTGRES_EDUCATION_PASSWORD:-education_secure_pass_2024}
+    volumes:
+      - postgres_education_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/08-education-db-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5439:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_education_service -d treum_education"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+        reservations:
+          memory: 192M
+
+  # Content Intelligence Database
+  postgres-content:
+    image: postgres:15-alpine
+    container_name: treum_postgres_content
+    environment:
+      POSTGRES_DB: treum_content_intelligence
+      POSTGRES_USER: treum_content_service
+      POSTGRES_PASSWORD: ${POSTGRES_CONTENT_PASSWORD:-content_secure_pass_2024}
+    volumes:
+      - postgres_content_data:/var/lib/postgresql/data
+    ports:
+      - "5440:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_content_service -d treum_content_intelligence"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+        reservations:
+          memory: 192M
+
+  # Connection Pooling Layer (PgBouncer)
+  pgbouncer-users:
+    image: pgbouncer/pgbouncer:latest
+    container_name: treum_pgbouncer_users
+    environment:
+      DATABASES_HOST: postgres-users
+      DATABASES_PORT: 5432
+      DATABASES_USER: treum_user_service
+      DATABASES_PASSWORD: ${POSTGRES_USERS_PASSWORD:-user_secure_pass_2024}
+      DATABASES_DBNAME: treum_users
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 200
+      DEFAULT_POOL_SIZE: 20
+      MIN_POOL_SIZE: 5
+      RESERVE_POOL_SIZE: 5
+      SERVER_IDLE_TIMEOUT: 600
+      LOG_CONNECTIONS: 1
+      LOG_DISCONNECTIONS: 1
+    ports:
+      - "6432:5432"
+    depends_on:
+      postgres-users:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+
+  pgbouncer-trading:
+    image: pgbouncer/pgbouncer:latest
+    container_name: treum_pgbouncer_trading
+    environment:
+      DATABASES_HOST: postgres-trading
+      DATABASES_PORT: 5432
+      DATABASES_USER: treum_trading_service
+      DATABASES_PASSWORD: ${POSTGRES_TRADING_PASSWORD:-trading_secure_pass_2024}
+      DATABASES_DBNAME: treum_trading
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 500
+      DEFAULT_POOL_SIZE: 50
+      MIN_POOL_SIZE: 10
+      RESERVE_POOL_SIZE: 10
+      SERVER_IDLE_TIMEOUT: 300
+    ports:
+      - "6433:5432"
+    depends_on:
+      postgres-trading:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+
+  pgbouncer-market-data:
+    image: pgbouncer/pgbouncer:latest
+    container_name: treum_pgbouncer_market_data
+    environment:
+      DATABASES_HOST: postgres-market-data
+      DATABASES_PORT: 5432
+      DATABASES_USER: treum_market_data_service
+      DATABASES_PASSWORD: ${POSTGRES_MARKET_DATA_PASSWORD:-market_data_secure_pass_2024}
+      DATABASES_DBNAME: treum_market_data
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 100
+      MIN_POOL_SIZE: 20
+      RESERVE_POOL_SIZE: 20
+      SERVER_IDLE_TIMEOUT: 180
+    ports:
+      - "6434:5432"
+    depends_on:
+      postgres-market-data:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+
+  # Shared Infrastructure Services
+  
+  # Redis Cache (Shared)
+  redis:
+    image: redis:7-alpine
+    container_name: treum_redis
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # RabbitMQ Message Broker (Shared)
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: treum_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-treum_admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-securerabbitpass}
+      RABBITMQ_DEFAULT_VHOST: treum_finance
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./infrastructure/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./infrastructure/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - treum_network
+
+  # Service Discovery (Consul)
+  consul:
+    image: hashicorp/consul:latest
+    container_name: treum_consul
+    command: >
+      consul agent 
+      -server 
+      -bootstrap 
+      -data-dir=/consul/data 
+      -config-dir=/consul/config 
+      -ui 
+      -client=0.0.0.0
+    volumes:
+      - consul_data:/consul/data
+      - ./infrastructure/consul:/consul/config:ro
+    ports:
+      - "8500:8500"   # HTTP API
+      - "8600:8600"   # DNS
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8500/v1/status/leader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+
+  # Microservices with Updated Database Connections
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: treum_api_gateway
+    ports:
+      - "3000:3000"
+      - "50051:50051"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3000
+      - GRPC_PORT=50051
+      - SERVICE_NAME=api-gateway
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+    volumes:
+      - ./logs/api-gateway:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # User Management Service
+  user-management:
+    build:
+      context: ./services/user-management
+      dockerfile: Dockerfile
+    container_name: treum_user_management
+    ports:
+      - "3001:3001"
+      - "50052:50052"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3001
+      - GRPC_PORT=50052
+      - SERVICE_NAME=user-management
+      - DATABASE_URL=postgresql://treum_user_service:${POSTGRES_USERS_PASSWORD:-user_secure_pass_2024}@pgbouncer-users:5432/treum_users
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+    volumes:
+      - ./logs/user-management:/app/logs
+    depends_on:
+      pgbouncer-users:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Trading Service
+  trading:
+    build:
+      context: ./services/trading
+      dockerfile: Dockerfile
+    container_name: treum_trading
+    ports:
+      - "3002:3002"
+      - "50053:50053"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3002
+      - GRPC_PORT=50053
+      - SERVICE_NAME=trading
+      - DATABASE_URL=postgresql://treum_trading_service:${POSTGRES_TRADING_PASSWORD:-trading_secure_pass_2024}@pgbouncer-trading:5432/treum_trading
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+    volumes:
+      - ./logs/trading:/app/logs
+    depends_on:
+      pgbouncer-trading:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Market Data Service
+  market-data:
+    build:
+      context: ./services/market-data
+      dockerfile: Dockerfile
+    container_name: treum_market_data
+    ports:
+      - "3008:3008"
+      - "50059:50059"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3008
+      - GRPC_PORT=50059
+      - SERVICE_NAME=market-data
+      - DATABASE_URL=postgresql://treum_market_data_service:${POSTGRES_MARKET_DATA_PASSWORD:-market_data_secure_pass_2024}@pgbouncer-market-data:5432/treum_market_data
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - IEX_API_TOKEN=${IEX_API_TOKEN}
+      - ENABLE_SCHEDULED_FETCH=${ENABLE_SCHEDULED_FETCH:-true}
+      - DATA_FETCH_INTERVAL=${DATA_FETCH_INTERVAL:-30}
+      - CACHE_TTL=${CACHE_TTL:-300}
+      - THROTTLE_TTL=60000
+      - THROTTLE_LIMIT=1000
+      - WS_MAX_CONNECTIONS=${WS_MAX_CONNECTIONS:-5000}
+      - WS_MAX_SYMBOLS_PER_CLIENT=${WS_MAX_SYMBOLS_PER_CLIENT:-100}
+    volumes:
+      - ./logs/market-data:/app/logs
+    depends_on:
+      pgbouncer-market-data:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Database Admin Tools
+  
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: treum_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@aifinanceagency.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./infrastructure/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      - "5050:80"
+    restart: unless-stopped
+    networks:
+      - treum_network
+    profiles:
+      - admin
+    depends_on:
+      - postgres-users
+      - postgres-trading
+      - postgres-market-data
+
+  # Monitoring Services
+  
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: treum_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus-separated-db.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - treum_network
+    profiles:
+      - monitoring
+
+volumes:
+  # Separated Database Volumes
+  postgres_users_data:
+    driver: local
+  postgres_trading_data:
+    driver: local
+  postgres_market_data_data:
+    driver: local
+  postgres_signals_data:
+    driver: local
+  postgres_payments_data:
+    driver: local
+  postgres_notifications_data:
+    driver: local
+  postgres_risk_data:
+    driver: local
+  postgres_education_data:
+    driver: local
+  postgres_content_data:
+    driver: local
+  
+  # Shared Infrastructure Volumes
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  consul_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  treum_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

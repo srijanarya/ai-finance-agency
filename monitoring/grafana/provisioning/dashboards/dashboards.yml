@@ -1,0 +1,38 @@
+# Grafana Dashboard Provisioning Configuration
+# Auto-loads all dashboard JSON files from the dashboards directory
+
+apiVersion: 1
+
+providers:
+  # AI Finance Agency Dashboards
+  - name: 'ai-finance-dashboards'
+    orgId: 1
+    folder: 'AI Finance Agency'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+
+  # Infrastructure Dashboards
+  - name: 'infrastructure-dashboards'
+    orgId: 1
+    folder: 'Infrastructure'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/infrastructure
+
+  # Business Dashboards
+  - name: 'business-dashboards'
+    orgId: 1
+    folder: 'Business Metrics'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/business

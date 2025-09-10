@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+package treum.user;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service UserService {
+  rpc CreateUser(CreateUserRequest) returns (UserResponse);
+  rpc GetUser(GetUserRequest) returns (UserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc ValidateUser(ValidateUserRequest) returns (ValidateUserResponse);
+  rpc GetUserProfile(GetUserRequest) returns (UserProfileResponse);
+  rpc UpdateUserProfile(UpdateUserProfileRequest) returns (UserProfileResponse);
+}
+
+// Messages
+message CreateUserRequest {
+  string email = 1;
+  string username = 2;
+  string password = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string phone = 6;
+  SubscriptionTier subscription_tier = 7;
+}
+
+message UpdateUserRequest {
+  string id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string phone = 4;
+  string avatar = 5;
+  UserStatus status = 6;
+  bool two_factor_enabled = 7;
+}
+
+message GetUserRequest {
+  string id = 1;
+}
+
+message DeleteUserRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+message ValidateUserRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message ValidateUserResponse {
+  bool valid = 1;
+  UserResponse user = 2;
+}
+
+message ListUsersRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string sort_by = 3;
+  string sort_order = 4;
+  UserStatus status_filter = 5;
+  SubscriptionTier tier_filter = 6;
+}
+
+message ListUsersResponse {
+  repeated UserResponse users = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+}
+
+message UserResponse {
+  string id = 1;
+  string email = 2;
+  string username = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string phone = 6;
+  string avatar = 7;
+  UserStatus status = 8;
+  SubscriptionTier subscription_tier = 9;
+  bool email_verified = 10;
+  bool phone_verified = 11;
+  bool two_factor_enabled = 12;
+  google.protobuf.Timestamp last_login_at = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp updated_at = 15;
+}
+
+message UpdateUserProfileRequest {
+  string user_id = 1;
+  string bio = 2;
+  TradingExperience trading_experience = 3;
+  RiskLevel risk_tolerance = 4;
+  repeated AssetType preferred_assets = 5;
+  string timezone = 6;
+  string language = 7;
+  NotificationSettings notifications = 8;
+}
+
+message UserProfileResponse {
+  string user_id = 1;
+  string bio = 2;
+  TradingExperience trading_experience = 3;
+  RiskLevel risk_tolerance = 4;
+  repeated AssetType preferred_assets = 5;
+  string timezone = 6;
+  string language = 7;
+  NotificationSettings notifications = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message NotificationSettings {
+  bool email = 1;
+  bool sms = 2;
+  bool push = 3;
+  bool trading = 4;
+  bool education = 5;
+}
+
+// Enums
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_INACTIVE = 2;
+  USER_STATUS_SUSPENDED = 3;
+  USER_STATUS_PENDING_VERIFICATION = 4;
+}
+
+enum SubscriptionTier {
+  SUBSCRIPTION_TIER_UNSPECIFIED = 0;
+  SUBSCRIPTION_TIER_FREE = 1;
+  SUBSCRIPTION_TIER_BASIC = 2;
+  SUBSCRIPTION_TIER_PREMIUM = 3;
+  SUBSCRIPTION_TIER_ENTERPRISE = 4;
+}
+
+enum TradingExperience {
+  TRADING_EXPERIENCE_UNSPECIFIED = 0;
+  TRADING_EXPERIENCE_BEGINNER = 1;
+  TRADING_EXPERIENCE_INTERMEDIATE = 2;
+  TRADING_EXPERIENCE_ADVANCED = 3;
+  TRADING_EXPERIENCE_EXPERT = 4;
+}
+
+enum RiskLevel {
+  RISK_LEVEL_UNSPECIFIED = 0;
+  RISK_LEVEL_LOW = 1;
+  RISK_LEVEL_MEDIUM = 2;
+  RISK_LEVEL_HIGH = 3;
+  RISK_LEVEL_VERY_HIGH = 4;
+}
+
+enum AssetType {
+  ASSET_TYPE_UNSPECIFIED = 0;
+  ASSET_TYPE_STOCK = 1;
+  ASSET_TYPE_CRYPTO = 2;
+  ASSET_TYPE_FOREX = 3;
+  ASSET_TYPE_COMMODITY = 4;
+  ASSET_TYPE_INDEX = 5;
+  ASSET_TYPE_BOND = 6;
+}

@@ -1,0 +1,239 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Trading Service Dashboard",
+    "tags": ["ai-finance", "trading", "critical"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "5s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Health",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"trading\"}",
+            "legendFormat": "Status"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            },
+            "mappings": [
+              {"type": "value", "value": "0", "text": "DOWN"},
+              {"type": "value", "value": "1", "text": "UP"}
+            ]
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Total Trades Today",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "increase(trading_trades_total[24h])",
+            "legendFormat": "Trades"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Trade Volume (USD)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(trading_volume_usd)",
+            "legendFormat": "Volume"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "currencyUSD"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Active Orders",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "trading_active_orders",
+            "legendFormat": "Orders"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0}
+      },
+      {
+        "id": 5,
+        "title": "Trading Latency",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, trading_execution_duration_seconds_bucket)",
+            "legendFormat": "P95 Latency"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.1},
+                {"color": "red", "value": 0.5}
+              ]
+            },
+            "unit": "s"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0}
+      },
+      {
+        "id": 6,
+        "title": "Failed Trades",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "rate(trading_failed_trades_total[5m])",
+            "legendFormat": "Failures/sec"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.1},
+                {"color": "red", "value": 1}
+              ]
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0}
+      },
+      {
+        "id": 7,
+        "title": "Trade Execution Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(trading_trades_total[5m])",
+            "legendFormat": "Successful Trades"
+          },
+          {
+            "expr": "rate(trading_failed_trades_total[5m])",
+            "legendFormat": "Failed Trades"
+          }
+        ],
+        "yAxes": [
+          {"label": "Trades/sec"},
+          {}
+        ],
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 4}
+      },
+      {
+        "id": 8,
+        "title": "Order Book Depth",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "trading_order_book_bids",
+            "legendFormat": "Bids"
+          },
+          {
+            "expr": "trading_order_book_asks",
+            "legendFormat": "Asks"
+          }
+        ],
+        "yAxes": [
+          {"label": "Orders"},
+          {}
+        ],
+        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 4}
+      },
+      {
+        "id": 9,
+        "title": "Trading PnL",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "trading_pnl_realized",
+            "legendFormat": "Realized PnL"
+          },
+          {
+            "expr": "trading_pnl_unrealized",
+            "legendFormat": "Unrealized PnL"
+          }
+        ],
+        "yAxes": [
+          {"label": "USD"},
+          {}
+        ],
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 10}
+      },
+      {
+        "id": 10,
+        "title": "Risk Metrics",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "trading_position_exposure",
+            "legendFormat": "Position Exposure"
+          },
+          {
+            "expr": "trading_risk_limit_utilization",
+            "legendFormat": "Risk Limit Utilization %"
+          }
+        ],
+        "yAxes": [
+          {"label": "Value"},
+          {}
+        ],
+        "gridPos": {"h": 6, "w": 12, "x": 12, "y": 10}
+      }
+    ]
+  }
+}

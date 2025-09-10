@@ -1,0 +1,255 @@
+# Alertmanager configuration for AI Finance Agency
+global:
+  # Global settings
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'alerts@ai-finance-agency.com'
+  smtp_auth_username: 'alerts@ai-finance-agency.com'
+  smtp_auth_password: 'your-app-password'
+  smtp_require_tls: true
+  
+  # Slack configuration
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+  
+  # Default notification settings
+  resolve_timeout: 5m
+
+# Notification templates
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Routing configuration
+route:
+  # Default receiver
+  receiver: 'default-notifications'
+  
+  # Grouping settings
+  group_by: 
+    - 'alertname'
+    - 'cluster'
+    - 'service'
+  
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  
+  # Routes for specific alert types
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      repeat_interval: 15m
+      routes:
+        # Database issues
+        - match:
+            service: postgres
+          receiver: 'database-alerts'
+        # Application down
+        - match:
+            alertname: InstanceDown
+          receiver: 'instance-down-alerts'
+    
+    # Warning alerts - less frequent
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      repeat_interval: 30m
+    
+    # Info alerts - daily summary
+    - match:
+        severity: info
+      receiver: 'info-alerts'
+      repeat_interval: 24h
+
+# Inhibition rules to reduce noise
+inhibit_rules:
+  # Silence warning alerts if critical alert is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+  
+  # Silence individual service alerts if entire instance is down
+  - source_match:
+      alertname: 'InstanceDown'
+    target_match_re:
+      alertname: '(HighCPUUsage|HighMemoryUsage|DiskSpaceHigh)'
+    equal: ['instance']
+
+# Notification receivers
+receivers:
+  # Default notifications
+  - name: 'default-notifications'
+    email_configs:
+      - to: 'devops@ai-finance-agency.com'
+        subject: 'AI Finance Agency Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+    slack_configs:
+      - channel: '#alerts'
+        title: 'AI Finance Agency Alert'
+        text: |
+          {{ range .Alerts }}
+          :warning: *{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          *Instance:* {{ .Labels.instance }}
+          *Severity:* {{ .Labels.severity }}
+          {{ end }}
+        color: 'warning'
+  
+  # Critical alerts
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'devops@ai-finance-agency.com,cto@ai-finance-agency.com'
+        subject: 'CRITICAL: AI Finance Agency Alert'
+        body: |
+          CRITICAL ALERT TRIGGERED!
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          
+          Please investigate immediately!
+          {{ end }}
+    slack_configs:
+      - channel: '#critical-alerts'
+        title: ':rotating_light: CRITICAL ALERT :rotating_light:'
+        text: |
+          {{ range .Alerts }}
+          :red_circle: *{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          *Instance:* {{ .Labels.instance }}
+          *Time:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+          
+          @channel Please investigate immediately!
+        color: 'danger'
+    # PagerDuty integration for critical alerts
+    pagerduty_configs:
+      - routing_key: 'your-pagerduty-integration-key'
+        description: '{{ .CommonAnnotations.summary }}'
+        details:
+          alert_count: '{{ len .Alerts }}'
+          firing_alerts: |
+            {{ range .Alerts }}
+            {{ .Annotations.summary }} ({{ .Labels.instance }})
+            {{ end }}
+  
+  # Database alerts
+  - name: 'database-alerts'
+    email_configs:
+      - to: 'dba@ai-finance-agency.com,devops@ai-finance-agency.com'
+        subject: 'Database Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          Database Alert Triggered!
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Database: {{ .Labels.database }}
+          Instance: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+    slack_configs:
+      - channel: '#database-alerts'
+        title: ':database: Database Alert'
+        text: |
+          {{ range .Alerts }}
+          :warning: *{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          *Database:* {{ .Labels.database }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        color: 'danger'
+  
+  # Instance down alerts
+  - name: 'instance-down-alerts'
+    email_configs:
+      - to: 'devops@ai-finance-agency.com,sre@ai-finance-agency.com'
+        subject: 'Service Down: {{ .GroupLabels.instance }}'
+        body: |
+          SERVICE DOWN ALERT!
+          
+          {{ range .Alerts }}
+          Service: {{ .Labels.job }}
+          Instance: {{ .Labels.instance }}
+          Time Down: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          Duration: {{ .Annotations.duration }}
+          {{ end }}
+          
+          Immediate action required!
+    slack_configs:
+      - channel: '#service-outages'
+        title: ':fire: Service Outage'
+        text: |
+          {{ range .Alerts }}
+          :red_circle: *Service Down: {{ .Labels.job }}*
+          *Instance:* {{ .Labels.instance }}
+          *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+          
+          @here Immediate action required!
+        color: 'danger'
+  
+  # Warning alerts
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'devops@ai-finance-agency.com'
+        subject: 'Warning: {{ .GroupLabels.alertname }}'
+        body: |
+          Warning Alert:
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+    slack_configs:
+      - channel: '#monitoring'
+        title: ':warning: Warning Alert'
+        text: |
+          {{ range .Alerts }}
+          :yellow_circle: *{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        color: 'warning'
+  
+  # Info alerts
+  - name: 'info-alerts'
+    email_configs:
+      - to: 'monitoring@ai-finance-agency.com'
+        subject: 'Info: {{ .GroupLabels.alertname }}'
+        body: |
+          Information Alert:
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05" }}
+          {{ end }}
+    slack_configs:
+      - channel: '#monitoring'
+        title: ':information_source: Info Alert'
+        text: |
+          {{ range .Alerts }}
+          :blue_circle: *{{ .Annotations.summary }}*
+          {{ .Annotations.description }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+        color: 'good'

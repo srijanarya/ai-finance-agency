@@ -1,0 +1,291 @@
+# AI Finance Agency - Prometheus Alert Rules
+# Critical alerting for production microservices
+
+groups:
+  # =======================================================================
+  # SERVICE AVAILABILITY ALERTS
+  # =======================================================================
+  - name: service_availability
+    rules:
+      # API Gateway down
+      - alert: APIGatewayDown
+        expr: up{job="api-gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: api-gateway
+        annotations:
+          summary: "API Gateway is down"
+          description: "API Gateway has been down for more than 1 minute"
+
+      # Critical services down
+      - alert: CriticalServiceDown
+        expr: up{job=~"payment|trading|signals|market-data"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Critical service {{ $labels.job }} is down"
+          description: "Critical service {{ $labels.job }} has been down for more than 30 seconds"
+
+      # Non-critical services down
+      - alert: ServiceDown
+        expr: up{job=~"user-management|education|notification|risk-management|content-intelligence"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 2 minutes"
+
+  # =======================================================================
+  # PERFORMANCE ALERTS
+  # =======================================================================
+  - name: performance
+    rules:
+      # High response time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, http_request_duration_seconds_bucket) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "High response time for {{ $labels.job }}"
+          description: "95th percentile response time is above 2 seconds for {{ $labels.job }}"
+
+      # Critical response time for trading
+      - alert: TradingHighLatency
+        expr: histogram_quantile(0.95, http_request_duration_seconds_bucket{job="trading"}) > 0.5
+        for: 1m
+        labels:
+          severity: critical
+          service: trading
+        annotations:
+          summary: "Trading service high latency"
+          description: "Trading service 95th percentile response time is above 500ms"
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: (rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m])) * 100 > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "High error rate for {{ $labels.job }}"
+          description: "Error rate is above 5% for {{ $labels.job }}"
+
+      # Critical error rate
+      - alert: CriticalErrorRate
+        expr: (rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m])) * 100 > 10
+        for: 1m
+        labels:
+          severity: critical
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Critical error rate for {{ $labels.job }}"
+          description: "Error rate is above 10% for {{ $labels.job }}"
+
+  # =======================================================================
+  # INFRASTRUCTURE ALERTS
+  # =======================================================================
+  - name: infrastructure
+    rules:
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: (100 - (avg(irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% for more than 5 minutes"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 85% for more than 5 minutes"
+
+      # Low disk space
+      - alert: LowDiskSpace
+        expr: (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Root filesystem has less than 10% free space"
+
+      # Container restarts
+      - alert: ContainerRestarts
+        expr: increase(container_start_time_seconds[1h]) > 5
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} restarting frequently"
+          description: "Container {{ $labels.name }} has restarted more than 5 times in the last hour"
+
+  # =======================================================================
+  # DATABASE ALERTS
+  # =======================================================================
+  - name: database
+    rules:
+      # PostgreSQL down
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is not responding"
+
+      # High database connections
+      - alert: HighDatabaseConnections
+        expr: pg_stat_activity_count / pg_settings_max_connections * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High database connection usage"
+          description: "Database connection usage is above 80%"
+
+      # Redis down
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache is not responding"
+
+      # High Redis memory usage
+      - alert: HighRedisMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is above 90%"
+
+  # =======================================================================
+  # BUSINESS METRICS ALERTS
+  # =======================================================================
+  - name: business_metrics
+    rules:
+      # Low trading volume
+      - alert: LowTradingVolume
+        expr: rate(trading_volume_total[1h]) < 100
+        for: 30m
+        labels:
+          severity: warning
+          business_impact: revenue
+        annotations:
+          summary: "Low trading volume detected"
+          description: "Trading volume has been below 100 trades/hour for 30 minutes"
+
+      # Payment failures
+      - alert: HighPaymentFailures
+        expr: rate(payment_failures_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          business_impact: revenue
+        annotations:
+          summary: "High payment failure rate"
+          description: "Payment failure rate is above 10% for 2 minutes"
+
+      # Signal generation delays
+      - alert: SignalGenerationDelay
+        expr: signal_generation_delay_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+          business_impact: user_experience
+        annotations:
+          summary: "Signal generation delays"
+          description: "Signal generation is taking more than 5 minutes"
+
+      # Market data feed issues
+      - alert: MarketDataFeedIssue
+        expr: rate(market_data_updates_total[5m]) < 1
+        for: 2m
+        labels:
+          severity: critical
+          business_impact: data_quality
+        annotations:
+          summary: "Market data feed issues"
+          description: "Market data updates have dropped below 1 per 5 minutes"
+
+  # =======================================================================
+  # SECURITY ALERTS
+  # =======================================================================
+  - name: security
+    rules:
+      # High authentication failures
+      - alert: HighAuthFailures
+        expr: rate(auth_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          security: authentication
+        annotations:
+          summary: "High authentication failure rate"
+          description: "Authentication failures are above 10 per 5 minutes"
+
+      # Suspicious API usage
+      - alert: SuspiciousAPIUsage
+        expr: rate(http_requests_total[5m]) > 1000
+        for: 1m
+        labels:
+          severity: warning
+          security: rate_limiting
+        annotations:
+          summary: "Suspicious API usage pattern"
+          description: "API request rate is above 1000 requests per 5 minutes"
+
+  # =======================================================================
+  # MESSAGE QUEUE ALERTS
+  # =======================================================================
+  - name: message_queue
+    rules:
+      # RabbitMQ down
+      - alert: RabbitMQDown
+        expr: rabbitmq_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RabbitMQ is down"
+          description: "RabbitMQ message broker is not responding"
+
+      # High queue depth
+      - alert: HighQueueDepth
+        expr: rabbitmq_queue_messages > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High message queue depth"
+          description: "Queue {{ $labels.queue }} has more than 1000 messages"
+
+      # Message processing delays
+      - alert: MessageProcessingDelay
+        expr: rabbitmq_queue_message_age_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Message processing delays"
+          description: "Messages in queue {{ $labels.queue }} are older than 5 minutes"

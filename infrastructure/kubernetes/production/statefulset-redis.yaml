@@ -1,0 +1,296 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: treum-production
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  clusterIP: None  # Headless service for StatefulSet
+  selector:
+    app: redis
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+  - name: sentinel
+    port: 26379
+    targetPort: 26379
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: treum-production
+  labels:
+    app: redis
+    environment: production
+spec:
+  serviceName: redis-service
+  replicas: 3  # Redis with Sentinel for HA
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+        environment: production
+    spec:
+      initContainers:
+      - name: config
+        image: redis:7-alpine
+        command:
+        - sh
+        - -c
+        - |
+          cp /tmp/redis/redis.conf /etc/redis/redis.conf
+          
+          echo "Initializing Redis configuration..."
+          
+          if [ "$HOSTNAME" = "redis-0" ]; then
+            echo "Setting up master configuration..."
+          else
+            echo "Setting up replica configuration..."
+            echo "replicaof redis-0.redis-service 6379" >> /etc/redis/redis.conf
+          fi
+        
+        volumeMounts:
+        - name: redis-config
+          mountPath: /tmp/redis
+        - name: config
+          mountPath: /etc/redis
+      
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        
+        command:
+        - redis-server
+        - /etc/redis/redis.conf
+        
+        ports:
+        - containerPort: 6379
+          name: redis
+        
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: treum-secrets
+              key: REDIS_PASSWORD
+        
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: config
+          mountPath: /etc/redis
+      
+      # Redis Sentinel for automatic failover
+      - name: sentinel
+        image: redis:7-alpine
+        
+        command:
+        - redis-sentinel
+        - /etc/redis-sentinel/sentinel.conf
+        
+        ports:
+        - containerPort: 26379
+          name: sentinel
+        
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: treum-secrets
+              key: REDIS_PASSWORD
+        
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+        
+        volumeMounts:
+        - name: sentinel-config
+          mountPath: /etc/redis-sentinel
+      
+      volumes:
+      - name: config
+        emptyDir: {}
+      - name: redis-config
+        configMap:
+          name: redis-config
+      - name: sentinel-config
+        configMap:
+          name: redis-sentinel-config
+      
+      nodeSelector:
+        node-role: cache
+      
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: treum-production
+data:
+  redis.conf: |
+    # Redis Configuration
+    bind 0.0.0.0
+    protected-mode yes
+    port 6379
+    tcp-backlog 511
+    timeout 0
+    tcp-keepalive 300
+    
+    # Persistence
+    save 900 1
+    save 300 10
+    save 60 10000
+    stop-writes-on-bgsave-error yes
+    rdbcompression yes
+    rdbchecksum yes
+    dbfilename dump.rdb
+    dir /data
+    
+    # Replication
+    replica-read-only yes
+    replica-serve-stale-data yes
+    repl-diskless-sync no
+    repl-diskless-sync-delay 5
+    repl-diskless-load disabled
+    repl-disable-tcp-nodelay no
+    replica-priority 100
+    
+    # Memory Management
+    maxmemory 1gb
+    maxmemory-policy allkeys-lru
+    
+    # Logging
+    loglevel notice
+    logfile ""
+    syslog-enabled no
+    databases 16
+    
+    # Snapshotting
+    stop-writes-on-bgsave-error yes
+    rdbcompression yes
+    rdbchecksum yes
+    
+    # Performance
+    lazyfree-lazy-eviction no
+    lazyfree-lazy-expire no
+    lazyfree-lazy-server-del no
+    replica-lazy-flush no
+    lazyfree-lazy-user-del no
+    
+    # Append Only File
+    appendonly yes
+    appendfilename "appendonly.aof"
+    appendfsync everysec
+    no-appendfsync-on-rewrite no
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+    aof-load-truncated yes
+    aof-use-rdb-preamble yes
+    
+    # Lua scripting
+    lua-time-limit 5000
+    
+    # Cluster
+    cluster-enabled no
+    
+    # Slow log
+    slowlog-log-slower-than 10000
+    slowlog-max-len 128
+    
+    # Event notification
+    notify-keyspace-events ""
+    
+    # Advanced config
+    hash-max-ziplist-entries 512
+    hash-max-ziplist-value 64
+    list-max-ziplist-size -2
+    list-compress-depth 0
+    set-max-intset-entries 512
+    zset-max-ziplist-entries 128
+    zset-max-ziplist-value 64
+    hll-sparse-max-bytes 3000
+    stream-node-max-bytes 4096
+    stream-node-max-entries 100
+    activerehashing yes
+    client-output-buffer-limit normal 0 0 0
+    client-output-buffer-limit replica 256mb 64mb 60
+    client-output-buffer-limit pubsub 32mb 8mb 60
+    hz 10
+    dynamic-hz yes
+    aof-rewrite-incremental-fsync yes
+    rdb-save-incremental-fsync yes
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-sentinel-config
+  namespace: treum-production
+data:
+  sentinel.conf: |
+    # Sentinel Configuration
+    port 26379
+    bind 0.0.0.0
+    protected-mode no
+    
+    # Monitor Redis master
+    sentinel monitor mymaster redis-0.redis-service 6379 2
+    sentinel down-after-milliseconds mymaster 5000
+    sentinel parallel-syncs mymaster 1
+    sentinel failover-timeout mymaster 10000
+    
+    # Logging
+    logfile ""
+    loglevel notice
+    
+    # Authentication
+    sentinel auth-pass mymaster ${REDIS_PASSWORD}
+    requirepass ${REDIS_PASSWORD}

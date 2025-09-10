@@ -1,0 +1,999 @@
+syntax = "proto3";
+
+package treum.risk;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// Risk Management Service
+service RiskManagementService {
+  // Risk Assessment
+  rpc AssessTradeRisk(AssessTradeRiskRequest) returns (TradeRiskResponse);
+  rpc CalculatePortfolioRisk(CalculatePortfolioRiskRequest) returns (PortfolioRiskResponse);
+  rpc GetRiskAssessment(GetRiskAssessmentRequest) returns (RiskAssessmentResponse);
+  rpc ListRiskAssessments(ListRiskAssessmentsRequest) returns (ListRiskAssessmentsResponse);
+
+  // Compliance
+  rpc PerformKYCCheck(KYCCheckRequest) returns (ComplianceCheckResponse);
+  rpc PerformAMLCheck(AMLCheckRequest) returns (ComplianceCheckResponse);
+  rpc PerformTradeComplianceCheck(TradeComplianceCheckRequest) returns (ComplianceCheckResponse);
+  rpc GetComplianceStatus(GetComplianceStatusRequest) returns (ComplianceStatusResponse);
+
+  // Risk Alerts
+  rpc CreateRiskAlert(CreateRiskAlertRequest) returns (RiskAlertResponse);
+  rpc GetActiveAlerts(GetActiveAlertsRequest) returns (ListRiskAlertsResponse);
+  rpc AcknowledgeAlert(AcknowledgeAlertRequest) returns (RiskAlertResponse);
+  rpc ResolveAlert(ResolveAlertRequest) returns (RiskAlertResponse);
+
+  // Risk Limits
+  rpc CreateRiskLimit(CreateRiskLimitRequest) returns (RiskLimitResponse);
+  rpc UpdateRiskLimit(UpdateRiskLimitRequest) returns (RiskLimitResponse);
+  rpc GetRiskLimits(GetRiskLimitsRequest) returns (ListRiskLimitsResponse);
+  rpc CheckLimitBreach(CheckLimitBreachRequest) returns (LimitBreachResponse);
+
+  // Fraud Detection
+  rpc DetectFraud(DetectFraudRequest) returns (FraudDetectionResponse);
+  rpc GetFraudScore(GetFraudScoreRequest) returns (FraudScoreResponse);
+
+  // Risk Metrics
+  rpc GetRiskMetrics(GetRiskMetricsRequest) returns (RiskMetricsResponse);
+  rpc ListRiskMetrics(ListRiskMetricsRequest) returns (ListRiskMetricsResponse);
+}
+
+// Risk Assessment Messages
+message AssessTradeRiskRequest {
+  string user_id = 1;
+  string account_id = 2;
+  string trade_id = 3;
+  string symbol = 4;
+  string asset_type = 5;
+  TradeSide side = 6;
+  double quantity = 7;
+  double price = 8;
+  double stop_loss = 9;
+  double take_profit = 10;
+  double leverage = 11;
+  double portfolio_value = 12;
+  double available_balance = 13;
+  repeated Position existing_positions = 14;
+  MarketData market_data = 15;
+}
+
+message Position {
+  string symbol = 1;
+  double quantity = 2;
+  double market_value = 3;
+  double unrealized_pnl = 4;
+}
+
+message MarketData {
+  double volatility = 1;
+  double liquidity = 2;
+  double beta = 3;
+  double correlation = 4;
+}
+
+message TradeRiskResponse {
+  RiskLevel risk_level = 1;
+  double risk_score = 2;
+  repeated RiskFactor risk_factors = 3;
+  repeated string recommendations = 4;
+  repeated string warnings = 5;
+  bool approved = 6;
+  double max_position_size = 7;
+  double suggested_stop_loss = 8;
+}
+
+message RiskFactor {
+  string factor = 1;
+  double value = 2;
+  double weight = 3;
+  double contribution = 4;
+  string description = 5;
+}
+
+message CalculatePortfolioRiskRequest {
+  string user_id = 1;
+  string account_id = 2;
+  string portfolio_id = 3;
+  double total_value = 4;
+  double available_balance = 5;
+  double used_margin = 6;
+  double leverage = 7;
+  repeated PortfolioPosition positions = 8;
+  repeated double historical_returns = 9;
+  repeated double benchmark_returns = 10;
+}
+
+message PortfolioPosition {
+  string symbol = 1;
+  string asset_type = 2;
+  double quantity = 3;
+  double average_price = 4;
+  double current_price = 5;
+  double market_value = 6;
+  double unrealized_pnl = 7;
+  string sector = 8;
+  string currency = 9;
+  double beta = 10;
+  double volatility = 11;
+}
+
+message PortfolioRiskResponse {
+  ValueAtRisk value_at_risk = 1;
+  ExpectedShortfall expected_shortfall = 2;
+  Volatility volatility = 3;
+  double sharpe_ratio = 4;
+  double sortino_ratio = 5;
+  double maximum_drawdown = 6;
+  double beta = 7;
+  ConcentrationRisk concentration = 8;
+  map<string, double> sector_exposure = 9;
+  map<string, double> currency_exposure = 10;
+  double leverage_ratio = 11;
+  double margin_utilization = 12;
+}
+
+message ValueAtRisk {
+  double var95 = 1;
+  double var99 = 2;
+  double var999 = 3;
+}
+
+message ExpectedShortfall {
+  double es95 = 1;
+  double es99 = 2;
+}
+
+message Volatility {
+  double daily = 1;
+  double annualized = 2;
+}
+
+message ConcentrationRisk {
+  double herfindahl_index = 1;
+  double top_position_weight = 2;
+  double top5_position_weight = 3;
+}
+
+// Compliance Messages
+message KYCCheckRequest {
+  string user_id = 1;
+  PersonalInfo personal_info = 2;
+  repeated Document documents = 3;
+  RiskProfile risk_profile = 4;
+  InvestmentExperience investment_experience = 5;
+  double estimated_net_worth = 6;
+  double annual_income = 7;
+}
+
+message PersonalInfo {
+  string full_name = 1;
+  string date_of_birth = 2;
+  string nationality = 3;
+  Address address = 4;
+  string phone = 5;
+  string email = 6;
+  string tax_id = 7;
+  string passport_number = 8;
+  string driving_license_number = 9;
+}
+
+message Address {
+  string street = 1;
+  string city = 2;
+  string state = 3;
+  string country = 4;
+  string postal_code = 5;
+}
+
+message Document {
+  DocumentType type = 1;
+  string url = 2;
+  bool verified = 3;
+}
+
+message AMLCheckRequest {
+  string user_id = 1;
+  TransactionData transaction_data = 2;
+  UserProfile user_profile = 3;
+}
+
+message TransactionData {
+  double amount = 1;
+  string currency = 2;
+  string source_of_funds = 3;
+  string destination_account = 4;
+  string purpose = 5;
+}
+
+message UserProfile {
+  double risk_rating = 1;
+  repeated PreviousTransaction previous_transactions = 2;
+  GeographicRisk geographic_risk = 3;
+  int32 business_relationship_duration = 4;
+}
+
+message PreviousTransaction {
+  double amount = 1;
+  google.protobuf.Timestamp date = 2;
+  string type = 3;
+}
+
+message TradeComplianceCheckRequest {
+  string user_id = 1;
+  string account_id = 2;
+  TradeData trade_data = 3;
+  MarketDataForCompliance market_data = 4;
+}
+
+message TradeData {
+  string symbol = 1;
+  TradeSide side = 2;
+  double quantity = 3;
+  double price = 4;
+  string order_type = 5;
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+message MarketDataForCompliance {
+  double volume = 1;
+  double volatility = 2;
+  double price_movement = 3;
+  string time_of_day = 4;
+}
+
+message ComplianceCheckResponse {
+  string id = 1;
+  string user_id = 2;
+  string account_id = 3;
+  ComplianceType compliance_type = 4;
+  ComplianceStatus status = 5;
+  ComplianceSeverity severity = 6;
+  ComplianceResults check_results = 7;
+  repeated string rules_evaluated = 8;
+  repeated string failed_rules = 9;
+  repeated string regulatory_refs = 10;
+  repeated string remedial_actions = 11;
+  google.protobuf.Timestamp next_review_date = 12;
+  int32 processing_time_ms = 13;
+  bool requires_escalation = 14;
+  string escalation_reason = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+}
+
+message ComplianceResults {
+  bool passed = 1;
+  double score = 2;
+  repeated ComplianceFlag flags = 3;
+  string evidence = 4; // JSON string
+  repeated string external_sources = 5;
+}
+
+message ComplianceFlag {
+  string flag = 1;
+  string severity = 2;
+  string description = 3;
+  string value = 4;
+  string threshold = 5;
+}
+
+message GetComplianceStatusRequest {
+  string user_id = 1;
+}
+
+message ComplianceStatusResponse {
+  string user_id = 1;
+  map<string, string> compliance_status = 2; // ComplianceType -> ComplianceStatus
+  google.protobuf.Timestamp last_updated = 3;
+}
+
+// Risk Alert Messages
+message CreateRiskAlertRequest {
+  string user_id = 1;
+  string account_id = 2;
+  string trade_id = 3;
+  string portfolio_id = 4;
+  AlertType alert_type = 5;
+  AlertSeverity severity = 6;
+  AlertPriority priority = 7;
+  string title = 8;
+  string description = 9;
+  TriggerConditions trigger_conditions = 10;
+  string context_data = 11; // JSON string
+  repeated string recommended_actions = 12;
+  repeated string automatic_actions = 13;
+  ImpactAssessment impact_assessment = 14;
+  RelatedEntities related_entities = 15;
+  repeated string notification_channels = 16;
+  EscalationRules escalation_rules = 17;
+  google.protobuf.Timestamp expires_at = 18;
+}
+
+message TriggerConditions {
+  string rule = 1;
+  string threshold = 2;
+  string actual_value = 3;
+  string operator = 4;
+  string time_window = 5;
+}
+
+message ImpactAssessment {
+  double financial_impact = 1;
+  double risk_exposure = 2;
+  int32 affected_positions = 3;
+  double potential_loss = 4;
+  string time_to_resolution = 5;
+}
+
+message RelatedEntities {
+  repeated string trades = 1;
+  repeated string positions = 2;
+  repeated string accounts = 3;
+  repeated string alerts = 4;
+}
+
+message EscalationRules {
+  int32 escalate_after_minutes = 1;
+  repeated string escalate_to = 2;
+  AlertSeverity escalation_severity = 3;
+}
+
+message RiskAlertResponse {
+  string id = 1;
+  string user_id = 2;
+  string account_id = 3;
+  string trade_id = 4;
+  string portfolio_id = 5;
+  AlertType alert_type = 6;
+  AlertSeverity severity = 7;
+  AlertPriority priority = 8;
+  AlertStatus status = 9;
+  string title = 10;
+  string description = 11;
+  TriggerConditions trigger_conditions = 12;
+  string context_data = 13;
+  repeated string recommended_actions = 14;
+  repeated string automatic_actions = 15;
+  ImpactAssessment impact_assessment = 16;
+  RelatedEntities related_entities = 17;
+  string acknowledged_by = 18;
+  google.protobuf.Timestamp acknowledged_at = 19;
+  string acknowledgment_comments = 20;
+  string assigned_to = 21;
+  google.protobuf.Timestamp assigned_at = 22;
+  string resolved_by = 23;
+  google.protobuf.Timestamp resolved_at = 24;
+  string resolution_details = 25;
+  repeated string resolution_actions = 26;
+  bool is_escalated = 27;
+  google.protobuf.Timestamp escalated_at = 28;
+  EscalationRules escalation_rules = 29;
+  repeated string notification_channels = 30;
+  google.protobuf.Timestamp expires_at = 31;
+  bool is_auto_generated = 32;
+  google.protobuf.Timestamp created_at = 33;
+  google.protobuf.Timestamp updated_at = 34;
+}
+
+message GetActiveAlertsRequest {
+  string user_id = 1;
+  string account_id = 2;
+  AlertType alert_type = 3;
+  AlertSeverity severity = 4;
+  AlertPriority priority = 5;
+  int32 limit = 6;
+}
+
+message ListRiskAlertsResponse {
+  repeated RiskAlertResponse alerts = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+}
+
+message AcknowledgeAlertRequest {
+  string alert_id = 1;
+  string acknowledged_by = 2;
+  string comments = 3;
+}
+
+message ResolveAlertRequest {
+  string alert_id = 1;
+  string resolved_by = 2;
+  string resolution_details = 3;
+  repeated string resolution_actions = 4;
+}
+
+// Risk Limit Messages
+message CreateRiskLimitRequest {
+  string user_id = 1;
+  string account_id = 2;
+  string portfolio_id = 3;
+  LimitType limit_type = 4;
+  LimitScope scope = 5;
+  string name = 6;
+  string description = 7;
+  double limit_value = 8;
+  double warning_threshold = 9;
+  LimitStatus status = 10;
+  LimitFrequency frequency = 11;
+  string limit_config = 12; // JSON string
+  string breach_actions = 13; // JSON string
+  google.protobuf.Timestamp effective_from = 14;
+  google.protobuf.Timestamp effective_to = 15;
+  string created_by = 16;
+}
+
+message RiskLimitResponse {
+  string id = 1;
+  string user_id = 2;
+  string account_id = 3;
+  string portfolio_id = 4;
+  LimitType limit_type = 5;
+  LimitScope scope = 6;
+  string name = 7;
+  string description = 8;
+  double limit_value = 9;
+  double warning_threshold = 10;
+  double current_utilization = 11;
+  double utilization_percentage = 12;
+  double peak_utilization = 13;
+  google.protobuf.Timestamp peak_utilization_at = 14;
+  LimitStatus status = 15;
+  LimitFrequency frequency = 16;
+  string limit_config = 17;
+  string breach_actions = 18;
+  google.protobuf.Timestamp effective_from = 19;
+  google.protobuf.Timestamp effective_to = 20;
+  google.protobuf.Timestamp last_checked_at = 21;
+  google.protobuf.Timestamp next_check_at = 22;
+  string created_by = 23;
+  string modified_by = 24;
+  google.protobuf.Timestamp created_at = 25;
+  google.protobuf.Timestamp updated_at = 26;
+}
+
+message UpdateRiskLimitRequest {
+  string id = 1;
+  double limit_value = 2;
+  double warning_threshold = 3;
+  LimitStatus status = 4;
+  string description = 5;
+  string limit_config = 6;
+  string breach_actions = 7;
+  google.protobuf.Timestamp effective_to = 8;
+  string modified_by = 9;
+}
+
+message GetRiskLimitsRequest {
+  string user_id = 1;
+  string account_id = 2;
+  string portfolio_id = 3;
+  LimitType limit_type = 4;
+  LimitScope scope = 5;
+  LimitStatus status = 6;
+  int32 page = 7;
+  int32 limit = 8;
+}
+
+message ListRiskLimitsResponse {
+  repeated RiskLimitResponse limits = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+}
+
+message CheckLimitBreachRequest {
+  string user_id = 1;
+  string account_id = 2;
+  string portfolio_id = 3;
+  LimitType limit_type = 4;
+  double current_value = 5;
+}
+
+message LimitBreachResponse {
+  bool breach_detected = 1;
+  repeated RiskLimitResponse breached_limits = 2;
+  repeated RiskLimitResponse warning_limits = 3;
+  repeated string recommended_actions = 4;
+}
+
+// Fraud Detection Messages
+message DetectFraudRequest {
+  string user_id = 1;
+  string account_id = 2;
+  SessionData session_data = 3;
+  TransactionDataForFraud transaction_data = 4;
+  TradingActivity trading_activity = 5;
+  UserProfileForFraud user_profile = 6;
+}
+
+message SessionData {
+  string ip_address = 1;
+  string user_agent = 2;
+  string device_fingerprint = 3;
+  Location location = 4;
+  int32 session_duration = 5;
+  google.protobuf.Timestamp login_time = 6;
+}
+
+message Location {
+  string country = 1;
+  string city = 2;
+  Coordinates coordinates = 3;
+}
+
+message Coordinates {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+message TransactionDataForFraud {
+  double amount = 1;
+  string currency = 2;
+  string recipient = 3;
+  string description = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message TradingActivity {
+  string symbol = 1;
+  TradeSide side = 2;
+  double quantity = 3;
+  double price = 4;
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message UserProfileForFraud {
+  google.protobuf.Timestamp registration_date = 1;
+  google.protobuf.Timestamp last_login_date = 2;
+  repeated int32 typical_login_times = 3;
+  repeated TypicalLocation typical_locations = 4;
+  int32 average_session_duration = 5;
+  repeated DeviceHistory device_history = 6;
+  double risk_score = 7;
+}
+
+message TypicalLocation {
+  string country = 1;
+  string city = 2;
+  int32 frequency = 3;
+}
+
+message DeviceHistory {
+  string device_fingerprint = 1;
+  google.protobuf.Timestamp last_used = 2;
+  bool trusted = 3;
+}
+
+message FraudDetectionResponse {
+  double overall_score = 1;
+  FraudCategories categories = 2;
+  repeated FraudRiskFactor risk_factors = 3;
+  FraudRecommendation recommendation = 4;
+  double confidence = 5;
+}
+
+message FraudCategories {
+  double location = 1;
+  double device = 2;
+  double behavioral = 3;
+  double transaction = 4;
+  double temporal = 5;
+}
+
+message FraudRiskFactor {
+  string category = 1;
+  string factor = 2;
+  double score = 3;
+  double weight = 4;
+  string description = 5;
+  FraudSeverity severity = 6;
+}
+
+message GetFraudScoreRequest {
+  string user_id = 1;
+  int32 days = 2;
+}
+
+message FraudScoreResponse {
+  string user_id = 1;
+  double current_risk_score = 2;
+  FraudTrend risk_trend = 3;
+  google.protobuf.Timestamp last_fraud_check = 4;
+  int32 trusted_devices = 5;
+  int32 typical_locations = 6;
+}
+
+// Risk Metrics Messages
+message GetRiskMetricsRequest {
+  string user_id = 1;
+  string account_id = 2;
+  string portfolio_id = 3;
+  string position_id = 4;
+  MetricType metric_type = 5;
+  MetricScope scope = 6;
+  google.protobuf.Timestamp from_date = 7;
+  google.protobuf.Timestamp to_date = 8;
+}
+
+message RiskMetricsResponse {
+  string id = 1;
+  string user_id = 2;
+  string account_id = 3;
+  string portfolio_id = 4;
+  string position_id = 5;
+  MetricType metric_type = 6;
+  MetricScope scope = 7;
+  MetricFrequency frequency = 8;
+  double metric_value = 9;
+  google.protobuf.Timestamp timestamp = 10;
+  double confidence_level = 11;
+  int32 time_horizon = 12;
+  int32 lookback_period = 13;
+  string metric_details = 14; // JSON string
+  string trend_data = 15; // JSON string
+  string risk_attribution = 16; // JSON string
+  string stress_test_results = 17; // JSON string
+  string model_parameters = 18; // JSON string
+  string data_quality = 19; // JSON string
+  string benchmarks = 20; // JSON string
+  repeated string associated_limits = 21;
+  string warnings = 22; // JSON string
+  string performance_metrics = 23; // JSON string
+  google.protobuf.Timestamp next_calculation_at = 24;
+  bool is_stale = 25;
+  int32 stale_threshold_minutes = 26;
+  string metadata = 27; // JSON string
+  google.protobuf.Timestamp created_at = 28;
+  google.protobuf.Timestamp updated_at = 29;
+}
+
+message ListRiskMetricsRequest {
+  string user_id = 1;
+  string account_id = 2;
+  string portfolio_id = 3;
+  MetricType metric_type = 4;
+  MetricScope scope = 5;
+  MetricFrequency frequency = 6;
+  google.protobuf.Timestamp from_date = 7;
+  google.protobuf.Timestamp to_date = 8;
+  int32 page = 9;
+  int32 limit = 10;
+}
+
+message ListRiskMetricsResponse {
+  repeated RiskMetricsResponse metrics = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+}
+
+// Common Messages
+message GetRiskAssessmentRequest {
+  string id = 1;
+}
+
+message RiskAssessmentResponse {
+  string id = 1;
+  string user_id = 2;
+  string account_id = 3;
+  string trade_id = 4;
+  string portfolio_id = 5;
+  AssessmentType assessment_type = 6;
+  RiskLevel risk_level = 7;
+  double risk_score = 8;
+  AssessmentStatus status = 9;
+  string assessment_params = 10; // JSON string
+  string assessment_results = 11; // JSON string
+  repeated string risk_factors = 12;
+  repeated string recommendations = 13;
+  bool requires_review = 14;
+  string reviewed_by = 15;
+  google.protobuf.Timestamp reviewed_at = 16;
+  string review_comments = 17;
+  int32 processing_time_ms = 18;
+  string model_version = 19;
+  google.protobuf.Timestamp expires_at = 20;
+  string metadata = 21; // JSON string
+  google.protobuf.Timestamp created_at = 22;
+  google.protobuf.Timestamp updated_at = 23;
+}
+
+message ListRiskAssessmentsRequest {
+  string user_id = 1;
+  string account_id = 2;
+  AssessmentType assessment_type = 3;
+  RiskLevel risk_level = 4;
+  AssessmentStatus status = 5;
+  google.protobuf.Timestamp from_date = 6;
+  google.protobuf.Timestamp to_date = 7;
+  int32 page = 8;
+  int32 limit = 9;
+}
+
+message ListRiskAssessmentsResponse {
+  repeated RiskAssessmentResponse assessments = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+}
+
+// Enums
+enum RiskLevel {
+  RISK_LEVEL_UNSPECIFIED = 0;
+  VERY_LOW = 1;
+  LOW = 2;
+  MEDIUM = 3;
+  HIGH = 4;
+  VERY_HIGH = 5;
+  CRITICAL = 6;
+}
+
+enum AssessmentType {
+  ASSESSMENT_TYPE_UNSPECIFIED = 0;
+  TRADE_PRE_EXECUTION = 1;
+  TRADE_POST_EXECUTION = 2;
+  PORTFOLIO_DAILY = 3;
+  PORTFOLIO_REALTIME = 4;
+  ACCOUNT_OPENING = 5;
+  POSITION_MONITORING = 6;
+  MARKET_EVENT = 7;
+}
+
+enum AssessmentStatus {
+  ASSESSMENT_STATUS_UNSPECIFIED = 0;
+  PENDING = 1;
+  COMPLETED = 2;
+  FAILED = 3;
+  ESCALATED = 4;
+}
+
+enum TradeSide {
+  TRADE_SIDE_UNSPECIFIED = 0;
+  BUY = 1;
+  SELL = 2;
+}
+
+enum ComplianceType {
+  COMPLIANCE_TYPE_UNSPECIFIED = 0;
+  KYC = 1;
+  AML = 2;
+  CDD = 3;
+  EDD = 4;
+  SANCTIONS = 5;
+  PEP = 6;
+  TRADE_SURVEILLANCE = 7;
+  POSITION_LIMITS = 8;
+  MARKET_ABUSE = 9;
+  INSIDER_TRADING = 10;
+  MIFID_II = 11;
+  GDPR = 12;
+  SOX = 13;
+  DODD_FRANK = 14;
+}
+
+enum ComplianceStatus {
+  COMPLIANCE_STATUS_UNSPECIFIED = 0;
+  COMPLIANCE_PENDING = 1;
+  PASSED = 2;
+  COMPLIANCE_FAILED = 3;
+  REQUIRES_REVIEW = 4;
+  COMPLIANCE_ESCALATED = 5;
+  EXPIRED = 6;
+}
+
+enum ComplianceSeverity {
+  COMPLIANCE_SEVERITY_UNSPECIFIED = 0;
+  INFO = 1;
+  WARNING = 2;
+  MINOR = 3;
+  MAJOR = 4;
+  COMPLIANCE_CRITICAL = 5;
+  REGULATORY_BREACH = 6;
+}
+
+enum DocumentType {
+  DOCUMENT_TYPE_UNSPECIFIED = 0;
+  PASSPORT = 1;
+  DRIVING_LICENSE = 2;
+  UTILITY_BILL = 3;
+  BANK_STATEMENT = 4;
+  TAX_DOCUMENT = 5;
+}
+
+enum RiskProfile {
+  RISK_PROFILE_UNSPECIFIED = 0;
+  RISK_LOW = 1;
+  RISK_MEDIUM = 2;
+  RISK_HIGH = 3;
+}
+
+enum InvestmentExperience {
+  INVESTMENT_EXPERIENCE_UNSPECIFIED = 0;
+  BEGINNER = 1;
+  INTERMEDIATE = 2;
+  EXPERIENCED = 3;
+  PROFESSIONAL = 4;
+}
+
+enum GeographicRisk {
+  GEOGRAPHIC_RISK_UNSPECIFIED = 0;
+  GEO_LOW = 1;
+  GEO_MEDIUM = 2;
+  GEO_HIGH = 3;
+}
+
+enum AlertType {
+  ALERT_TYPE_UNSPECIFIED = 0;
+  RISK_LIMIT_BREACH = 1;
+  POSITION_CONCENTRATION = 2;
+  DRAWDOWN_THRESHOLD = 3;
+  VOLATILITY_SPIKE = 4;
+  LIQUIDITY_RISK = 5;
+  COUNTERPARTY_RISK = 6;
+  MARGIN_CALL = 7;
+  SUSPICIOUS_ACTIVITY = 8;
+  COMPLIANCE_VIOLATION = 9;
+  SYSTEM_ANOMALY = 10;
+  FRAUD_DETECTION = 11;
+  MARKET_DISRUPTION = 12;
+  CORRELATION_BREAKDOWN = 13;
+  VAR_BREACH = 14;
+  STRESS_TEST_FAILURE = 15;
+}
+
+enum AlertSeverity {
+  ALERT_SEVERITY_UNSPECIFIED = 0;
+  ALERT_INFO = 1;
+  ALERT_LOW = 2;
+  ALERT_MEDIUM = 3;
+  ALERT_HIGH = 4;
+  ALERT_CRITICAL = 5;
+  EMERGENCY = 6;
+}
+
+enum AlertStatus {
+  ALERT_STATUS_UNSPECIFIED = 0;
+  ACTIVE = 1;
+  ACKNOWLEDGED = 2;
+  IN_PROGRESS = 3;
+  RESOLVED = 4;
+  DISMISSED = 5;
+  ALERT_ESCALATED = 6;
+  ALERT_EXPIRED = 7;
+}
+
+enum AlertPriority {
+  ALERT_PRIORITY_UNSPECIFIED = 0;
+  P1 = 1;
+  P2 = 2;
+  P3 = 3;
+  P4 = 4;
+  P5 = 5;
+}
+
+enum LimitType {
+  LIMIT_TYPE_UNSPECIFIED = 0;
+  POSITION_SIZE = 1;
+  PORTFOLIO_VALUE = 2;
+  DAILY_LOSS = 3;
+  WEEKLY_LOSS = 4;
+  MONTHLY_LOSS = 5;
+  DRAWDOWN = 6;
+  LEVERAGE = 7;
+  CONCENTRATION = 8;
+  VAR_LIMIT = 9;
+  SECTOR_EXPOSURE = 10;
+  CURRENCY_EXPOSURE = 11;
+  COUNTERPARTY_EXPOSURE = 12;
+  TRADE_COUNT = 13;
+  TRADE_SIZE = 14;
+  INTRADAY_LOSS = 15;
+  VOLATILITY_LIMIT = 16;
+  CORRELATION_LIMIT = 17;
+}
+
+enum LimitScope {
+  LIMIT_SCOPE_UNSPECIFIED = 0;
+  USER = 1;
+  ACCOUNT = 2;
+  PORTFOLIO = 3;
+  ASSET_CLASS = 4;
+  SECTOR = 5;
+  SYMBOL = 6;
+  STRATEGY = 7;
+  GLOBAL = 8;
+}
+
+enum LimitStatus {
+  LIMIT_STATUS_UNSPECIFIED = 0;
+  LIMIT_ACTIVE = 1;
+  INACTIVE = 2;
+  SUSPENDED = 3;
+  BREACHED = 4;
+  LIMIT_WARNING = 5;
+  LIMIT_EXPIRED = 6;
+}
+
+enum LimitFrequency {
+  LIMIT_FREQUENCY_UNSPECIFIED = 0;
+  REALTIME = 1;
+  INTRADAY = 2;
+  DAILY = 3;
+  WEEKLY = 4;
+  MONTHLY = 5;
+  QUARTERLY = 6;
+  ANNUALLY = 7;
+}
+
+enum MetricType {
+  METRIC_TYPE_UNSPECIFIED = 0;
+  VALUE_AT_RISK = 1;
+  EXPECTED_SHORTFALL = 2;
+  MAXIMUM_DRAWDOWN = 3;
+  SHARPE_RATIO = 4;
+  SORTINO_RATIO = 5;
+  METRIC_VOLATILITY = 6;
+  BETA = 7;
+  ALPHA = 8;
+  CORRELATION = 9;
+  PORTFOLIO_CONCENTRATION = 10;
+  LEVERAGE_RATIO = 11;
+  LIQUIDITY_RATIO = 12;
+  SECTOR_CONCENTRATION = 13;
+  METRIC_CURRENCY_EXPOSURE = 14;
+  MARGIN_UTILIZATION = 15;
+  POSITION_SIZE_RISK = 16;
+  METRIC_COUNTERPARTY_RISK = 17;
+}
+
+enum MetricScope {
+  METRIC_SCOPE_UNSPECIFIED = 0;
+  METRIC_USER = 1;
+  METRIC_ACCOUNT = 2;
+  METRIC_PORTFOLIO = 3;
+  POSITION = 4;
+  METRIC_ASSET_CLASS = 5;
+  METRIC_SECTOR = 6;
+  METRIC_GLOBAL = 7;
+}
+
+enum MetricFrequency {
+  METRIC_FREQUENCY_UNSPECIFIED = 0;
+  METRIC_REALTIME = 1;
+  MINUTELY = 2;
+  HOURLY = 3;
+  METRIC_DAILY = 4;
+  METRIC_WEEKLY = 5;
+  METRIC_MONTHLY = 6;
+}
+
+enum FraudRecommendation {
+  FRAUD_RECOMMENDATION_UNSPECIFIED = 0;
+  ALLOW = 1;
+  CHALLENGE = 2;
+  BLOCK = 3;
+  REVIEW = 4;
+}
+
+enum FraudSeverity {
+  FRAUD_SEVERITY_UNSPECIFIED = 0;
+  FRAUD_LOW = 1;
+  FRAUD_MEDIUM = 2;
+  FRAUD_HIGH = 3;
+  FRAUD_CRITICAL = 4;
+}
+
+enum FraudTrend {
+  FRAUD_TREND_UNSPECIFIED = 0;
+  INCREASING = 1;
+  DECREASING = 2;
+  STABLE = 3;
+}

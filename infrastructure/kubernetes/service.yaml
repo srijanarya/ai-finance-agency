@@ -1,0 +1,146 @@
+# Service for main application
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-finance-app-service
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: application
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: metrics
+    protocol: TCP
+    name: metrics
+  selector:
+    app: ai-finance-agency
+    component: application
+
+---
+# Service for PostgreSQL database
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: database
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: postgres
+    protocol: TCP
+    name: postgres
+  selector:
+    app: ai-finance-agency
+    component: database
+
+---
+# Service for Redis cache
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: cache
+spec:
+  type: ClusterIP
+  ports:
+  - port: 6379
+    targetPort: redis
+    protocol: TCP
+    name: redis
+  selector:
+    app: ai-finance-agency
+    component: cache
+
+---
+# Headless service for StatefulSet (if using StatefulSet for database)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: database
+spec:
+  clusterIP: None
+  ports:
+  - port: 5432
+    targetPort: postgres
+    protocol: TCP
+    name: postgres
+  selector:
+    app: ai-finance-agency
+    component: database
+
+---
+# Load balancer service for external access (optional)
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-finance-lb-service
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: loadbalancer
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 443
+    protocol: TCP
+    name: https
+  selector:
+    app: ai-finance-agency
+    component: nginx
+  sessionAffinity: None
+  externalTrafficPolicy: Cluster
+
+---
+# Service for Nginx load balancer
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: nginx
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: http
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: https
+    protocol: TCP
+    name: https
+  selector:
+    app: ai-finance-agency
+    component: nginx

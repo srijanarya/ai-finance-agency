@@ -54,14 +54,31 @@ class AgentConfig:
 
 
 @dataclass
+class JWTConfig:
+    """JWT authentication configuration"""
+    secret_key: str = "jwt-secret-change-in-production"
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    refresh_token_expire_days: int = 7
+    issuer: str = "ai-finance-agency"
+    
+    def __post_init__(self):
+        self.secret_key = os.getenv('JWT_SECRET_KEY', self.secret_key)
+        self.algorithm = os.getenv('JWT_ALGORITHM', self.algorithm)
+        self.access_token_expire_minutes = int(os.getenv('JWT_ACCESS_TOKEN_EXPIRE_MINUTES', self.access_token_expire_minutes))
+        self.refresh_token_expire_days = int(os.getenv('JWT_REFRESH_TOKEN_EXPIRE_DAYS', self.refresh_token_expire_days))
+        self.issuer = os.getenv('JWT_ISSUER', self.issuer)
+
+
+@dataclass
 class DashboardConfig:
     """Dashboard configuration"""
-    port: int = 8088
+    port: int = 5000
     debug: bool = False
     secret_key: str = "dev-key-change-in-production"
     
     def __post_init__(self):
-        self.port = int(os.getenv('FLASK_PORT', self.port))
+        self.port = int(os.getenv('PORT', os.getenv('FLASK_PORT', self.port)))
         self.debug = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
         self.secret_key = os.getenv('SECRET_KEY', self.secret_key)
 
@@ -101,6 +118,7 @@ class Config:
     api: APIConfig
     database: DatabaseConfig
     agent: AgentConfig
+    jwt: JWTConfig
     dashboard: DashboardConfig
     logging: LoggingConfig
     content: ContentConfig
@@ -112,6 +130,7 @@ class Config:
             api=APIConfig(),
             database=DatabaseConfig(),
             agent=AgentConfig(),
+            jwt=JWTConfig(),
             dashboard=DashboardConfig(),
             logging=LoggingConfig(),
             content=ContentConfig()

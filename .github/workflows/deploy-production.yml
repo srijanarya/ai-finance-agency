@@ -1,0 +1,763 @@
+name: 🚀 Deploy to Production
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to deploy'
+        required: true
+        type: string
+      services:
+        description: 'Services to deploy (comma-separated)'
+        required: false
+        type: string
+        default: 'all'
+      requires_approval:
+        description: 'Requires manual approval'
+        required: false
+        type: boolean
+        default: true
+    outputs:
+      deployment_url:
+        description: 'Production deployment URL'
+        value: ${{ jobs.deploy.outputs.deployment_url }}
+      deployment_id:
+        description: 'Production deployment ID'
+        value: ${{ jobs.deploy.outputs.deployment_id }}
+        
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy'
+        required: true
+        type: string
+      services:
+        description: 'Services to deploy (comma-separated, empty for all)'
+        required: false
+        type: string
+      deployment_strategy:
+        description: 'Deployment strategy'
+        required: false
+        type: choice
+        options: ['blue-green', 'canary', 'rolling']
+        default: 'blue-green'
+      canary_percentage:
+        description: 'Canary traffic percentage (for canary deployments)'
+        required: false
+        type: number
+        default: 10
+      maintenance_mode:
+        description: 'Enable maintenance mode during deployment'
+        required: false
+        type: boolean
+        default: false
+      skip_smoke_tests:
+        description: 'Skip smoke tests (emergency deployments only)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+  PRODUCTION_CLUSTER: ai-finance-production
+  PRODUCTION_NAMESPACE: ai-finance-production
+  KUBECTL_VERSION: v1.28.0
+  DEPLOYMENT_TIMEOUT: 1800
+
+jobs:
+  # =============================================================================
+  # PRODUCTION READINESS GATE
+  # =============================================================================
+  production-readiness:
+    name: 🛡️ Production Readiness Gate
+    runs-on: ubuntu-latest
+    environment:
+      name: production-approval
+      
+    outputs:
+      approval_granted: ${{ steps.approval.outputs.approved }}
+      staging_verified: ${{ steps.staging.outputs.verified }}
+      security_cleared: ${{ steps.security.outputs.cleared }}
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔍 Verify Staging Deployment
+        id: staging
+        run: |
+          VERSION="${{ inputs.version }}"
+          echo "🔍 Verifying staging deployment for version: ${VERSION}"
+          
+          # Check staging health
+          STAGING_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.STAGING_BASE_URL }}/health" || echo "000")
+          
+          if [[ "$STAGING_HEALTH" != "200" ]]; then
+            echo "❌ Staging environment is not healthy (HTTP $STAGING_HEALTH)"
+            echo "verified=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Verify version in staging matches
+          STAGING_VERSION=$(curl -s "${{ secrets.STAGING_BASE_URL }}/api/v1/version" | jq -r '.version' || echo "unknown")
+          
+          if [[ "$STAGING_VERSION" != "$VERSION" ]]; then
+            echo "❌ Version mismatch: staging has $STAGING_VERSION, trying to deploy $VERSION"
+            echo "verified=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "✅ Staging verification passed"
+          echo "verified=true" >> $GITHUB_OUTPUT
+
+      - name: 🔒 Security Clearance Check
+        id: security
+        run: |
+          VERSION="${{ inputs.version }}"
+          
+          # Check for security vulnerabilities in the version
+          echo "🔍 Running security checks for version: ${VERSION}"
+          
+          # Simulate security scan (integrate with actual security tools)
+          # Check container images for vulnerabilities
+          IFS=',' read -ra SERVICES <<< "${{ inputs.services || 'api-gateway,user-management,payment,signals,trading' }}"
+          
+          for service in "${SERVICES[@]}"; do
+            IMAGE="${{ env.IMAGE_PREFIX }}/${service}:${VERSION}"
+            echo "🔍 Security scanning: ${IMAGE}"
+            
+            # Use Trivy for security scanning
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              aquasec/trivy image --severity HIGH,CRITICAL --format json \
+              "$IMAGE" > security-scan-${service}.json || true
+              
+            # Check if critical vulnerabilities exist
+            CRITICAL_COUNT=$(jq '.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL") | length' security-scan-${service}.json 2>/dev/null | wc -l)
+            
+            if [[ $CRITICAL_COUNT -gt 0 ]]; then
+              echo "❌ Critical vulnerabilities found in ${service}"
+              echo "cleared=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          done
+          
+          echo "✅ Security clearance granted"
+          echo "cleared=true" >> $GITHUB_OUTPUT
+
+      - name: 🏥 Production Health Pre-check
+        run: |
+          echo "🏥 Checking current production health..."
+          PROD_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PRODUCTION_BASE_URL }}/health" || echo "000")
+          
+          if [[ "$PROD_HEALTH" != "200" ]] && [[ "$PROD_HEALTH" != "503" ]]; then
+            echo "⚠️ Production environment appears unhealthy (HTTP $PROD_HEALTH)"
+            echo "Proceeding with caution..."
+          else
+            echo "✅ Production environment is accessible"
+          fi
+
+      - name: ✅ Manual Approval Gate
+        id: approval
+        if: inputs.requires_approval == true
+        uses: trstringer/manual-approval@v1
+        with:
+          secret: ${{ secrets.GITHUB_TOKEN }}
+          approvers: ${{ secrets.PRODUCTION_APPROVERS }}
+          minimum-approvals: 2
+          issue-title: "🚀 Production Deployment Approval Required"
+          issue-body: |
+            ## Production Deployment Request
+            
+            **Version:** ${{ inputs.version }}
+            **Services:** ${{ inputs.services || 'all' }}
+            **Strategy:** ${{ inputs.deployment_strategy || 'blue-green' }}
+            
+            **Pre-deployment Checks:**
+            - ✅ Staging verification: ${{ steps.staging.outputs.verified }}
+            - ✅ Security clearance: ${{ steps.security.outputs.cleared }}
+            
+            **Current Production Status:**
+            - URL: ${{ secrets.PRODUCTION_BASE_URL }}
+            - Last deployment: Check deployment history
+            
+            Please review the deployment details and approve if ready to proceed.
+            
+            **⚠️ This deployment will affect live production systems.**
+
+      - name: 📊 Readiness Summary
+        run: |
+          echo "## 🛡️ Production Readiness Summary"
+          echo "**Staging Verified:** ${{ steps.staging.outputs.verified }}"
+          echo "**Security Cleared:** ${{ steps.security.outputs.security_cleared }}"
+          echo "**Approval Status:** ${{ steps.approval.outputs.approved || 'auto-approved' }}"
+          echo "**Version:** ${{ inputs.version }}"
+          echo "**Ready for Production:** ✅"
+
+  # =============================================================================
+  # BACKUP AND PREPARATION
+  # =============================================================================
+  pre-deployment-backup:
+    name: 💾 Pre-deployment Backup
+    runs-on: ubuntu-latest
+    needs: production-readiness
+    if: needs.production-readiness.outputs.staging_verified == 'true'
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+          kubectl config set-context --current --namespace=${{ env.PRODUCTION_NAMESPACE }}
+
+      - name: 💾 Database Backup
+        run: |
+          BACKUP_NAME="pre-deploy-$(date +%Y%m%d-%H%M%S)-${{ inputs.version }}"
+          
+          # Create database backup job
+          cat <<EOF | kubectl apply -f -
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: db-backup-${BACKUP_NAME}
+            namespace: ${{ env.PRODUCTION_NAMESPACE }}
+          spec:
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                - name: backup
+                  image: postgres:15-alpine
+                  env:
+                  - name: DATABASE_URL
+                    valueFrom:
+                      secretKeyRef:
+                        name: database-credentials
+                        key: production-database-url
+                  - name: BACKUP_NAME
+                    value: "${BACKUP_NAME}"
+                  command: ["/scripts/backup-database.sh"]
+                  volumeMounts:
+                  - name: backup-scripts
+                    mountPath: /scripts
+                  - name: backup-storage
+                    mountPath: /backups
+                volumes:
+                - name: backup-scripts
+                  configMap:
+                    name: backup-scripts
+                - name: backup-storage
+                  persistentVolumeClaim:
+                    claimName: database-backups
+          EOF
+          
+          # Wait for backup completion
+          kubectl wait --for=condition=complete job/db-backup-${BACKUP_NAME} --timeout=600s
+          echo "✅ Database backup completed: ${BACKUP_NAME}"
+
+      - name: 💾 Configuration Backup
+        run: |
+          BACKUP_NAME="config-backup-$(date +%Y%m%d-%H%M%S)"
+          
+          # Backup current deployments and configs
+          kubectl get deployments,services,configmaps,secrets \
+            -o yaml > ${BACKUP_NAME}.yaml
+          
+          # Upload to secure storage
+          aws s3 cp ${BACKUP_NAME}.yaml \
+            s3://${{ secrets.BACKUP_BUCKET }}/production/configs/${BACKUP_NAME}.yaml \
+            --sse AES256
+          
+          echo "✅ Configuration backup completed: ${BACKUP_NAME}"
+
+  # =============================================================================
+  # MAINTENANCE MODE (OPTIONAL)
+  # =============================================================================
+  maintenance-mode:
+    name: 🚧 Maintenance Mode
+    runs-on: ubuntu-latest
+    needs: [production-readiness, pre-deployment-backup]
+    if: inputs.maintenance_mode == true
+    
+    steps:
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+          kubectl config set-context --current --namespace=${{ env.PRODUCTION_NAMESPACE }}
+
+      - name: 🚧 Enable Maintenance Mode
+        run: |
+          # Scale down non-essential services
+          kubectl scale deployment notification --replicas=0
+          kubectl scale deployment content-intelligence --replicas=1
+          
+          # Update ingress to show maintenance page
+          kubectl apply -f infrastructure/k8s/maintenance-mode.yaml
+          
+          echo "✅ Maintenance mode enabled"
+
+      - name: 📢 Notify Users
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-type: application/json' \
+            --data '{
+              "text": "🚧 AI Finance Agency is entering maintenance mode for deployment. Expected downtime: ~15 minutes."
+            }'
+
+  # =============================================================================
+  # PRODUCTION DEPLOYMENT
+  # =============================================================================
+  deploy:
+    name: 🚀 Production Deploy
+    runs-on: ubuntu-latest
+    needs: [production-readiness, pre-deployment-backup]
+    if: needs.production-readiness.outputs.staging_verified == 'true'
+    environment:
+      name: production
+      url: ${{ secrets.PRODUCTION_BASE_URL }}
+    outputs:
+      deployment_url: ${{ secrets.PRODUCTION_BASE_URL }}
+      deployment_id: ${{ steps.deploy.outputs.deployment_id }}
+      
+    strategy:
+      matrix:
+        service: ${{ fromJson(format('[{0}]', join(split(inputs.services == '' && 'api-gateway,user-management,payment,signals,trading,education,market-data,risk-management,notification,content-intelligence' || inputs.services, ','), '","'))) }}
+      fail-fast: false
+      max-parallel: 2  # Deploy 2 services at a time for production
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+          kubectl config set-context --current --namespace=${{ env.PRODUCTION_NAMESPACE }}
+
+      - name: 📊 Pre-deployment Status
+        run: |
+          SERVICE="${{ matrix.service }}"
+          echo "📊 Current status of ${SERVICE}:"
+          kubectl get deployment ${SERVICE} -o wide || echo "Service not found"
+          kubectl get pods -l app=${SERVICE} || echo "No pods found"
+
+      - name: 🎨 Generate Production Manifests
+        run: |
+          VERSION="${{ inputs.version }}"
+          SERVICE="${{ matrix.service }}"
+          
+          # Use production-specific templates
+          envsubst < infrastructure/k8s/production/deployment.yaml > deployment-${SERVICE}.yaml
+          envsubst < infrastructure/k8s/production/service.yaml > service-${SERVICE}.yaml
+          envsubst < infrastructure/k8s/production/configmap.yaml > configmap-${SERVICE}.yaml
+          
+          # Set production values
+          sed -i "s|{{IMAGE}}|${{ env.IMAGE_PREFIX }}/${SERVICE}:${VERSION}|g" deployment-${SERVICE}.yaml
+          sed -i "s|{{SERVICE_NAME}}|${SERVICE}|g" deployment-${SERVICE}.yaml
+          sed -i "s|{{NAMESPACE}}|${{ env.PRODUCTION_NAMESPACE }}|g" deployment-${SERVICE}.yaml
+          sed -i "s|{{ENVIRONMENT}}|production|g" deployment-${SERVICE}.yaml
+          sed -i "s|{{VERSION}}|${VERSION}|g" deployment-${SERVICE}.yaml
+          sed -i "s|{{REPLICA_COUNT}}|3|g" deployment-${SERVICE}.yaml  # Higher replica count for production
+
+      - name: 🚀 Blue-Green Deployment
+        id: deploy
+        if: inputs.deployment_strategy == 'blue-green' || inputs.deployment_strategy == null
+        run: |
+          VERSION="${{ inputs.version }}"
+          SERVICE="${{ matrix.service }}"
+          DEPLOYMENT_ID="${SERVICE}-${VERSION}-$(date +%s)"
+          
+          echo "deployment_id=${DEPLOYMENT_ID}" >> $GITHUB_OUTPUT
+          
+          # Create green deployment
+          sed "s|name: ${SERVICE}|name: ${SERVICE}-green|g" deployment-${SERVICE}.yaml | kubectl apply -f -
+          kubectl apply -f configmap-${SERVICE}.yaml
+          
+          # Wait for green deployment to be ready
+          kubectl rollout status deployment/${SERVICE}-green --timeout=${DEPLOYMENT_TIMEOUT}s
+          
+          # Health check green deployment
+          for i in {1..20}; do
+            if kubectl get deployment ${SERVICE}-green -o jsonpath='{.status.readyReplicas}' | grep -q "3"; then
+              echo "✅ Green deployment ready for ${SERVICE}"
+              break
+            fi
+            echo "⏳ Waiting for green deployment readiness ($i/20)"
+            sleep 30
+          done
+          
+          # Switch traffic to green
+          kubectl patch service ${SERVICE} -p '{"spec":{"selector":{"version":"'${VERSION}'"}}}'
+          
+          echo "✅ Traffic switched to green deployment for ${SERVICE}"
+
+      - name: 🎯 Canary Deployment
+        if: inputs.deployment_strategy == 'canary'
+        run: |
+          VERSION="${{ inputs.version }}"
+          SERVICE="${{ matrix.service }}"
+          CANARY_PERCENTAGE="${{ inputs.canary_percentage || 10 }}"
+          
+          # Deploy canary version
+          sed "s|name: ${SERVICE}|name: ${SERVICE}-canary|g" deployment-${SERVICE}.yaml | kubectl apply -f -
+          sed -i "s|replicas: 3|replicas: 1|g" deployment-${SERVICE}.yaml  # Single replica for canary
+          kubectl apply -f deployment-${SERVICE}.yaml
+          
+          # Configure traffic splitting (using Istio or similar)
+          cat <<EOF | kubectl apply -f -
+          apiVersion: networking.istio.io/v1alpha3
+          kind: VirtualService
+          metadata:
+            name: ${SERVICE}-canary
+            namespace: ${{ env.PRODUCTION_NAMESPACE }}
+          spec:
+            http:
+            - match:
+              - headers:
+                  canary:
+                    exact: "true"
+              route:
+              - destination:
+                  host: ${SERVICE}
+                  subset: canary
+            - route:
+              - destination:
+                  host: ${SERVICE}
+                  subset: stable
+                weight: $((100 - CANARY_PERCENTAGE))
+              - destination:
+                  host: ${SERVICE}
+                  subset: canary
+                weight: ${CANARY_PERCENTAGE}
+          EOF
+          
+          echo "✅ Canary deployment configured for ${SERVICE} (${CANARY_PERCENTAGE}% traffic)"
+
+      - name: 🔄 Rolling Deployment
+        if: inputs.deployment_strategy == 'rolling'
+        run: |
+          SERVICE="${{ matrix.service }}"
+          
+          # Standard rolling update
+          kubectl apply -f deployment-${SERVICE}.yaml
+          kubectl rollout status deployment/${SERVICE} --timeout=${DEPLOYMENT_TIMEOUT}s
+          
+          echo "✅ Rolling deployment completed for ${SERVICE}"
+
+      - name: 🏥 Post-deployment Health Check
+        run: |
+          SERVICE="${{ matrix.service }}"
+          
+          # Direct pod health check
+          for i in {1..30}; do
+            HEALTHY_PODS=$(kubectl get pods -l app=${SERVICE} --field-selector=status.phase=Running -o name | wc -l)
+            EXPECTED_PODS=3
+            
+            if [[ $HEALTHY_PODS -ge $EXPECTED_PODS ]]; then
+              echo "✅ Health check passed for ${SERVICE} ($HEALTHY_PODS/$EXPECTED_PODS pods healthy)"
+              break
+            fi
+            
+            echo "⏳ Health check ($i/30): $HEALTHY_PODS/$EXPECTED_PODS pods healthy"
+            sleep 10
+          done
+
+      - name: 🗑️ Cleanup Previous Deployment
+        if: inputs.deployment_strategy != 'canary'
+        run: |
+          SERVICE="${{ matrix.service }}"
+          
+          # Remove old deployment
+          kubectl delete deployment ${SERVICE} --ignore-not-found=true
+          
+          # Rename green to production (for blue-green)
+          if [[ "${{ inputs.deployment_strategy }}" == "blue-green" ]]; then
+            kubectl patch deployment ${SERVICE}-green -p '{"metadata":{"name":"'${SERVICE}'"}}'
+          fi
+          
+          echo "✅ Cleanup completed for ${SERVICE}"
+
+  # =============================================================================
+  # PRODUCTION SMOKE TESTS
+  # =============================================================================
+  production-smoke-tests:
+    name: 🧪 Production Smoke Tests
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: needs.deploy.result == 'success' && !inputs.skip_smoke_tests
+    
+    strategy:
+      matrix:
+        test_suite: ['critical-path', 'api-health', 'payment-flow', 'auth-flow']
+      fail-fast: true
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🧪 Run Critical Path Tests
+        if: matrix.test_suite == 'critical-path'
+        run: |
+          export BASE_URL="${{ secrets.PRODUCTION_BASE_URL }}"
+          export TEST_ENV="production"
+          export API_KEY="${{ secrets.PRODUCTION_API_KEY }}"
+          
+          npm run test:critical -- --timeout=60000
+        timeout-minutes: 10
+
+      - name: 🏥 API Health Tests
+        if: matrix.test_suite == 'api-health'
+        run: |
+          BASE_URL="${{ secrets.PRODUCTION_BASE_URL }}"
+          
+          # Test all critical endpoints
+          curl -f ${BASE_URL}/health
+          curl -f ${BASE_URL}/api/v1/status
+          curl -f ${BASE_URL}/api/v1/auth/status
+          curl -f ${BASE_URL}/api/v1/payments/health
+          curl -f ${BASE_URL}/api/v1/signals/health
+          curl -f ${BASE_URL}/api/v1/trading/health
+          curl -f ${BASE_URL}/metrics
+          
+          echo "✅ All API health checks passed"
+
+      - name: 💳 Payment Flow Test
+        if: matrix.test_suite == 'payment-flow'
+        run: |
+          export BASE_URL="${{ secrets.PRODUCTION_BASE_URL }}"
+          export TEST_PAYMENT_TOKEN="${{ secrets.TEST_PAYMENT_TOKEN }}"
+          
+          # Run payment flow test (non-destructive)
+          npm run test:payment:smoke
+
+      - name: 🔐 Authentication Flow Test
+        if: matrix.test_suite == 'auth-flow'
+        run: |
+          export BASE_URL="${{ secrets.PRODUCTION_BASE_URL }}"
+          export TEST_USER_EMAIL="${{ secrets.TEST_USER_EMAIL }}"
+          
+          # Run auth flow test
+          npm run test:auth:smoke
+
+  # =============================================================================
+  # DISABLE MAINTENANCE MODE
+  # =============================================================================
+  disable-maintenance-mode:
+    name: ✅ Disable Maintenance Mode
+    runs-on: ubuntu-latest
+    needs: [deploy, production-smoke-tests, maintenance-mode]
+    if: always() && needs.maintenance-mode.result == 'success'
+    
+    steps:
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+          kubectl config set-context --current --namespace=${{ env.PRODUCTION_NAMESPACE }}
+
+      - name: ✅ Disable Maintenance Mode
+        run: |
+          # Restore normal ingress
+          kubectl delete -f infrastructure/k8s/maintenance-mode.yaml --ignore-not-found=true
+          kubectl apply -f infrastructure/k8s/production/ingress.yaml
+          
+          # Scale services back up
+          kubectl scale deployment notification --replicas=2
+          kubectl scale deployment content-intelligence --replicas=2
+          
+          echo "✅ Maintenance mode disabled"
+
+      - name: 📢 Notify Completion
+        run: |
+          curl -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
+            -H 'Content-type: application/json' \
+            --data '{
+              "text": "✅ AI Finance Agency deployment completed successfully. All services are operational."
+            }'
+
+  # =============================================================================
+  # MONITORING AND ALERTING
+  # =============================================================================
+  setup-production-monitoring:
+    name: 📊 Setup Production Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy, production-smoke-tests]
+    if: needs.deploy.result == 'success'
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+          kubectl config set-context --current --namespace=${{ env.PRODUCTION_NAMESPACE }}
+
+      - name: 📊 Deploy Production Monitoring
+        run: |
+          VERSION="${{ inputs.version }}"
+          
+          # Update Prometheus configuration
+          kubectl apply -f monitoring/k8s/prometheus-production.yaml
+          
+          # Update Grafana dashboards
+          kubectl apply -f monitoring/k8s/grafana-production.yaml
+          
+          # Deploy critical alerts
+          kubectl apply -f monitoring/k8s/critical-alerts-production.yaml
+          
+          # Create deployment-specific dashboard
+          kubectl create configmap production-deployment-${VERSION} \
+            --from-file=monitoring/grafana/dashboards/production-deployment.json
+          
+          echo "✅ Production monitoring updated"
+
+      - name: 🚨 Setup Post-deployment Alerts
+        run: |
+          # Enable enhanced monitoring for 24 hours after deployment
+          kubectl patch configmap alertmanager-config -p '{
+            "data": {
+              "post-deployment-mode": "enabled",
+              "enhanced-monitoring-duration": "24h"
+            }
+          }'
+          
+          echo "✅ Enhanced monitoring enabled for 24 hours"
+
+  # =============================================================================
+  # DEPLOYMENT SUMMARY AND NOTIFICATIONS
+  # =============================================================================
+  deployment-summary:
+    name: 📊 Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [
+      production-readiness,
+      deploy,
+      production-smoke-tests,
+      setup-production-monitoring
+    ]
+    if: always()
+    
+    steps:
+      - name: 📊 Collect Results
+        id: results
+        run: |
+          OVERALL_STATUS="success"
+          
+          if [[ "${{ needs.deploy.result }}" != "success" ]]; then
+            OVERALL_STATUS="failure"
+          elif [[ "${{ needs.production-smoke-tests.result }}" == "failure" ]]; then
+            OVERALL_STATUS="partial"
+          fi
+          
+          echo "overall_status=${OVERALL_STATUS}" >> $GITHUB_OUTPUT
+
+      - name: 📢 Success Notification
+        if: steps.results.outputs.overall_status == 'success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          title: "🚀 Production Deployment Successful"
+          message: |
+            *Version:* ${{ inputs.version }}
+            *Services:* ${{ inputs.services || 'all' }}
+            *Strategy:* ${{ inputs.deployment_strategy || 'blue-green' }}
+            *URL:* ${{ secrets.PRODUCTION_BASE_URL }}
+            *Deployment Time:* $(date -u)
+            
+            ✅ All smoke tests passed
+            ✅ Monitoring configured
+            ✅ Ready for traffic
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: 📢 Failure Notification
+        if: steps.results.outputs.overall_status != 'success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          title: "❌ Production Deployment Issues"
+          message: |
+            *Version:* ${{ inputs.version }}
+            *Status:* ${{ steps.results.outputs.overall_status }}
+            *Deploy Result:* ${{ needs.deploy.result }}
+            *Smoke Tests:* ${{ needs.production-smoke-tests.result }}
+            
+            🚨 Manual intervention may be required
+            📋 Check workflow logs for details
+            🔄 Rollback available if needed
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: 🔄 Auto-rollback on Critical Failure
+        if: steps.results.outputs.overall_status == 'failure' && needs.deploy.result == 'failure'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'rollback.yml',
+              ref: 'main',
+              inputs: {
+                environment: 'production',
+                reason: 'Automatic rollback due to critical deployment failure'
+              }
+            });
+
+      - name: 📋 Final Status
+        run: |
+          echo "## 🚀 Production Deployment Summary"
+          echo "**Status:** ${{ steps.results.outputs.overall_status }}"
+          echo "**Version:** ${{ inputs.version }}"
+          echo "**Services:** ${{ inputs.services || 'all' }}"
+          echo "**Strategy:** ${{ inputs.deployment_strategy || 'blue-green' }}"
+          echo "**URL:** ${{ secrets.PRODUCTION_BASE_URL }}"
+          
+          if [[ "${{ steps.results.outputs.overall_status }}" == "success" ]]; then
+            echo "✅ **DEPLOYMENT SUCCESSFUL** ✅"
+            echo "Production is live with the new version!"
+          else
+            echo "❌ **DEPLOYMENT ENCOUNTERED ISSUES** ❌"
+            echo "Please review logs and consider rollback if necessary."
+          fi

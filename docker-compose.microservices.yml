@@ -1,0 +1,615 @@
+version: '3.8'
+
+services:
+  # Infrastructure Services
+  
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: treum_postgres
+    environment:
+      POSTGRES_DB: treum_finance
+      POSTGRES_USER: treum_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securepassword123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_user -d treum_finance"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: treum_redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: treum_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-treum_admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-securerabbitpass}
+      RABBITMQ_DEFAULT_VHOST: treum_finance
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./infrastructure/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./infrastructure/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - treum_network
+
+  # Service Discovery (Consul)
+  consul:
+    image: hashicorp/consul:latest
+    container_name: treum_consul
+    command: >
+      consul agent 
+      -server 
+      -bootstrap 
+      -data-dir=/consul/data 
+      -config-dir=/consul/config 
+      -ui 
+      -client=0.0.0.0
+    volumes:
+      - consul_data:/consul/data
+      - ./infrastructure/consul:/consul/config:ro
+    ports:
+      - "8500:8500"   # HTTP API
+      - "8600:8600"   # DNS
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8500/v1/status/leader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - treum_network
+
+  # Microservices
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./services/api-gateway
+      dockerfile: Dockerfile
+    container_name: treum_api_gateway
+    ports:
+      - "3000:3000"
+      - "50051:50051"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3000
+      - GRPC_PORT=50051
+      - SERVICE_NAME=api-gateway
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/treum_finance
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+    volumes:
+      - ./logs/api-gateway:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # User Management Service
+  user-management:
+    build:
+      context: ./services/user-management
+      dockerfile: Dockerfile
+    container_name: treum_user_management
+    ports:
+      - "3001:3001"
+      - "50052:50052"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3001
+      - GRPC_PORT=50052
+      - SERVICE_NAME=user-management
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/treum_finance
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+    volumes:
+      - ./logs/user-management:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Trading Service
+  trading:
+    build:
+      context: ./services/trading
+      dockerfile: Dockerfile
+    container_name: treum_trading
+    ports:
+      - "3002:3002"
+      - "50053:50053"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3002
+      - GRPC_PORT=50053
+      - SERVICE_NAME=trading
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/treum_finance
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+    volumes:
+      - ./logs/trading:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Signals Service
+  signals:
+    build:
+      context: ./services/signals
+      dockerfile: Dockerfile
+    container_name: treum_signals
+    ports:
+      - "3003:3003"
+      - "50054:50054"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3003
+      - GRPC_PORT=50054
+      - SERVICE_NAME=signals
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/treum_finance
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+    volumes:
+      - ./logs/signals:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Payment Service
+  payment:
+    build:
+      context: ./services/payment
+      dockerfile: Dockerfile
+    container_name: treum_payment
+    ports:
+      - "3004:3004"
+      - "50055:50055"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3004
+      - GRPC_PORT=50055
+      - SERVICE_NAME=payment
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/treum_finance
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
+      - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
+    volumes:
+      - ./logs/payment:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Education Service
+  education:
+    build:
+      context: ./services/education
+      dockerfile: Dockerfile
+    container_name: treum_education
+    ports:
+      - "3005:3005"
+      - "50056:50056"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3005
+      - GRPC_PORT=50056
+      - SERVICE_NAME=education
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/treum_finance
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+    volumes:
+      - ./logs/education:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Notification Service
+  notification:
+    build:
+      context: ./services/notification
+      dockerfile: Dockerfile
+    container_name: treum_notification
+    ports:
+      - "3006:3006"
+      - "50057:50057"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3006
+      - GRPC_PORT=50057
+      - SERVICE_NAME=notification
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/treum_finance
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - EMAIL_FROM=${EMAIL_FROM:-noreply@aifinanceagency.com}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:noreply@aifinanceagency.com}
+    volumes:
+      - ./logs/notification:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Risk Management Service
+  risk-management:
+    build:
+      context: ./services/risk-management
+      dockerfile: Dockerfile
+    container_name: treum_risk_management
+    ports:
+      - "3007:3007"
+      - "50058:50058"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3007
+      - GRPC_PORT=50058
+      - SERVICE_NAME=risk-management
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/treum_finance
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+      - TRADING_SERVICE_HOST=trading
+      - TRADING_SERVICE_GRPC_PORT=50053
+      - USER_SERVICE_HOST=user-management
+      - USER_SERVICE_GRPC_PORT=50052
+      - NOTIFICATION_SERVICE_HOST=notification
+      - NOTIFICATION_SERVICE_GRPC_PORT=50057
+      - THROTTLE_TTL=60000
+      - THROTTLE_LIMIT=100
+    volumes:
+      - ./logs/risk-management:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+      trading:
+        condition: service_healthy
+      notification:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3007/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Market Data Service
+  market-data:
+    build:
+      context: ./services/market-data
+      dockerfile: Dockerfile
+    container_name: treum_market_data
+    ports:
+      - "3008:3008"
+      - "50059:50059"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3008
+      - GRPC_PORT=50059
+      - SERVICE_NAME=market-data
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/treum_finance
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - IEX_API_TOKEN=${IEX_API_TOKEN}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      - ENABLE_SCHEDULED_FETCH=${ENABLE_SCHEDULED_FETCH:-true}
+      - DATA_FETCH_INTERVAL=${DATA_FETCH_INTERVAL:-30}
+      - CACHE_TTL=${CACHE_TTL:-300}
+      - THROTTLE_TTL=60000
+      - THROTTLE_LIMIT=100
+      - WS_MAX_CONNECTIONS=${WS_MAX_CONNECTIONS:-1000}
+      - WS_MAX_SYMBOLS_PER_CLIENT=${WS_MAX_SYMBOLS_PER_CLIENT:-50}
+    volumes:
+      - ./logs/market-data:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Monitoring and Observability
+  
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: treum_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - treum_network
+    profiles:
+      - monitoring
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: treum_grafana
+    ports:
+      - "3100:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    networks:
+      - treum_network
+    profiles:
+      - monitoring
+
+  # Jaeger for Distributed Tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: treum_jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger collector HTTP
+      - "14250:14250"  # Jaeger collector gRPC
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    restart: unless-stopped
+    networks:
+      - treum_network
+    profiles:
+      - monitoring
+
+  # Load Balancer/Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: treum_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infrastructure/nginx/ssl:/etc/ssl:ro
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    networks:
+      - treum_network
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  consul_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  treum_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

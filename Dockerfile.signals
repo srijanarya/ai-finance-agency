@@ -1,0 +1,110 @@
+# Multi-stage Dockerfile for TREUM Signal Generation Service
+# Optimized for production deployment with minimal attack surface
+
+# Base Python image with security updates
+FROM python:3.11-slim-bullseye as base
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Create non-root user for security
+RUN groupadd -r treum && useradd -r -g treum treum
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set work directory
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt requirements_signals.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements_signals.txt
+
+# Development stage
+FROM base as development
+
+# Install development dependencies
+RUN pip install --no-cache-dir pytest pytest-asyncio pytest-cov black flake8 mypy
+
+# Copy source code
+COPY . .
+
+# Change ownership to non-root user
+RUN chown -R treum:treum /app
+
+USER treum
+
+# Default command for development
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# Production stage
+FROM base as production
+
+# Install only production dependencies
+COPY requirements.txt requirements_signals.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements_signals.txt \
+    && pip install gunicorn uvicorn[standard]
+
+# Copy application code
+COPY app/ ./app/
+COPY database/ ./database/
+COPY alembic.ini ./
+COPY .env.example ./.env
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/uploads /app/temp \
+    && chown -R treum:treum /app
+
+# Security: Remove build dependencies and unnecessary files
+RUN apt-get purge -y build-essential \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+# Switch to non-root user
+USER treum
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Production startup script
+COPY --chown=treum:treum scripts/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# Default command for production
+CMD ["/app/start.sh"]
+
+# Celery worker stage
+FROM production as celery-worker
+
+# Install additional dependencies for signal processing
+RUN pip install --no-cache-dir ta-lib
+
+# Override command for worker
+CMD ["celery", "-A", "app.services.signal_scheduler", "worker", "--loglevel=info", "--concurrency=4"]
+
+# Celery beat scheduler stage  
+FROM production as celery-beat
+
+# Override command for scheduler
+CMD ["celery", "-A", "app.services.signal_scheduler", "beat", "--loglevel=info"]
+
+# Flower monitoring stage
+FROM production as flower
+
+# Install flower
+RUN pip install --no-cache-dir flower
+
+# Override command for flower
+CMD ["celery", "-A", "app.services.signal_scheduler", "flower", "--port=5555"]

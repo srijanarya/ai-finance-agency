@@ -1,0 +1,275 @@
+# Prometheus alerting rules for AI Finance Agency
+groups:
+  # System level alerts
+  - name: system.alerts
+    interval: 30s
+    rules:
+      # Instance down
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minute."
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% on instance {{ $labels.instance }} for more than 5 minutes."
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 85% on instance {{ $labels.instance }} for more than 5 minutes."
+
+      # Low disk space
+      - alert: DiskSpaceHigh
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*"})) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space usage is high"
+          description: "Disk space usage is above 80% on {{ $labels.mountpoint }} of instance {{ $labels.instance }}."
+
+      # Critical disk space
+      - alert: DiskSpaceCritical
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"} / node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*"})) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critically low"
+          description: "Disk space usage is above 90% on {{ $labels.mountpoint }} of instance {{ $labels.instance }}. Immediate action required!"
+
+  # Application level alerts
+  - name: application.alerts
+    interval: 30s
+    rules:
+      # High response time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="ai-finance-app"}[5m])) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s on instance {{ $labels.instance }}."
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{job="ai-finance-app",status=~"5.."}[5m]) / rate(http_requests_total{job="ai-finance-app"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}."
+
+      # Low success rate
+      - alert: LowSuccessRate
+        expr: rate(http_requests_total{job="ai-finance-app",status=~"2.."}[5m]) / rate(http_requests_total{job="ai-finance-app"}[5m]) < 0.95
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low success rate detected"
+          description: "Success rate is {{ $value | humanizePercentage }} on instance {{ $labels.instance }}."
+
+      # Application memory usage
+      - alert: ApplicationHighMemory
+        expr: process_resident_memory_bytes{job="ai-finance-app"} > 1000000000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Application using high memory"
+          description: "Application on {{ $labels.instance }} is using {{ $value | humanizeBytes }} of memory."
+
+  # Database alerts
+  - name: database.alerts
+    interval: 30s
+    rules:
+      # PostgreSQL down
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database on {{ $labels.instance }} has been down for more than 1 minute."
+
+      # High database connections
+      - alert: PostgreSQLHighConnections
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connection usage is high"
+          description: "PostgreSQL connection usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}."
+
+      # Slow queries
+      - alert: PostgreSQLSlowQueries
+        expr: rate(pg_stat_activity_max_tx_duration{datname!~"template.*"}[2m]) > 60
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL slow queries detected"
+          description: "PostgreSQL has slow running queries on database {{ $labels.datname }}."
+
+      # Redis down
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance on {{ $labels.instance }} has been down for more than 1 minute."
+
+      # Redis high memory usage
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage is high"
+          description: "Redis memory usage is {{ $value | humanizePercentage }} on {{ $labels.instance }}."
+
+  # Celery alerts
+  - name: celery.alerts
+    interval: 30s
+    rules:
+      # High queue length
+      - alert: CeleryHighQueueLength
+        expr: celery_queue_length > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Celery queue length is high"
+          description: "Celery queue {{ $labels.queue }} has {{ $value }} pending tasks."
+
+      # Worker down
+      - alert: CeleryWorkerDown
+        expr: celery_worker_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Celery worker is down"
+          description: "Celery worker {{ $labels.worker }} has been down for more than 2 minutes."
+
+      # High task failure rate
+      - alert: CeleryHighFailureRate
+        expr: rate(celery_task_failed_total[5m]) / rate(celery_task_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Celery task failure rate"
+          description: "Celery task failure rate is {{ $value | humanizePercentage }} for worker {{ $labels.worker }}."
+
+  # Business logic alerts
+  - name: business.alerts
+    interval: 60s
+    rules:
+      # Low user activity
+      - alert: LowUserActivity
+        expr: rate(user_login_total[1h]) < 10
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low user activity detected"
+          description: "User login rate is {{ $value }} per hour, which is below normal levels."
+
+      # API rate limiting triggered frequently
+      - alert: HighRateLimitHits
+        expr: rate(rate_limit_exceeded_total[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High rate of rate limiting"
+          description: "Rate limiting is being triggered {{ $value }} times per second."
+
+      # Financial data fetch failures
+      - alert: MarketDataFetchFailure
+        expr: rate(market_data_fetch_failed_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Market data fetch failures"
+          description: "Market data fetching is failing at a rate of {{ $value }} failures per second."
+
+      # Social media posting failures
+      - alert: SocialMediaPostingFailure
+        expr: rate(social_media_post_failed_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Social media posting failures"
+          description: "Social media posting is failing at a rate of {{ $value }} failures per second."
+
+  # Security alerts
+  - name: security.alerts
+    interval: 30s
+    rules:
+      # High number of failed login attempts
+      - alert: HighFailedLogins
+        expr: rate(failed_login_attempts_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of failed login attempts"
+          description: "There have been {{ $value }} failed login attempts per second in the last 5 minutes."
+
+      # Suspicious API usage
+      - alert: SuspiciousAPIUsage
+        expr: rate(http_requests_total{status="401"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Suspicious API usage detected"
+          description: "High rate of 401 Unauthorized responses: {{ $value }} per second."
+
+      # SSL certificate expiry
+      - alert: SSLCertificateExpiry
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 7
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "SSL certificate expiring soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}."
+
+      # SSL certificate critical expiry
+      - alert: SSLCertificateCriticalExpiry
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 2
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SSL certificate expiring very soon"
+          description: "SSL certificate for {{ $labels.instance }} expires in {{ $value | humanizeDuration }}. Immediate renewal required!"

@@ -1,0 +1,187 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "dist/**",
+        "build/**"
+      ],
+      "env": [
+        "NODE_ENV",
+        "DATABASE_URL",
+        "REDIS_URL",
+        "JWT_SECRET"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        ".eslintrc.js",
+        "eslint.config.js"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "tsconfig.json"
+      ]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "coverage/**",
+        "test-results.xml"
+      ],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "test/**/*.ts",
+        "test/**/*.tsx",
+        "**/*.spec.ts",
+        "**/*.test.ts",
+        "jest.config.js"
+      ],
+      "env": [
+        "NODE_ENV",
+        "DATABASE_URL",
+        "REDIS_URL",
+        "JWT_SECRET",
+        "TESTING"
+      ]
+    },
+    "test:unit": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "coverage/**",
+        "test-results-unit.xml"
+      ],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "**/*.spec.ts",
+        "jest.config.js"
+      ]
+    },
+    "test:integration": {
+      "dependsOn": ["^build", "test:unit"],
+      "outputs": [
+        "coverage/**",
+        "test-results-integration.xml"
+      ],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "test/**/*.ts",
+        "jest.config.js"
+      ]
+    },
+    "test:e2e": {
+      "dependsOn": ["build"],
+      "outputs": [
+        "test-results/**",
+        "playwright-report/**",
+        "coverage/**"
+      ],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "test/**/*.ts",
+        "e2e/**/*.ts",
+        "jest-e2e.json"
+      ]
+    },
+    "test:critical": {
+      "dependsOn": ["build"],
+      "outputs": [
+        "critical-test-results/**"
+      ],
+      "inputs": [
+        "tests/critical-path/**/*.ts",
+        "tests/critical-path/**/*.js"
+      ]
+    },
+    "clean": {
+      "cache": false
+    },
+    "db:migrate": {
+      "cache": false,
+      "env": [
+        "DATABASE_URL"
+      ]
+    },
+    "db:seed": {
+      "cache": false,
+      "dependsOn": ["db:migrate"],
+      "env": [
+        "DATABASE_URL"
+      ]
+    },
+    "db:reset": {
+      "cache": false,
+      "env": [
+        "DATABASE_URL"
+      ]
+    },
+    "docker:build": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
+    "docker:push": {
+      "dependsOn": ["docker:build"],
+      "cache": false
+    },
+    "format": {
+      "outputs": [],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "test/**/*.ts",
+        ".prettierrc",
+        "prettier.config.js"
+      ]
+    },
+    "format:check": {
+      "outputs": [],
+      "inputs": [
+        "src/**/*.ts",
+        "src/**/*.tsx",
+        "test/**/*.ts",
+        ".prettierrc",
+        "prettier.config.js"
+      ]
+    }
+  },
+  "globalDependencies": [
+    "package.json",
+    "turbo.json",
+    ".env",
+    ".env.local",
+    ".env.development",
+    ".env.production",
+    ".env.staging",
+    "tsconfig.json",
+    "jest.config.js",
+    ".eslintrc.js",
+    ".prettierrc"
+  ],
+  "globalEnv": [
+    "NODE_ENV",
+    "CI",
+    "VERCEL",
+    "TURBO_TOKEN",
+    "TURBO_TEAM"
+  ]
+}

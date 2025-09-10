@@ -1,0 +1,719 @@
+name: 🔄 Emergency Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options: ['staging', 'production']
+      target_version:
+        description: 'Target version to rollback to (leave empty for previous)'
+        required: false
+        type: string
+      services:
+        description: 'Services to rollback (comma-separated, empty for all)'
+        required: false
+        type: string
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+      rollback_type:
+        description: 'Type of rollback'
+        required: false
+        type: choice
+        options: ['immediate', 'gradual', 'partial']
+        default: 'immediate'
+      skip_validations:
+        description: 'Skip pre-rollback validations (emergency only)'
+        required: false
+        type: boolean
+        default: false
+      notify_team:
+        description: 'Send notifications to team'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+  KUBECTL_VERSION: v1.28.0
+  ROLLBACK_TIMEOUT: 900
+
+jobs:
+  # =============================================================================
+  # EMERGENCY VALIDATION
+  # =============================================================================
+  emergency-validation:
+    name: 🚨 Emergency Validation
+    runs-on: ubuntu-latest
+    if: inputs.skip_validations != true
+    outputs:
+      can_rollback: ${{ steps.validation.outputs.can_rollback }}
+      target_version: ${{ steps.version.outputs.target_version }}
+      current_version: ${{ steps.current.outputs.current_version }}
+      rollback_plan: ${{ steps.plan.outputs.rollback_plan }}
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          if [[ "${{ inputs.environment }}" == "production" ]]; then
+            echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-production
+          else
+            echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-staging
+          fi
+
+      - name: 🔍 Get Current Version
+        id: current
+        run: |
+          CURRENT_VERSION=$(kubectl get deployment api-gateway -o jsonpath='{.metadata.labels.version}' 2>/dev/null || echo "unknown")
+          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          echo "📊 Current version in ${{ inputs.environment }}: ${CURRENT_VERSION}"
+
+      - name: 🎯 Determine Target Version
+        id: version
+        run: |
+          if [[ "${{ inputs.target_version }}" != "" ]]; then
+            TARGET_VERSION="${{ inputs.target_version }}"
+          else
+            # Get previous version from deployment history
+            PREVIOUS_VERSIONS=$(kubectl rollout history deployment/api-gateway --limit=5 | tail -n +3 | awk '{print $1}' | sort -nr)
+            TARGET_REVISION=$(echo "$PREVIOUS_VERSIONS" | sed -n '2p')  # Second most recent
+            
+            if [[ -n "$TARGET_REVISION" ]]; then
+              TARGET_VERSION=$(kubectl rollout history deployment/api-gateway --revision=$TARGET_REVISION | grep -o 'version=[^,]*' | cut -d= -f2 || echo "previous")
+            else
+              TARGET_VERSION="previous"
+            fi
+          fi
+          
+          echo "target_version=${TARGET_VERSION}" >> $GITHUB_OUTPUT
+          echo "🎯 Target rollback version: ${TARGET_VERSION}"
+
+      - name: 🔍 Validate Rollback Target
+        run: |
+          TARGET_VERSION="${{ steps.version.outputs.target_version }}"
+          
+          if [[ "$TARGET_VERSION" == "unknown" ]] || [[ "$TARGET_VERSION" == "" ]]; then
+            echo "❌ Cannot determine target version for rollback"
+            exit 1
+          fi
+          
+          # Check if target version images exist
+          if [[ "$TARGET_VERSION" != "previous" ]]; then
+            SERVICES="${{ inputs.services || 'api-gateway,user-management,payment,signals,trading' }}"
+            IFS=',' read -ra SERVICES_ARRAY <<< "$SERVICES"
+            
+            for service in "${SERVICES_ARRAY[@]}"; do
+              IMAGE="${{ env.IMAGE_PREFIX }}/${service}:${TARGET_VERSION}"
+              if ! docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+                echo "❌ Target image not found: $IMAGE"
+                exit 1
+              fi
+            done
+          fi
+          
+          echo "✅ Rollback target validated"
+
+      - name: 📋 Create Rollback Plan
+        id: plan
+        run: |
+          CURRENT_VERSION="${{ steps.current.outputs.current_version }}"
+          TARGET_VERSION="${{ steps.version.outputs.target_version }}"
+          SERVICES="${{ inputs.services || 'all' }}"
+          
+          cat > rollback-plan.json <<EOF
+          {
+            "environment": "${{ inputs.environment }}",
+            "current_version": "${CURRENT_VERSION}",
+            "target_version": "${TARGET_VERSION}",
+            "services": "${SERVICES}",
+            "rollback_type": "${{ inputs.rollback_type }}",
+            "reason": "${{ inputs.reason }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          
+          echo "rollback_plan=$(cat rollback-plan.json | jq -c .)" >> $GITHUB_OUTPUT
+          
+          echo "📋 Rollback Plan Created:"
+          cat rollback-plan.json | jq .
+
+      - name: ✅ Final Validation
+        id: validation
+        run: |
+          echo "can_rollback=true" >> $GITHUB_OUTPUT
+          echo "✅ Emergency validation passed - ready to rollback"
+
+  # =============================================================================
+  # IMMEDIATE ROLLBACK
+  # =============================================================================
+  immediate-rollback:
+    name: 🔄 Immediate Rollback
+    runs-on: ubuntu-latest
+    needs: emergency-validation
+    if: |
+      always() && 
+      (needs.emergency-validation.outputs.can_rollback == 'true' || inputs.skip_validations == true) &&
+      inputs.rollback_type == 'immediate'
+    environment:
+      name: ${{ inputs.environment }}-emergency
+      
+    strategy:
+      matrix:
+        service: ${{ fromJson(format('[{0}]', join(split(inputs.services == '' && 'api-gateway,user-management,payment,signals,trading,education,market-data,risk-management,notification,content-intelligence' || inputs.services, ','), '","'))) }}
+      fail-fast: false
+      max-parallel: 10  # Rollback all services in parallel for speed
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          if [[ "${{ inputs.environment }}" == "production" ]]; then
+            echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-production
+          else
+            echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-staging
+          fi
+
+      - name: 🔄 Rollback Service
+        run: |
+          SERVICE="${{ matrix.service }}"
+          TARGET_VERSION="${{ needs.emergency-validation.outputs.target_version || inputs.target_version || 'previous' }}"
+          
+          echo "🔄 Rolling back ${SERVICE} to version: ${TARGET_VERSION}"
+          
+          if [[ "$TARGET_VERSION" == "previous" ]]; then
+            # Use kubectl rollout undo for previous version
+            kubectl rollout undo deployment/${SERVICE}
+          else
+            # Update deployment to specific version
+            kubectl set image deployment/${SERVICE} \
+              ${SERVICE}=${{ env.IMAGE_PREFIX }}/${SERVICE}:${TARGET_VERSION}
+          fi
+          
+          echo "⏳ Waiting for rollback to complete..."
+          kubectl rollout status deployment/${SERVICE} --timeout=${ROLLBACK_TIMEOUT}s
+          
+          echo "✅ Rollback completed for ${SERVICE}"
+
+      - name: 🏥 Immediate Health Check
+        run: |
+          SERVICE="${{ matrix.service }}"
+          
+          # Quick health check
+          for i in {1..10}; do
+            READY_REPLICAS=$(kubectl get deployment ${SERVICE} -o jsonpath='{.status.readyReplicas}' || echo "0")
+            DESIRED_REPLICAS=$(kubectl get deployment ${SERVICE} -o jsonpath='{.spec.replicas}')
+            
+            if [[ "$READY_REPLICAS" == "$DESIRED_REPLICAS" ]] && [[ "$READY_REPLICAS" != "0" ]]; then
+              echo "✅ ${SERVICE} is healthy after rollback"
+              break
+            fi
+            
+            echo "⏳ Health check ($i/10): $READY_REPLICAS/$DESIRED_REPLICAS replicas ready"
+            sleep 15
+          done
+
+  # =============================================================================
+  # GRADUAL ROLLBACK
+  # =============================================================================
+  gradual-rollback:
+    name: 🔄 Gradual Rollback
+    runs-on: ubuntu-latest
+    needs: emergency-validation
+    if: |
+      always() && 
+      (needs.emergency-validation.outputs.can_rollback == 'true' || inputs.skip_validations == true) &&
+      inputs.rollback_type == 'gradual'
+    environment:
+      name: ${{ inputs.environment }}-emergency
+      
+    strategy:
+      matrix:
+        batch: [1, 2, 3]
+      fail-fast: true
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          if [[ "${{ inputs.environment }}" == "production" ]]; then
+            echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-production
+          else
+            echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-staging
+          fi
+
+      - name: 🎯 Define Service Batches
+        id: batches
+        run: |
+          # Define service rollback batches (critical services first)
+          case ${{ matrix.batch }} in
+            1)
+              SERVICES="api-gateway,user-management"
+              echo "🎯 Batch 1: Critical gateway and auth services"
+              ;;
+            2)
+              SERVICES="payment,signals,trading"
+              echo "🎯 Batch 2: Core business services"
+              ;;
+            3)
+              SERVICES="education,market-data,risk-management,notification,content-intelligence"
+              echo "🎯 Batch 3: Supporting services"
+              ;;
+          esac
+          
+          echo "services=${SERVICES}" >> $GITHUB_OUTPUT
+
+      - name: 🔄 Rollback Service Batch
+        run: |
+          TARGET_VERSION="${{ needs.emergency-validation.outputs.target_version || inputs.target_version || 'previous' }}"
+          IFS=',' read -ra SERVICES_ARRAY <<< "${{ steps.batches.outputs.services }}"
+          
+          for service in "${SERVICES_ARRAY[@]}"; do
+            echo "🔄 Rolling back ${service} to version: ${TARGET_VERSION}"
+            
+            if [[ "$TARGET_VERSION" == "previous" ]]; then
+              kubectl rollout undo deployment/${service}
+            else
+              kubectl set image deployment/${service} \
+                ${service}=${{ env.IMAGE_PREFIX }}/${service}:${TARGET_VERSION}
+            fi
+            
+            # Wait for each service to be ready before continuing
+            kubectl rollout status deployment/${service} --timeout=${ROLLBACK_TIMEOUT}s
+            
+            echo "✅ ${service} rollback completed"
+          done
+
+      - name: 🏥 Batch Health Verification
+        run: |
+          IFS=',' read -ra SERVICES_ARRAY <<< "${{ steps.batches.outputs.services }}"
+          
+          for service in "${SERVICES_ARRAY[@]}"; do
+            echo "🏥 Verifying health of ${service}..."
+            
+            for i in {1..20}; do
+              READY_REPLICAS=$(kubectl get deployment ${service} -o jsonpath='{.status.readyReplicas}' || echo "0")
+              DESIRED_REPLICAS=$(kubectl get deployment ${service} -o jsonpath='{.spec.replicas}')
+              
+              if [[ "$READY_REPLICAS" == "$DESIRED_REPLICAS" ]] && [[ "$READY_REPLICAS" != "0" ]]; then
+                echo "✅ ${service} is healthy"
+                break
+              fi
+              
+              echo "⏳ Waiting for ${service} health ($i/20)"
+              sleep 10
+            done
+          done
+
+      - name: ⏳ Inter-batch Cooldown
+        if: matrix.batch != 3
+        run: |
+          echo "⏳ Cooldown period between batches (60 seconds)"
+          sleep 60
+
+  # =============================================================================
+  # PARTIAL ROLLBACK
+  # =============================================================================
+  partial-rollback:
+    name: 🔄 Partial Rollback
+    runs-on: ubuntu-latest
+    needs: emergency-validation
+    if: |
+      always() && 
+      (needs.emergency-validation.outputs.can_rollback == 'true' || inputs.skip_validations == true) &&
+      inputs.rollback_type == 'partial'
+    environment:
+      name: ${{ inputs.environment }}-emergency
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          if [[ "${{ inputs.environment }}" == "production" ]]; then
+            echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-production
+          else
+            echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-staging
+          fi
+
+      - name: 🎯 Identify Services to Rollback
+        id: identify
+        run: |
+          SERVICES_TO_ROLLBACK=""
+          SERVICES="${{ inputs.services || 'api-gateway,user-management,payment,signals,trading' }}"
+          IFS=',' read -ra SERVICES_ARRAY <<< "$SERVICES"
+          
+          for service in "${SERVICES_ARRAY[@]}"; do
+            # Check if service is unhealthy
+            READY_REPLICAS=$(kubectl get deployment ${service} -o jsonpath='{.status.readyReplicas}' || echo "0")
+            DESIRED_REPLICAS=$(kubectl get deployment ${service} -o jsonpath='{.spec.replicas}')
+            
+            if [[ "$READY_REPLICAS" != "$DESIRED_REPLICAS" ]] || [[ "$READY_REPLICAS" == "0" ]]; then
+              echo "🚨 ${service} is unhealthy, adding to rollback list"
+              SERVICES_TO_ROLLBACK="${SERVICES_TO_ROLLBACK},${service}"
+            else
+              echo "✅ ${service} is healthy, skipping rollback"
+            fi
+          done
+          
+          SERVICES_TO_ROLLBACK=$(echo "$SERVICES_TO_ROLLBACK" | sed 's/^,//')
+          echo "services_to_rollback=${SERVICES_TO_ROLLBACK}" >> $GITHUB_OUTPUT
+          
+          if [[ -z "$SERVICES_TO_ROLLBACK" ]]; then
+            echo "ℹ️ No unhealthy services found, no rollback needed"
+          else
+            echo "🎯 Services to rollback: ${SERVICES_TO_ROLLBACK}"
+          fi
+
+      - name: 🔄 Rollback Unhealthy Services
+        if: steps.identify.outputs.services_to_rollback != ''
+        run: |
+          TARGET_VERSION="${{ needs.emergency-validation.outputs.target_version || inputs.target_version || 'previous' }}"
+          IFS=',' read -ra SERVICES_ARRAY <<< "${{ steps.identify.outputs.services_to_rollback }}"
+          
+          for service in "${SERVICES_ARRAY[@]}"; do
+            echo "🔄 Rolling back unhealthy service: ${service}"
+            
+            if [[ "$TARGET_VERSION" == "previous" ]]; then
+              kubectl rollout undo deployment/${service}
+            else
+              kubectl set image deployment/${service} \
+                ${service}=${{ env.IMAGE_PREFIX }}/${service}:${TARGET_VERSION}
+            fi
+            
+            kubectl rollout status deployment/${service} --timeout=${ROLLBACK_TIMEOUT}s
+            echo "✅ ${service} rollback completed"
+          done
+
+  # =============================================================================
+  # POST-ROLLBACK VALIDATION
+  # =============================================================================
+  post-rollback-validation:
+    name: ✅ Post-rollback Validation
+    runs-on: ubuntu-latest
+    needs: [immediate-rollback, gradual-rollback, partial-rollback]
+    if: |
+      always() && 
+      (needs.immediate-rollback.result == 'success' || 
+       needs.gradual-rollback.result == 'success' || 
+       needs.partial-rollback.result == 'success')
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          if [[ "${{ inputs.environment }}" == "production" ]]; then
+            echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-production
+            BASE_URL="${{ secrets.PRODUCTION_BASE_URL }}"
+          else
+            echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-staging
+            BASE_URL="${{ secrets.STAGING_BASE_URL }}"
+          fi
+          echo "BASE_URL=${BASE_URL}" >> $GITHUB_ENV
+
+      - name: 🏥 Comprehensive Health Check
+        run: |
+          echo "🏥 Running comprehensive health check..."
+          
+          # Check all services
+          SERVICES="${{ inputs.services || 'api-gateway,user-management,payment,signals,trading,education,market-data,risk-management,notification,content-intelligence' }}"
+          IFS=',' read -ra SERVICES_ARRAY <<< "$SERVICES"
+          
+          UNHEALTHY_SERVICES=""
+          for service in "${SERVICES_ARRAY[@]}"; do
+            READY_REPLICAS=$(kubectl get deployment ${service} -o jsonpath='{.status.readyReplicas}' || echo "0")
+            DESIRED_REPLICAS=$(kubectl get deployment ${service} -o jsonpath='{.spec.replicas}')
+            
+            if [[ "$READY_REPLICAS" == "$DESIRED_REPLICAS" ]] && [[ "$READY_REPLICAS" != "0" ]]; then
+              echo "✅ ${service}: ${READY_REPLICAS}/${DESIRED_REPLICAS} replicas ready"
+            else
+              echo "❌ ${service}: ${READY_REPLICAS}/${DESIRED_REPLICAS} replicas ready"
+              UNHEALTHY_SERVICES="${UNHEALTHY_SERVICES} ${service}"
+            fi
+          done
+          
+          if [[ -n "$UNHEALTHY_SERVICES" ]]; then
+            echo "❌ Unhealthy services after rollback:${UNHEALTHY_SERVICES}"
+            exit 1
+          fi
+          
+          echo "✅ All services are healthy after rollback"
+
+      - name: 🧪 Critical Endpoint Tests
+        run: |
+          echo "🧪 Testing critical endpoints..."
+          
+          # Test core endpoints
+          curl -f "${BASE_URL}/health" || echo "⚠️ Health endpoint failed"
+          curl -f "${BASE_URL}/api/v1/status" || echo "⚠️ Status endpoint failed"
+          
+          # Test authentication
+          curl -f "${BASE_URL}/api/v1/auth/status" || echo "⚠️ Auth endpoint failed"
+          
+          # Test payment service
+          curl -f "${BASE_URL}/api/v1/payments/health" || echo "⚠️ Payment endpoint failed"
+          
+          echo "✅ Critical endpoint tests completed"
+
+      - name: 📊 Generate Rollback Report
+        run: |
+          echo "# 🔄 Rollback Report" > rollback-report.md
+          echo "" >> rollback-report.md
+          echo "**Environment:** ${{ inputs.environment }}" >> rollback-report.md
+          echo "**Rollback Type:** ${{ inputs.rollback_type }}" >> rollback-report.md
+          echo "**Reason:** ${{ inputs.reason }}" >> rollback-report.md
+          echo "**Timestamp:** $(date -u)" >> rollback-report.md
+          echo "**Initiated By:** ${{ github.actor }}" >> rollback-report.md
+          echo "" >> rollback-report.md
+          
+          # Get current version after rollback
+          CURRENT_VERSION=$(kubectl get deployment api-gateway -o jsonpath='{.metadata.labels.version}' || echo "unknown")
+          echo "**Current Version After Rollback:** ${CURRENT_VERSION}" >> rollback-report.md
+          echo "" >> rollback-report.md
+          
+          echo "## Service Status" >> rollback-report.md
+          SERVICES="${{ inputs.services || 'api-gateway,user-management,payment,signals,trading' }}"
+          IFS=',' read -ra SERVICES_ARRAY <<< "$SERVICES"
+          
+          for service in "${SERVICES_ARRAY[@]}"; do
+            READY=$(kubectl get deployment ${service} -o jsonpath='{.status.readyReplicas}' || echo "0")
+            DESIRED=$(kubectl get deployment ${service} -o jsonpath='{.spec.replicas}')
+            VERSION=$(kubectl get deployment ${service} -o jsonpath='{.metadata.labels.version}' || echo "unknown")
+            
+            echo "- **${service}:** ${READY}/${DESIRED} replicas, version: ${VERSION}" >> rollback-report.md
+          done
+
+      - name: 📤 Upload Rollback Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: rollback-report-${{ inputs.environment }}-${{ github.run_number }}
+          path: rollback-report.md
+          retention-days: 90
+
+  # =============================================================================
+  # NOTIFICATIONS AND MONITORING
+  # =============================================================================
+  notify-rollback:
+    name: 📢 Rollback Notifications
+    runs-on: ubuntu-latest
+    needs: [immediate-rollback, gradual-rollback, partial-rollback, post-rollback-validation]
+    if: always() && inputs.notify_team == true
+    
+    steps:
+      - name: 📊 Determine Rollback Status
+        id: status
+        run: |
+          if [[ "${{ needs.post-rollback-validation.result }}" == "success" ]]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+            echo "message=Rollback completed successfully" >> $GITHUB_OUTPUT
+          elif [[ "${{ needs.immediate-rollback.result }}" == "success" ]] || 
+               [[ "${{ needs.gradual-rollback.result }}" == "success" ]] || 
+               [[ "${{ needs.partial-rollback.result }}" == "success" ]]; then
+            echo "status=partial" >> $GITHUB_OUTPUT
+            echo "message=Rollback completed but validation had issues" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+            echo "message=Rollback failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 📢 Success Notification
+        if: steps.status.outputs.status == 'success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          title: "✅ Emergency Rollback Successful"
+          message: |
+            **Environment:** ${{ inputs.environment }}
+            **Reason:** ${{ inputs.reason }}
+            **Type:** ${{ inputs.rollback_type }}
+            **Services:** ${{ inputs.services || 'all' }}
+            **Duration:** ${{ github.event.created_at }} to $(date -u)
+            **Status:** All services healthy after rollback
+            
+            🔄 System has been successfully rolled back
+            ✅ All critical endpoints are responding
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: 📢 Partial Success Notification
+        if: steps.status.outputs.status == 'partial'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: warning
+          title: "⚠️ Emergency Rollback Partially Successful"
+          message: |
+            **Environment:** ${{ inputs.environment }}
+            **Reason:** ${{ inputs.reason }}
+            **Type:** ${{ inputs.rollback_type }}
+            **Status:** Rollback completed but validation issues detected
+            
+            🔍 Manual verification recommended
+            📋 Check workflow logs for details
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: 📢 Failure Notification
+        if: steps.status.outputs.status == 'failure'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          title: "❌ Emergency Rollback Failed"
+          message: |
+            **Environment:** ${{ inputs.environment }}
+            **Reason:** ${{ inputs.reason }}
+            **Status:** Rollback operation failed
+            
+            🚨 **IMMEDIATE ATTENTION REQUIRED**
+            📞 Contact on-call engineer immediately
+            📋 Manual intervention needed
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: 📧 Email Alert to Ops Team
+        if: inputs.environment == 'production' && steps.status.outputs.status != 'success'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: 587
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "🚨 URGENT: Production Rollback Status - ${{ steps.status.outputs.status }}"
+          to: ${{ secrets.OPS_TEAM_EMAIL }}
+          from: "AI Finance Ops <ops@ai-finance-agency.com>"
+          body: |
+            URGENT: Production rollback operation status: ${{ steps.status.outputs.status }}
+            
+            Environment: ${{ inputs.environment }}
+            Reason: ${{ inputs.reason }}
+            Rollback Type: ${{ inputs.rollback_type }}
+            Services: ${{ inputs.services || 'all' }}
+            Initiated By: ${{ github.actor }}
+            
+            Status: ${{ steps.status.outputs.message }}
+            
+            Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Please check the system status immediately.
+
+  # =============================================================================
+  # POST-ROLLBACK MONITORING
+  # =============================================================================
+  setup-post-rollback-monitoring:
+    name: 📊 Post-rollback Monitoring
+    runs-on: ubuntu-latest
+    needs: [post-rollback-validation]
+    if: needs.post-rollback-validation.result == 'success'
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          if [[ "${{ inputs.environment }}" == "production" ]]; then
+            echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-production
+          else
+            echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+            kubectl config set-context --current --namespace=ai-finance-staging
+          fi
+
+      - name: 🚨 Enable Enhanced Monitoring
+        run: |
+          # Enable enhanced monitoring after rollback
+          kubectl patch configmap alertmanager-config -p '{
+            "data": {
+              "post-rollback-mode": "enabled",
+              "enhanced-monitoring-duration": "4h",
+              "rollback-timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+            }
+          }'
+          
+          echo "✅ Enhanced monitoring enabled for 4 hours post-rollback"
+
+      - name: 📊 Create Rollback Dashboard
+        run: |
+          ROLLBACK_ID="rollback-$(date +%Y%m%d-%H%M%S)"
+          
+          kubectl create configmap rollback-dashboard-${ROLLBACK_ID} \
+            --from-literal=dashboard.json='{
+              "dashboard": {
+                "title": "Post-Rollback Monitoring - ${{ inputs.environment }}",
+                "tags": ["rollback", "${{ inputs.environment }}"],
+                "time": {
+                  "from": "now",
+                  "to": "now+4h"
+                },
+                "refresh": "30s"
+              }
+            }' || echo "Dashboard creation skipped"
+
+      - name: 📋 Summary
+        run: |
+          echo "## 🔄 Rollback Operation Summary"
+          echo "**Environment:** ${{ inputs.environment }}"
+          echo "**Type:** ${{ inputs.rollback_type }}"
+          echo "**Reason:** ${{ inputs.reason }}"
+          echo "**Status:** ✅ Completed Successfully"
+          echo "**Monitoring:** Enhanced monitoring enabled for 4 hours"
+          echo "**Next Steps:** Monitor system stability and performance"

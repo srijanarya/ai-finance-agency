@@ -533,20 +533,20 @@
         <div class="main-content">
             <div class="stats-bar">
                 <div class="stat-item">
-                    <div class="stat-value" id="totalGenerated">1,247</div>
-                    <div class="stat-label">Contents Generated</div>
+                    <div class="stat-value" id="twitterFollowers">86</div>
+                    <div class="stat-label">Twitter Followers</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value" id="todayCount">48</div>
-                    <div class="stat-label">Today</div>
+                    <div class="stat-value" id="telegramSubs">4</div>
+                    <div class="stat-label">Telegram Subs</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value">95%</div>
-                    <div class="stat-label">Compliance Rate</div>
+                    <div class="stat-value" id="totalFollowers">90</div>
+                    <div class="stat-label">Total Followers</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value">2.3s</div>
-                    <div class="stat-label">Avg Response</div>
+                    <div class="stat-value" id="todayPosts">0</div>
+                    <div class="stat-label">Posts Today</div>
                 </div>
             </div>
             
@@ -842,12 +842,35 @@ Market consensus suggests potential rate cuts in H2 2024, contingent on inflatio
         }
         
         function updateStats() {
-            const totalVal = document.getElementById('totalGenerated');
-            totalVal.textContent = (parseInt(totalVal.textContent) + 1).toString();
+            // Fetch REAL social media stats from our API
+            fetch('/api/social/stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.twitter) {
+                        document.getElementById('twitterFollowers').textContent = data.twitter.followers || 86;
+                    }
+                    if (data.telegram) {
+                        document.getElementById('telegramSubs').textContent = data.telegram.subscribers || 4;
+                    }
+                    if (data.totals) {
+                        document.getElementById('totalFollowers').textContent = data.totals.all_followers || 90;
+                    }
+                })
+                .catch(err => console.log('Error fetching stats:', err));
             
-            const todayVal = document.getElementById('todayCount');
-            todayVal.textContent = (parseInt(todayVal.textContent) + 1).toString();
+            // Update posts count
+            const postsVal = document.getElementById('todayPosts');
+            if (postsVal) {
+                postsVal.textContent = (parseInt(postsVal.textContent || 0) + 1).toString();
+            }
         }
+        
+        // Load real stats on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateStats();
+            // Refresh stats every 30 seconds
+            setInterval(updateStats, 30000);
+        });
         
         function copyContent() {
             const content = contentVariations[currentVariation] || document.getElementById('outputContent').innerText;

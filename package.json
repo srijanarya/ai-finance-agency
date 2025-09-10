@@ -1,0 +1,97 @@
+{
+  "name": "ai-finance-agency",
+  "version": "1.0.0",
+  "description": "AI-Powered Finance Agency Platform - Comprehensive Microservices Architecture",
+  "private": true,
+  "scripts": {
+    "test": "node test-all.js",
+    "test:unit": "node test-all.js --unit-only",
+    "test:integration": "node test-all.js --integration-only", 
+    "test:e2e": "node test-all.js --e2e-only",
+    "test:coverage": "node test-all.js --with-coverage",
+    "test:watch": "node test-all.js --watch",
+    "test:services": "node test-all.js --services",
+    "test:quick": "node test-all.js --quick",
+    "test:integration-full": "node scripts/integration-test.js",
+    "test:integration-available": "node scripts/integration-test-available.js",
+    "check:service-status": "node scripts/check-service-status.js",
+    "install:all": "npm run install:shared && npm run install:services",
+    "install:shared": "cd shared && npm install",
+    "install:services": "for service in services/*/; do if [ -f \"$service/package.json\" ]; then echo \"Installing $service\" && cd \"$service\" && npm install && cd ../..; fi; done",
+    "build:all": "npm run build:services",
+    "build:services": "for service in services/*/; do if [ -f \"$service/package.json\" ]; then echo \"Building $service\" && cd \"$service\" && npm run build && cd ../..; fi; done",
+    "lint:all": "npm run lint:services",
+    "lint:services": "for service in services/*/; do if [ -f \"$service/package.json\" ]; then echo \"Linting $service\" && cd \"$service\" && npm run lint && cd ../..; fi; done",
+    "docker:test:up": "docker-compose -f docker-compose.test.yml up -d",
+    "docker:test:down": "docker-compose -f docker-compose.test.yml down -v",
+    "docker:test:logs": "docker-compose -f docker-compose.test.yml logs -f",
+    "start:dev": "docker-compose up -d",
+    "start:prod": "docker-compose -f docker-compose.prod.yml up -d",
+    "stop": "docker-compose down",
+    "logs": "docker-compose logs -f",
+    "clean": "npm run clean:coverage && npm run clean:node-modules",
+    "clean:coverage": "find . -name coverage -type d -exec rm -rf {} + 2>/dev/null || true",
+    "clean:node-modules": "find . -name node_modules -type d -exec rm -rf {} + 2>/dev/null || true",
+    "db:migrate": "for service in services/*/; do if [ -f \"$service/package.json\" ] && grep -q db:migrate \"$service/package.json\"; then echo \"Migrating $service\" && cd \"$service\" && npm run db:migrate && cd ../..; fi; done",
+    "db:seed": "for service in services/*/; do if [ -f \"$service/package.json\" ] && grep -q db:seed \"$service/package.json\"; then echo \"Seeding $service\" && cd \"$service\" && npm run db:seed && cd ../..; fi; done",
+    "security:audit": "for service in services/*/; do if [ -f \"$service/package.json\" ]; then echo \"Auditing $service\" && cd \"$service\" && npm audit --audit-level=high && cd ../..; fi; done",
+    "check:health": "npm run check:service-status",
+    "integration:quick": "npm run check:service-status && npm run test:integration-available",
+    "integration:summary": "node scripts/integration-summary.js",
+    "docs:serve": "npx http-server docs -p 8080",
+    "pre-commit": "npm run lint:all && npm run test:unit",
+    "prepare": "chmod +x test-all.js"
+  },
+  "lint-staged": {
+    "*.{js,ts,tsx}": [
+      "eslint --fix",
+      "git add"
+    ],
+    "*.{json,md}": [
+      "prettier --write",
+      "git add"
+    ]
+  },
+  "dependencies": {
+    "axios": "^1.7.7",
+    "ws": "^8.18.0",
+    "amqplib": "^0.10.4",
+    "ioredis": "^5.4.1",
+    "pg": "^8.13.0",
+    "mongodb": "^6.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.3.1",
+    "@types/ws": "^8.5.12",
+    "@types/amqplib": "^0.10.5",
+    "@types/pg": "^8.11.10",
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "keywords": [
+    "finance",
+    "trading",
+    "ai",
+    "microservices",
+    "nestjs",
+    "nodejs",
+    "typescript",
+    "docker",
+    "postgresql",
+    "redis",
+    "websocket"
+  ],
+  "author": "AI Finance Agency Team",
+  "license": "PROPRIETARY",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/ai-finance-agency.git"
+  },
+  "workspaces": [
+    "shared",
+    "services/*"
+  ]
+}

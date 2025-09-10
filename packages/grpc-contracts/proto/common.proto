@@ -1,0 +1,244 @@
+syntax = "proto3";
+
+package treum.common;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service HealthService {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+  rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse);
+}
+
+service MetricsService {
+  rpc RecordMetric(RecordMetricRequest) returns (google.protobuf.Empty);
+  rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
+}
+
+// Health Check Messages
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  HealthStatus status = 1;
+  repeated HealthCheckDetail checks = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  string version = 4;
+  int64 uptime = 5;
+}
+
+message HealthCheckDetail {
+  string name = 1;
+  HealthStatus status = 2;
+  string message = 3;
+  int64 response_time_ms = 4;
+  map<string, string> metadata = 5;
+}
+
+// Metrics Messages
+message RecordMetricRequest {
+  string name = 1;
+  double value = 2;
+  MetricType type = 3;
+  string unit = 4;
+  map<string, string> tags = 5;
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+message GetMetricsRequest {
+  string service = 1;
+  repeated string metric_names = 2;
+  google.protobuf.Timestamp from_time = 3;
+  google.protobuf.Timestamp to_time = 4;
+  map<string, string> tags = 5;
+}
+
+message GetMetricsResponse {
+  repeated MetricData metrics = 1;
+}
+
+message MetricData {
+  string name = 1;
+  double value = 2;
+  MetricType type = 3;
+  string unit = 4;
+  map<string, string> tags = 5;
+  google.protobuf.Timestamp timestamp = 6;
+}
+
+// Common Operation Result
+message OperationResult {
+  bool success = 1;
+  string message = 2;
+  string error_code = 3;
+  map<string, string> metadata = 4;
+}
+
+// Common Error Response
+message ErrorResponse {
+  string code = 1;
+  string message = 2;
+  string service = 3;
+  google.protobuf.Timestamp timestamp = 4;
+  string correlation_id = 5;
+  string stack_trace = 6;
+  map<string, string> context = 7;
+}
+
+// Common Pagination
+message PaginationRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string sort_by = 3;
+  string sort_order = 4;
+}
+
+message PaginationResponse {
+  int32 page = 1;
+  int32 limit = 2;
+  int32 total = 3;
+  int32 total_pages = 4;
+  bool has_next = 5;
+  bool has_previous = 6;
+}
+
+// Common Authentication
+message AuthContext {
+  string user_id = 1;
+  string email = 2;
+  string username = 3;
+  string role = 4;
+  SubscriptionTier subscription_tier = 5;
+  string correlation_id = 6;
+  google.protobuf.Timestamp issued_at = 7;
+  google.protobuf.Timestamp expires_at = 8;
+}
+
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  AuthContext auth_context = 2;
+  string error_message = 3;
+}
+
+// Circuit Breaker Messages
+message CircuitBreakerConfig {
+  string service_name = 1;
+  int32 failure_threshold = 2;
+  int32 recovery_timeout_seconds = 3;
+  int32 monitoring_period_seconds = 4;
+  repeated string expected_errors = 5;
+}
+
+message CircuitBreakerState {
+  string service_name = 1;
+  CircuitState state = 2;
+  int32 failure_count = 3;
+  google.protobuf.Timestamp last_failure_time = 4;
+  google.protobuf.Timestamp next_attempt_time = 5;
+}
+
+// Distributed Tracing
+message TraceContext {
+  string trace_id = 1;
+  string span_id = 2;
+  string parent_span_id = 3;
+  int32 flags = 4;
+  map<string, string> baggage = 5;
+}
+
+message SpanInfo {
+  string operation_name = 1;
+  int64 start_time = 2;
+  int64 end_time = 3;
+  map<string, string> tags = 4;
+  repeated LogEntry logs = 5;
+  SpanStatus status = 6;
+}
+
+message LogEntry {
+  int64 timestamp = 1;
+  map<string, string> fields = 2;
+}
+
+message SpanStatus {
+  int32 code = 1;
+  string message = 2;
+}
+
+// Rate Limiting
+message RateLimitInfo {
+  int32 limit = 1;
+  int32 current = 2;
+  int32 remaining = 3;
+  google.protobuf.Timestamp reset_time = 4;
+  string key = 5;
+}
+
+message RateLimitRequest {
+  string key = 1;
+  int32 limit = 2;
+  int32 window_seconds = 3;
+}
+
+message RateLimitResponse {
+  bool allowed = 1;
+  RateLimitInfo info = 2;
+}
+
+// Feature Flags
+message FeatureFlagRequest {
+  string flag_key = 1;
+  string user_id = 2;
+  SubscriptionTier user_tier = 3;
+  string environment = 4;
+  map<string, string> custom_attributes = 5;
+}
+
+message FeatureFlagResponse {
+  bool enabled = 1;
+  string variation = 2;
+  string reason = 3;
+}
+
+// Enums
+enum HealthStatus {
+  HEALTH_STATUS_UNSPECIFIED = 0;
+  HEALTH_STATUS_SERVING = 1;
+  HEALTH_STATUS_NOT_SERVING = 2;
+  HEALTH_STATUS_UNKNOWN = 3;
+}
+
+enum MetricType {
+  METRIC_TYPE_UNSPECIFIED = 0;
+  METRIC_TYPE_COUNTER = 1;
+  METRIC_TYPE_GAUGE = 2;
+  METRIC_TYPE_HISTOGRAM = 3;
+  METRIC_TYPE_SUMMARY = 4;
+}
+
+enum CircuitState {
+  CIRCUIT_STATE_UNSPECIFIED = 0;
+  CIRCUIT_STATE_CLOSED = 1;
+  CIRCUIT_STATE_OPEN = 2;
+  CIRCUIT_STATE_HALF_OPEN = 3;
+}
+
+enum SubscriptionTier {
+  SUBSCRIPTION_TIER_UNSPECIFIED = 0;
+  SUBSCRIPTION_TIER_FREE = 1;
+  SUBSCRIPTION_TIER_BASIC = 2;
+  SUBSCRIPTION_TIER_PREMIUM = 3;
+  SUBSCRIPTION_TIER_ENTERPRISE = 4;
+}
+
+enum Environment {
+  ENVIRONMENT_UNSPECIFIED = 0;
+  ENVIRONMENT_DEVELOPMENT = 1;
+  ENVIRONMENT_STAGING = 2;
+  ENVIRONMENT_PRODUCTION = 3;
+}

@@ -1,0 +1,505 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "AI Finance Agency - SRE Dashboard",
+    "description": "Comprehensive SRE monitoring dashboard with SLO tracking, error budgets, and reliability metrics",
+    "tags": ["sre", "slo", "reliability", "ai-finance"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Service Level Objectives (SLOs)",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "slo:api_gateway_availability:ratio_rate5m * 100",
+            "legendFormat": "API Gateway Availability",
+            "refId": "A"
+          },
+          {
+            "expr": "slo:payment_availability:ratio_rate5m * 100",
+            "legendFormat": "Payment Availability",
+            "refId": "B"
+          },
+          {
+            "expr": "slo:trading_availability:ratio_rate5m * 100",
+            "legendFormat": "Trading Availability",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 99.5,
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                { "color": "red", "value": 0 },
+                { "color": "yellow", "value": 99.9 },
+                { "color": "green", "value": 99.95 }
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": ""
+          },
+          "orientation": "auto",
+          "textMode": "auto",
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 2,
+        "title": "Error Budget Burn Rate",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [
+          {
+            "expr": "rate(treum_http_requests_total{status_code=~\"5..\"}[1h]) / rate(treum_http_requests_total[1h]) * 100",
+            "legendFormat": "{{service}} Error Rate %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "spanNulls": false,
+              "insertNulls": false,
+              "showPoints": "never",
+              "pointSize": 5,
+              "stacking": { "mode": "none", "group": "A" },
+              "axisPlacement": "auto",
+              "axisLabel": "",
+              "scaleDistribution": { "type": "linear" },
+              "hideFrom": { "legend": false, "tooltip": false, "vis": false },
+              "thresholdsStyle": { "mode": "line" }
+            },
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 0.1 },
+                { "color": "red", "value": 1.0 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Response Time SLOs (P95)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(treum_http_request_duration_seconds_bucket[5m])) * 1000",
+            "legendFormat": "{{service}} P95 Latency (ms)",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "lineWidth": 2,
+              "fillOpacity": 10
+            },
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 500 },
+                { "color": "red", "value": 2000 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Service Health Overview",
+        "type": "heatmap",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+        "targets": [
+          {
+            "expr": "up{job=~\"api-gateway|payment|trading|signals|user-management|market-data|risk-management|education|notification|content-intelligence\"}",
+            "legendFormat": "{{job}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "calculate": false,
+          "cellGap": 2,
+          "cellValues": {},
+          "color": {
+            "exponent": 0.5,
+            "fill": "#22CC14",
+            "mode": "spectrum",
+            "reverse": false,
+            "scale": "exponential",
+            "scheme": "RdYlGn",
+            "steps": 64
+          },
+          "exemplars": { "color": "rgba(255,0,255,0.7)" },
+          "filterValues": { "le": 1e-9 },
+          "legend": { "show": false },
+          "rowsFrame": { "layout": "auto" },
+          "tooltip": { "show": true, "yHistogram": false },
+          "yAxis": {
+            "axisPlacement": "left",
+            "reverse": false,
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Business Impact Metrics",
+        "type": "stat",
+        "gridPos": { "h": 6, "w": 8, "x": 0, "y": 24 },
+        "targets": [
+          {
+            "expr": "rate(payment_revenue_total[1h]) * 3600",
+            "legendFormat": "Revenue/Hour",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(trading_volume_total[1h]) * 3600",
+            "legendFormat": "Trading Volume/Hour",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(user_registrations_total[1h]) * 3600",
+            "legendFormat": "New Users/Hour",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "decimals": 2,
+            "thresholds": {
+              "steps": [
+                { "color": "red", "value": 0 },
+                { "color": "yellow", "value": 1000 },
+                { "color": "green", "value": 5000 }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "Trading Volume/Hour" },
+              "properties": [{ "id": "unit", "value": "short" }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "New Users/Hour" },
+              "properties": [{ "id": "unit", "value": "short" }]
+            }
+          ]
+        }
+      },
+      {
+        "id": 6,
+        "title": "Infrastructure Resource Utilization",
+        "type": "timeseries",
+        "gridPos": { "h": 6, "w": 8, "x": 8, "y": 24 },
+        "targets": [
+          {
+            "expr": "instance:node_cpu_utilisation:rate5m * 100",
+            "legendFormat": "{{instance}} CPU %",
+            "refId": "A"
+          },
+          {
+            "expr": "instance:node_memory_utilisation:ratio * 100",
+            "legendFormat": "{{instance}} Memory %",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "max": 100,
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 70 },
+                { "color": "red", "value": 85 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Database Performance",
+        "type": "timeseries",
+        "gridPos": { "h": 6, "w": 8, "x": 16, "y": 24 },
+        "targets": [
+          {
+            "expr": "pg_stat_activity_count",
+            "legendFormat": "PostgreSQL Connections",
+            "refId": "A"
+          },
+          {
+            "expr": "redis_connected_clients",
+            "legendFormat": "Redis Connections",
+            "refId": "B"
+          },
+          {
+            "expr": "mongodb_connections{state=\"current\"}",
+            "legendFormat": "MongoDB Connections",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 80 },
+                { "color": "red", "value": 95 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Alert Status",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 },
+        "targets": [
+          {
+            "expr": "ALERTS{alertstate=\"firing\"}",
+            "legendFormat": "",
+            "refId": "A",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "displayMode": "auto",
+              "filterable": false
+            }
+          },
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "alertname" },
+              "properties": [{ "id": "custom.width", "value": 200 }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "severity" },
+              "properties": [
+                { "id": "custom.displayMode", "value": "color-background" },
+                {
+                  "id": "mappings",
+                  "value": [
+                    {
+                      "options": { "critical": { "color": "red" } },
+                      "type": "value"
+                    },
+                    {
+                      "options": { "warning": { "color": "yellow" } },
+                      "type": "value"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "sortBy": [{ "desc": false, "displayName": "severity" }]
+        },
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "__name__": true,
+                "Time": true
+              },
+              "indexByName": {},
+              "renameByName": {}
+            }
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "API Request Rate by Service",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 },
+        "targets": [
+          {
+            "expr": "sum(rate(treum_http_requests_total[5m])) by (service)",
+            "legendFormat": "{{service}} req/s",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "lineWidth": 2,
+              "fillOpacity": 10,
+              "gradientMode": "opacity",
+              "spanNulls": false,
+              "insertNulls": false,
+              "showPoints": "never",
+              "pointSize": 5,
+              "stacking": { "mode": "none", "group": "A" }
+            }
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Error Rate Heatmap",
+        "type": "heatmap",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 38 },
+        "targets": [
+          {
+            "expr": "sum(rate(treum_http_requests_total{status_code=~\"5..\"}[5m])) by (service, status_code)",
+            "legendFormat": "{{service}} - {{status_code}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "calculate": false,
+          "cellGap": 1,
+          "color": {
+            "exponent": 0.5,
+            "fill": "dark-red",
+            "mode": "spectrum",
+            "reverse": false,
+            "scale": "exponential",
+            "scheme": "Oranges",
+            "steps": 64
+          },
+          "exemplars": { "color": "rgba(255,0,255,0.7)" },
+          "filterValues": { "le": 1e-9 },
+          "legend": { "show": false },
+          "rowsFrame": { "layout": "auto" },
+          "tooltip": { "show": true, "yHistogram": false },
+          "yAxis": {
+            "axisPlacement": "left",
+            "reverse": false
+          }
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "current": {
+            "selected": false,
+            "text": "All",
+            "value": "$__all"
+          },
+          "datasource": "Prometheus",
+          "definition": "label_values(up, job)",
+          "hide": 0,
+          "includeAll": true,
+          "label": "Service",
+          "multi": true,
+          "name": "service",
+          "options": [],
+          "query": {
+            "query": "label_values(up, job)",
+            "refId": "StandardVariableQuery"
+          },
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "type": "query"
+        },
+        {
+          "current": {
+            "selected": false,
+            "text": "5m",
+            "value": "5m"
+          },
+          "hide": 0,
+          "includeAll": false,
+          "label": "Time Range",
+          "multi": false,
+          "name": "range",
+          "options": [
+            { "selected": true, "text": "5m", "value": "5m" },
+            { "selected": false, "text": "15m", "value": "15m" },
+            { "selected": false, "text": "30m", "value": "30m" },
+            { "selected": false, "text": "1h", "value": "1h" }
+          ],
+          "query": "5m,15m,30m,1h",
+          "skipUrlSync": false,
+          "type": "custom"
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        },
+        {
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "ALERTS{alertstate=\"firing\"}",
+          "iconColor": "red",
+          "name": "Firing Alerts",
+          "showIn": 0,
+          "step": "60s",
+          "tagKeys": "alertname,severity",
+          "textFormat": "{{alertname}}: {{summary}}",
+          "titleFormat": "Alert: {{alertname}}"
+        }
+      ]
+    },
+    "links": [
+      {
+        "asDropdown": false,
+        "icon": "external link",
+        "includeVars": false,
+        "keepTime": false,
+        "tags": ["ai-finance"],
+        "targetBlank": false,
+        "title": "AI Finance Dashboards",
+        "tooltip": "",
+        "type": "dashboards",
+        "url": ""
+      }
+    ]
+  }
+}

@@ -1,0 +1,529 @@
+# AI Finance Agency - Infrastructure Alert Rules
+# System resources, databases, and infrastructure health monitoring
+
+groups:
+  # =======================================================================
+  # SYSTEM RESOURCE MONITORING
+  # =======================================================================
+  - name: system_resources
+    rules:
+      # CPU utilization
+      - record: instance:node_cpu_utilisation:rate5m
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) BY (instance)
+
+      - record: instance:node_cpu_utilisation:rate1m
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[1m])) BY (instance)
+
+      # Memory utilization
+      - record: instance:node_memory_utilisation:ratio
+        expr: 1 - ((node_memory_MemAvailable_bytes or node_memory_MemFree_bytes) / node_memory_MemTotal_bytes)
+
+      # Disk utilization
+      - record: instance:node_disk_utilisation:ratio
+        expr: 1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})
+
+      # Load average per CPU
+      - record: instance:node_load1_per_cpu:ratio
+        expr: (node_load1 / count(node_cpu_seconds_total{mode="idle"}) BY (instance))
+
+      # System alerts
+      - alert: HighCPUUsage
+        expr: instance:node_cpu_utilisation:rate5m > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+          resource: cpu
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage on {{ $labels.instance }} is {{ $value | humanizePercentage }}"
+          usage: "{{ $value | humanizePercentage }}"
+          threshold: "85%"
+          impact: "System performance may be degraded"
+
+      - alert: CriticalCPUUsage
+        expr: instance:node_cpu_utilisation:rate1m > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: system
+          resource: cpu
+        annotations:
+          summary: "Critical CPU usage"
+          description: "CPU usage on {{ $labels.instance }} is {{ $value | humanizePercentage }}"
+          usage: "{{ $value | humanizePercentage }}"
+          impact: "System at risk of becoming unresponsive"
+          action: "Scale up or redistribute load immediately"
+
+      - alert: HighMemoryUsage
+        expr: instance:node_memory_utilisation:ratio > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+          resource: memory
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage on {{ $labels.instance }} is {{ $value | humanizePercentage }}"
+          usage: "{{ $value | humanizePercentage }}"
+          available: "{{ with query \"node_memory_MemAvailable_bytes{instance='\" }}{{ $labels.instance }}{{ \"'}\" }}{{ . | first | value | humanizeBytes }}{{ end }}"
+
+      - alert: CriticalMemoryUsage
+        expr: instance:node_memory_utilisation:ratio > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: system
+          resource: memory
+        annotations:
+          summary: "Critical memory usage"
+          description: "Memory usage on {{ $labels.instance }} is {{ $value | humanizePercentage }}"
+          usage: "{{ $value | humanizePercentage }}"
+          impact: "System at risk of OOM kills"
+          action: "Add memory or kill non-essential processes"
+
+      - alert: HighDiskUsage
+        expr: instance:node_disk_utilisation:ratio > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+          resource: disk
+        annotations:
+          summary: "High disk usage detected"
+          description: "Disk usage on {{ $labels.instance }} {{ $labels.mountpoint }} is {{ $value | humanizePercentage }}"
+          usage: "{{ $value | humanizePercentage }}"
+          available: "{{ with query \"node_filesystem_avail_bytes{instance='\" }}{{ $labels.instance }}{{ \"',mountpoint='\" }}{{ $labels.mountpoint }}{{ \"'}\" }}{{ . | first | value | humanizeBytes }}{{ end }}"
+
+      - alert: CriticalDiskUsage
+        expr: instance:node_disk_utilisation:ratio > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: system
+          resource: disk
+        annotations:
+          summary: "Critical disk usage"
+          description: "Disk usage on {{ $labels.instance }} {{ $labels.mountpoint }} is {{ $value | humanizePercentage }}"
+          usage: "{{ $value | humanizePercentage }}"
+          impact: "Disk full - applications may fail"
+          action: "Free disk space or add storage immediately"
+
+      - alert: HighLoadAverage
+        expr: instance:node_load1_per_cpu:ratio > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          category: system
+          resource: load
+        annotations:
+          summary: "High load average"
+          description: "Load average per CPU on {{ $labels.instance }} is {{ $value }}"
+          load_per_cpu: "{{ $value }}"
+          impact: "System may be slow to respond"
+
+  # =======================================================================
+  # CONTAINER MONITORING
+  # =======================================================================
+  - name: container_resources
+    rules:
+      # Container CPU usage
+      - record: container:cpu_usage:rate5m
+        expr: rate(container_cpu_usage_seconds_total{name!=""}[5m])
+
+      # Container memory usage
+      - record: container:memory_usage:ratio
+        expr: |
+          (
+            container_memory_usage_bytes{name!=""} /
+            container_spec_memory_limit_bytes{name!=""} > 0
+          )
+
+      # Container alerts
+      - alert: ContainerHighCPU
+        expr: container:cpu_usage:rate5m > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: container
+          resource: cpu
+        annotations:
+          summary: "Container high CPU usage"
+          description: "Container {{ $labels.name }} CPU usage is {{ $value | humanizePercentage }}"
+          container: "{{ $labels.name }}"
+          usage: "{{ $value | humanizePercentage }}"
+
+      - alert: ContainerHighMemory
+        expr: container:memory_usage:ratio > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: container
+          resource: memory
+        annotations:
+          summary: "Container high memory usage"
+          description: "Container {{ $labels.name }} memory usage is {{ $value | humanizePercentage }}"
+          container: "{{ $labels.name }}"
+          usage: "{{ $value | humanizePercentage }}"
+
+      - alert: ContainerMemoryNearLimit
+        expr: container:memory_usage:ratio > 0.95
+        for: 2m
+        labels:
+          severity: critical
+          category: container
+          resource: memory
+        annotations:
+          summary: "Container near memory limit"
+          description: "Container {{ $labels.name }} memory usage is {{ $value | humanizePercentage }} of limit"
+          container: "{{ $labels.name }}"
+          usage: "{{ $value | humanizePercentage }}"
+          impact: "Container may be killed by OOM killer"
+
+      - alert: ContainerRestarting
+        expr: increase(container_start_time_seconds[5m]) > 0
+        for: 0s
+        labels:
+          severity: warning
+          category: container
+          event: restart
+        annotations:
+          summary: "Container has restarted"
+          description: "Container {{ $labels.name }} has restarted"
+          container: "{{ $labels.name }}"
+          impact: "Service interruption possible"
+
+  # =======================================================================
+  # DATABASE MONITORING
+  # =======================================================================
+  - name: database_monitoring
+    rules:
+      # PostgreSQL connection monitoring
+      - record: postgres:connections_active:ratio
+        expr: |
+          (
+            pg_stat_activity_count /
+            pg_settings_max_connections
+          )
+
+      # PostgreSQL slow queries
+      - record: postgres:slow_queries:rate5m
+        expr: rate(pg_stat_statements_mean_time_seconds{query!~"^COMMIT|^ROLLBACK"}[5m]) > 1
+
+      # Database alerts
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is not responding"
+          impact: "All services dependent on PostgreSQL affected"
+          action: "Investigate PostgreSQL service immediately"
+
+      - alert: PostgreSQLHighConnections
+        expr: postgres:connections_active:ratio > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL high connection usage"
+          description: "PostgreSQL connection usage is {{ $value | humanizePercentage }}"
+          usage: "{{ $value | humanizePercentage }}"
+          impact: "Connection pool exhaustion risk"
+
+      - alert: PostgreSQLSlowQueries
+        expr: rate(pg_stat_statements_mean_time_seconds[5m]) > 2
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+          service: postgresql
+        annotations:
+          summary: "PostgreSQL slow queries detected"
+          description: "Average query time is {{ $value }}s"
+          query_time: "{{ $value }}s"
+          impact: "Database performance degraded"
+
+      # Redis monitoring
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+          service: redis
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache is not responding"
+          impact: "Session management and caching affected"
+
+      - alert: RedisHighMemoryUsage
+        expr: |
+          (
+            redis_memory_used_bytes /
+            redis_config_maxmemory
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+          service: redis
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}"
+          usage: "{{ $value | humanizePercentage }}"
+          impact: "Cache eviction may increase"
+
+      # MongoDB monitoring
+      - alert: MongoDBDown
+        expr: up{job="mongodb"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: database
+          service: mongodb
+        annotations:
+          summary: "MongoDB is down"
+          description: "MongoDB database is not responding"
+          impact: "Content and analytics services affected"
+
+      - alert: MongoDBHighConnections
+        expr: |
+          (
+            mongodb_connections{state="current"} /
+            mongodb_connections{state="available"}
+          ) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          category: database
+          service: mongodb
+        annotations:
+          summary: "MongoDB high connection usage"
+          description: "MongoDB connection usage is high"
+          impact: "Connection exhaustion risk"
+
+  # =======================================================================
+  # MESSAGE QUEUE MONITORING
+  # =======================================================================
+  - name: message_queue_monitoring
+    rules:
+      # RabbitMQ queue depth
+      - record: rabbitmq:queue_depth:total
+        expr: sum(rabbitmq_queue_messages) by (instance, queue)
+
+      # RabbitMQ consumer rate
+      - record: rabbitmq:consumer_rate:5m
+        expr: rate(rabbitmq_queue_messages_delivered_total[5m])
+
+      # Message queue alerts
+      - alert: RabbitMQDown
+        expr: up{job="rabbitmq"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: messaging
+          service: rabbitmq
+        annotations:
+          summary: "RabbitMQ is down"
+          description: "RabbitMQ message broker is not responding"
+          impact: "Inter-service communication disrupted"
+
+      - alert: RabbitMQQueueDepthHigh
+        expr: rabbitmq:queue_depth:total > 1000
+        for: 5m
+        labels:
+          severity: warning
+          category: messaging
+          service: rabbitmq
+        annotations:
+          summary: "RabbitMQ queue depth high"
+          description: "Queue {{ $labels.queue }} has {{ $value }} messages"
+          queue: "{{ $labels.queue }}"
+          depth: "{{ $value }}"
+          impact: "Message processing backlog"
+
+      - alert: RabbitMQQueueDepthCritical
+        expr: rabbitmq:queue_depth:total > 5000
+        for: 2m
+        labels:
+          severity: critical
+          category: messaging
+          service: rabbitmq
+        annotations:
+          summary: "RabbitMQ queue depth critical"
+          description: "Queue {{ $labels.queue }} has {{ $value }} messages"
+          queue: "{{ $labels.queue }}"
+          depth: "{{ $value }}"
+          impact: "Severe message processing backlog - system may become unresponsive"
+
+      - alert: RabbitMQNoConsumers
+        expr: |
+          rabbitmq_queue_consumers == 0 and
+          rabbitmq_queue_messages > 0
+        for: 5m
+        labels:
+          severity: critical
+          category: messaging
+          service: rabbitmq
+        annotations:
+          summary: "RabbitMQ queue has no consumers"
+          description: "Queue {{ $labels.queue }} has messages but no consumers"
+          queue: "{{ $labels.queue }}"
+          impact: "Messages not being processed"
+
+  # =======================================================================
+  # NETWORK MONITORING
+  # =======================================================================
+  - name: network_monitoring
+    rules:
+      # Network traffic rates
+      - record: instance:node_network_receive_bytes:rate5m
+        expr: rate(node_network_receive_bytes_total[5m])
+
+      - record: instance:node_network_transmit_bytes:rate5m
+        expr: rate(node_network_transmit_bytes_total[5m])
+
+      # Network alerts
+      - alert: HighNetworkTraffic
+        expr: |
+          (
+            instance:node_network_receive_bytes:rate5m +
+            instance:node_network_transmit_bytes:rate5m
+          ) > 100 * 1024 * 1024  # 100 MB/s
+        for: 5m
+        labels:
+          severity: warning
+          category: network
+          resource: bandwidth
+        annotations:
+          summary: "High network traffic"
+          description: "Network traffic on {{ $labels.instance }} is {{ $value | humanizeBytes }}/s"
+          traffic: "{{ $value | humanizeBytes }}/s"
+          impact: "Network congestion possible"
+
+      - alert: NetworkInterfaceDown
+        expr: up{job="node"} == 1 and node_network_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: network
+          interface: "{{ $labels.device }}"
+        annotations:
+          summary: "Network interface down"
+          description: "Network interface {{ $labels.device }} on {{ $labels.instance }} is down"
+          interface: "{{ $labels.device }}"
+          impact: "Network connectivity affected"
+
+  # =======================================================================
+  # SERVICE HEALTH MONITORING
+  # =======================================================================
+  - name: service_health
+    rules:
+      # Service availability
+      - record: service:availability:5m
+        expr: avg_over_time(up[5m])
+
+      # Service alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: service
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Service is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} is down"
+          service: "{{ $labels.job }}"
+          impact: "Service unavailable to users"
+          action: "Investigate service status immediately"
+
+      - alert: ServiceFlapping
+        expr: changes(up[5m]) > 3
+        for: 2m
+        labels:
+          severity: warning
+          category: service
+          service: "{{ $labels.job }}"
+        annotations:
+          summary: "Service is flapping"
+          description: "Service {{ $labels.job }} has restarted {{ $value }} times in 5 minutes"
+          service: "{{ $labels.job }}"
+          restart_count: "{{ $value }}"
+          impact: "Service instability"
+
+      - alert: HealthCheckFailing
+        expr: |
+          probe_success{job="blackbox"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: health_check
+          endpoint: "{{ $labels.instance }}"
+        annotations:
+          summary: "Health check failing"
+          description: "Health check for {{ $labels.instance }} is failing"
+          endpoint: "{{ $labels.instance }}"
+          impact: "Service may be unhealthy"
+          action: "Check service health and dependencies"
+
+  # =======================================================================
+  # MONITORING SYSTEM HEALTH
+  # =======================================================================
+  - name: monitoring_health
+    rules:
+      # Prometheus alerting
+      - alert: PrometheusConfigReloadFailed
+        expr: prometheus_config_last_reload_successful == 0
+        for: 5m
+        labels:
+          severity: warning
+          category: monitoring
+          component: prometheus
+        annotations:
+          summary: "Prometheus configuration reload failed"
+          description: "Prometheus configuration reload has failed"
+          impact: "New monitoring rules may not be active"
+
+      - alert: PrometheusNotConnectedToAlertmanager
+        expr: prometheus_notifications_alertmanagers_discovered < 1
+        for: 5m
+        labels:
+          severity: critical
+          category: monitoring
+          component: prometheus
+        annotations:
+          summary: "Prometheus not connected to Alertmanager"
+          description: "Prometheus cannot reach any Alertmanager instances"
+          impact: "Alerts will not be sent"
+
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: monitoring
+          component: alertmanager
+        annotations:
+          summary: "Alertmanager is down"
+          description: "Alertmanager is not responding"
+          impact: "Alert notifications will not be sent"
+
+      - alert: GrafanaDown
+        expr: up{job="grafana"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          category: monitoring
+          component: grafana
+        annotations:
+          summary: "Grafana is down"
+          description: "Grafana dashboard service is not responding"
+          impact: "Monitoring dashboards unavailable"

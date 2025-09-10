@@ -1,0 +1,40 @@
+{
+  "extends": "./packages/config/tsconfig.json",
+  "files": [],
+  "include": [],
+  "references": [
+    {
+      "path": "./apps/web"
+    },
+    {
+      "path": "./apps/mobile"
+    },
+    {
+      "path": "./apps/admin"
+    },
+    {
+      "path": "./services/user-management"
+    },
+    {
+      "path": "./services/education"
+    },
+    {
+      "path": "./services/signals"
+    },
+    {
+      "path": "./services/payment"
+    },
+    {
+      "path": "./services/trading"
+    },
+    {
+      "path": "./packages/ui"
+    },
+    {
+      "path": "./packages/types"
+    },
+    {
+      "path": "./packages/utils"
+    }
+  ]
+}

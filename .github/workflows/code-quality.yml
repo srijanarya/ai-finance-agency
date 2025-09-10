@@ -1,0 +1,475 @@
+name: 🔍 Code Quality Checks
+
+on:
+  workflow_call:
+    inputs:
+      strict_mode:
+        description: 'Enable strict quality checks'
+        required: false
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      check_type:
+        description: 'Type of quality checks to run'
+        required: false
+        type: choice
+        options: ['all', 'lint', 'format', 'type-check', 'security']
+        default: 'all'
+      strict_mode:
+        description: 'Enable strict quality checks'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: '20'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # =============================================================================
+  # LINTING - JAVASCRIPT/TYPESCRIPT
+  # =============================================================================
+  lint-javascript:
+    name: 🔍 ESLint (JavaScript/TypeScript)
+    runs-on: ubuntu-latest
+    if: inputs.check_type == 'all' || inputs.check_type == 'lint' || inputs.check_type == null
+    
+    strategy:
+      matrix:
+        service: [
+          'api-gateway',
+          'user-management',
+          'payment', 
+          'signals',
+          'trading',
+          'education',
+          'market-data',
+          'risk-management',
+          'notification',
+          'content-intelligence'
+        ]
+      fail-fast: false
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          if [[ -f "services/${{ matrix.service }}/package.json" ]]; then
+            cd services/${{ matrix.service }}
+            npm ci
+          fi
+
+      - name: 🔍 Run ESLint
+        run: |
+          if [[ -f "services/${{ matrix.service }}/.eslintrc.js" ]] || [[ -f "services/${{ matrix.service }}/.eslintrc.json" ]]; then
+            cd services/${{ matrix.service }}
+            npm run lint || npx eslint . --ext .ts,.tsx,.js,.jsx --format=json --output-file=eslint-results.json
+          else
+            echo "⏭️ No ESLint config found for ${{ matrix.service }}"
+          fi
+        continue-on-error: true
+
+      - name: 📊 ESLint Report
+        uses: ataylorme/eslint-annotate-action@v2
+        if: hashFiles('services/${{ matrix.service }}/eslint-results.json') != ''
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          report-json: "services/${{ matrix.service }}/eslint-results.json"
+          only-pr-files: true
+
+  # =============================================================================
+  # LINTING - PYTHON
+  # =============================================================================
+  lint-python:
+    name: 🔍 Flake8 & Black (Python)
+    runs-on: ubuntu-latest
+    if: inputs.check_type == 'all' || inputs.check_type == 'lint' || inputs.check_type == null
+    
+    strategy:
+      matrix:
+        tool: ['flake8', 'black', 'isort', 'mypy']
+      fail-fast: false
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Install Python Quality Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort mypy pylint bandit safety
+
+      - name: 🔍 Run Flake8
+        if: matrix.tool == 'flake8'
+        run: |
+          find . -name "*.py" -not -path "./venv/*" -not -path "./node_modules/*" | \
+          xargs flake8 --format=json --output-file=flake8-results.json --tee || true
+
+      - name: 🎨 Check Black Formatting
+        if: matrix.tool == 'black'
+        run: |
+          find . -name "*.py" -not -path "./venv/*" -not -path "./node_modules/*" | \
+          xargs black --check --diff || true
+
+      - name: 📦 Check Import Sorting
+        if: matrix.tool == 'isort'
+        run: |
+          find . -name "*.py" -not -path "./venv/*" -not -path "./node_modules/*" | \
+          xargs isort --check-only --diff || true
+
+      - name: 🔍 Run MyPy Type Checking
+        if: matrix.tool == 'mypy'
+        run: |
+          find . -name "*.py" -not -path "./venv/*" -not -path "./node_modules/*" | \
+          xargs mypy --ignore-missing-imports || true
+
+  # =============================================================================
+  # CODE FORMATTING
+  # =============================================================================
+  format-check:
+    name: 🎨 Format Check
+    runs-on: ubuntu-latest
+    if: inputs.check_type == 'all' || inputs.check_type == 'format' || inputs.check_type == null
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          python -m pip install black
+
+      - name: 🎨 Check Prettier Formatting
+        run: |
+          npm run format:check || npx prettier --check "**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml}"
+
+      - name: 🎨 Check Black Formatting (Python)
+        run: |
+          find . -name "*.py" -not -path "./venv/*" -not -path "./node_modules/*" | \
+          xargs black --check --diff
+
+      - name: 📝 Auto-fix Formatting (PR Only)
+        if: github.event_name == 'pull_request' && !inputs.strict_mode
+        run: |
+          npm run format
+          find . -name "*.py" -not -path "./venv/*" -not -path "./node_modules/*" | \
+          xargs black
+
+      - name: 💾 Commit Formatting Changes
+        if: github.event_name == 'pull_request' && !inputs.strict_mode
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: '🎨 Auto-fix formatting issues'
+          file_pattern: '**/*.{ts,tsx,js,jsx,json,css,md,yml,yaml,py}'
+
+  # =============================================================================
+  # TYPE CHECKING
+  # =============================================================================
+  type-check:
+    name: 🔍 Type Check
+    runs-on: ubuntu-latest
+    if: inputs.check_type == 'all' || inputs.check_type == 'type-check' || inputs.check_type == null
+    
+    strategy:
+      matrix:
+        service: [
+          'api-gateway',
+          'user-management', 
+          'payment',
+          'signals',
+          'trading',
+          'education',
+          'market-data',
+          'risk-management',
+          'notification',
+          'content-intelligence'
+        ]
+      fail-fast: false
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: |
+          npm ci
+          cd services/${{ matrix.service }}
+          npm ci
+
+      - name: 🔍 Run TypeScript Compiler
+        run: |
+          if [[ -f "services/${{ matrix.service }}/tsconfig.json" ]]; then
+            cd services/${{ matrix.service }}
+            npm run typecheck || npx tsc --noEmit
+          else
+            echo "⏭️ No TypeScript config found for ${{ matrix.service }}"
+          fi
+
+      - name: 📊 Type Check Results
+        if: failure()
+        run: |
+          echo "❌ Type checking failed for ${{ matrix.service }}"
+          echo "Please fix TypeScript errors before proceeding"
+
+  # =============================================================================
+  # DEPENDENCY SCANNING
+  # =============================================================================
+  dependency-check:
+    name: 🔍 Dependency Check
+    runs-on: ubuntu-latest
+    if: inputs.check_type == 'all' || inputs.check_type == 'security' || inputs.check_type == null
+    
+    strategy:
+      matrix:
+        check-type: ['npm-audit', 'snyk', 'dependency-review']
+      fail-fast: false
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🔍 NPM Security Audit
+        if: matrix.check-type == 'npm-audit'
+        run: |
+          npm audit --audit-level=moderate --json > npm-audit-results.json || true
+          npm audit --audit-level=moderate
+
+      - name: 🔍 Snyk Security Scan
+        if: matrix.check-type == 'snyk'
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium --json > snyk-results.json
+        continue-on-error: true
+
+      - name: 🔍 Dependency Review
+        if: matrix.check-type == 'dependency-review' && github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v3
+        with:
+          fail-on-severity: moderate
+          allow-ghsas: GHSA-1234-5678-9012
+          deny-licenses: GPL-3.0, LGPL-3.0
+
+      - name: 🔍 Python Safety Check
+        if: matrix.check-type == 'npm-audit'
+        run: |
+          pip install safety
+          find . -name "requirements*.txt" -exec safety check -r {} \; || true
+
+  # =============================================================================
+  # CODE COMPLEXITY ANALYSIS
+  # =============================================================================
+  complexity-analysis:
+    name: 🧮 Code Complexity
+    runs-on: ubuntu-latest
+    if: inputs.check_type == 'all' || inputs.check_type == null
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Analysis Tools
+        run: |
+          npm install -g complexity-report jshint
+          pip install radon lizard
+
+      - name: 🧮 JavaScript/TypeScript Complexity
+        run: |
+          find services -name "*.ts" -o -name "*.js" | \
+          xargs complexity-report --format json > js-complexity.json || true
+
+      - name: 🧮 Python Complexity (Radon)
+        run: |
+          find . -name "*.py" -not -path "./venv/*" -not -path "./node_modules/*" | \
+          xargs radon cc -j > python-complexity.json || true
+
+      - name: 🧮 Cross-Language Complexity (Lizard)
+        run: |
+          lizard -l javascript -l python --json services/ > lizard-complexity.json || true
+
+      - name: 📊 Upload Complexity Reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: complexity-reports
+          path: |
+            js-complexity.json
+            python-complexity.json
+            lizard-complexity.json
+          retention-days: 7
+
+  # =============================================================================
+  # DOCUMENTATION CHECKS
+  # =============================================================================
+  docs-check:
+    name: 📚 Documentation Check
+    runs-on: ubuntu-latest
+    if: inputs.check_type == 'all' || inputs.check_type == null
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: 📦 Install Documentation Tools
+        run: |
+          npm install -g jsdoc typedoc markdownlint-cli
+          pip install pydocstyle
+
+      - name: 📚 Check JSDoc Coverage
+        run: |
+          find services -name "*.ts" -o -name "*.js" | \
+          xargs -I {} sh -c 'jsdoc -c .jsdocrc.json -d /tmp/jsdoc/{} {} || echo "No JSDoc for {}"'
+
+      - name: 📚 Check Python Docstrings
+        run: |
+          find . -name "*.py" -not -path "./venv/*" -not -path "./node_modules/*" | \
+          xargs pydocstyle || true
+
+      - name: 📝 Check Markdown Files
+        run: |
+          find . -name "*.md" | \
+          xargs markdownlint --config .markdownlint.json || true
+
+      - name: 📊 README Completeness Check
+        run: |
+          echo "🔍 Checking README files..."
+          for service in services/*/; do
+            if [[ ! -f "$service/README.md" ]]; then
+              echo "⚠️ Missing README.md in $service"
+            fi
+          done
+
+  # =============================================================================
+  # CODE QUALITY SUMMARY
+  # =============================================================================
+  quality-summary:
+    name: 📊 Quality Summary
+    runs-on: ubuntu-latest
+    needs: [
+      lint-javascript,
+      lint-python,
+      format-check,
+      type-check,
+      dependency-check,
+      complexity-analysis,
+      docs-check
+    ]
+    if: always()
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📊 Download Quality Reports
+        uses: actions/download-artifact@v3
+        continue-on-error: true
+
+      - name: 📋 Generate Quality Summary
+        run: |
+          echo "# 🔍 Code Quality Summary" > quality-summary.md
+          echo "" >> quality-summary.md
+          echo "| Check | Status | Details |" >> quality-summary.md
+          echo "|-------|--------|---------|" >> quality-summary.md
+          echo "| JavaScript Linting | ${{ needs.lint-javascript.result }} | ESLint checks |" >> quality-summary.md
+          echo "| Python Linting | ${{ needs.lint-python.result }} | Flake8, Black, isort |" >> quality-summary.md
+          echo "| Code Formatting | ${{ needs.format-check.result }} | Prettier, Black |" >> quality-summary.md
+          echo "| Type Checking | ${{ needs.type-check.result }} | TypeScript, MyPy |" >> quality-summary.md
+          echo "| Dependency Security | ${{ needs.dependency-check.result }} | npm audit, Snyk |" >> quality-summary.md
+          echo "| Code Complexity | ${{ needs.complexity-analysis.result }} | Complexity analysis |" >> quality-summary.md
+          echo "| Documentation | ${{ needs.docs-check.result }} | JSDoc, docstrings |" >> quality-summary.md
+          echo "" >> quality-summary.md
+
+      - name: 📊 Quality Gate Check
+        run: |
+          FAILED_CHECKS=0
+          if [[ "${{ needs.lint-javascript.result }}" == "failure" ]]; then FAILED_CHECKS=$((FAILED_CHECKS+1)); fi
+          if [[ "${{ needs.lint-python.result }}" == "failure" ]]; then FAILED_CHECKS=$((FAILED_CHECKS+1)); fi
+          if [[ "${{ needs.type-check.result }}" == "failure" ]]; then FAILED_CHECKS=$((FAILED_CHECKS+1)); fi
+          if [[ "${{ inputs.strict_mode }}" == "true" ]] && [[ "${{ needs.format-check.result }}" == "failure" ]]; then
+            FAILED_CHECKS=$((FAILED_CHECKS+1))
+          fi
+          
+          if [[ $FAILED_CHECKS -gt 0 ]]; then
+            echo "❌ Quality gate failed: $FAILED_CHECKS checks failed"
+            echo "" >> quality-summary.md
+            echo "## ❌ Quality Gate: FAILED" >> quality-summary.md
+            echo "**$FAILED_CHECKS** quality checks failed. Please fix the issues before proceeding." >> quality-summary.md
+            exit 1
+          else
+            echo "✅ All quality checks passed"
+            echo "" >> quality-summary.md
+            echo "## ✅ Quality Gate: PASSED" >> quality-summary.md
+            echo "All code quality checks have passed successfully." >> quality-summary.md
+          fi
+
+      - name: 📝 Comment Quality Summary on PR
+        if: github.event_name == 'pull_request'
+        uses: mshick/add-pr-comment@v2
+        with:
+          message-path: quality-summary.md
+
+      - name: 📤 Upload Quality Summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: quality-summary
+          path: quality-summary.md
+          retention-days: 30

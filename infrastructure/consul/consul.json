@@ -1,0 +1,66 @@
+{
+  "datacenter": "treum-dc1",
+  "data_dir": "/consul/data",
+  "log_level": "INFO",
+  "node_name": "consul-server",
+  "server": true,
+  "bootstrap": true,
+  "ui_config": {
+    "enabled": true
+  },
+  "connect": {
+    "enabled": true
+  },
+  "client_addr": "0.0.0.0",
+  "retry_join": [],
+  "services": [
+    {
+      "name": "api-gateway",
+      "port": 3000,
+      "check": {
+        "http": "http://api-gateway:3000/health",
+        "interval": "30s"
+      }
+    },
+    {
+      "name": "user-management",
+      "port": 3001,
+      "check": {
+        "http": "http://user-management:3001/health",
+        "interval": "30s"
+      }
+    },
+    {
+      "name": "trading",
+      "port": 3002,
+      "check": {
+        "http": "http://trading:3002/health",
+        "interval": "30s"
+      }
+    },
+    {
+      "name": "signals",
+      "port": 3003,
+      "check": {
+        "http": "http://signals:3003/health",
+        "interval": "30s"
+      }
+    },
+    {
+      "name": "payment",
+      "port": 3004,
+      "check": {
+        "http": "http://payment:3004/health",
+        "interval": "30s"
+      }
+    },
+    {
+      "name": "education",
+      "port": 3005,
+      "check": {
+        "http": "http://education:3005/health",
+        "interval": "30s"
+      }
+    }
+  ]
+}

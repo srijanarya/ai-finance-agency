@@ -1,0 +1,234 @@
+# Docker Compose for AI Finance Agency - Development Environment
+# Provides complete local development stack with hot reload
+
+version: '3.8'
+
+services:
+  # Main Application
+  app:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+      target: development
+    container_name: ai-finance-app-dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"  # FastAPI/Flask main app
+      - "8001:8001"  # Admin dashboard
+      - "3000:3000"  # Frontend dev server
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      - VALIDATE_ENV=false
+      - HEALTH_MONITOR=true
+      - RUN_MIGRATIONS=true
+      - CREATE_INITIAL_DATA=true
+    env_file:
+      - ../../.env
+    volumes:
+      - ../..:/app:cached
+      - /app/node_modules
+      - app_logs:/app/logs
+      - app_data:/app/data
+    depends_on:
+      - postgres
+      - redis
+      - nginx
+    networks:
+      - ai-finance-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai-finance-postgres-dev
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ai_finance_dev
+      POSTGRES_USER: ai_finance_user
+      POSTGRES_PASSWORD: dev_password_change_in_prod
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - ai-finance-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ai_finance_user -d ai_finance_dev"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ai-finance-redis-dev
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - ai-finance-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: ai-finance-nginx-dev
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - app
+    networks:
+      - ai-finance-net
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Celery Worker for Background Tasks
+  celery-worker:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+      target: runtime
+    container_name: ai-finance-celery-dev
+    restart: unless-stopped
+    command: celery -A main.celery worker --loglevel=info --concurrency=2
+    environment:
+      - APP_ENV=development
+      - C_FORCE_ROOT=1
+    env_file:
+      - ../../.env
+    volumes:
+      - ../..:/app:cached
+      - app_logs:/app/logs
+      - app_data:/app/data
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - ai-finance-net
+
+  # Celery Beat Scheduler
+  celery-beat:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+      target: runtime
+    container_name: ai-finance-celery-beat-dev
+    restart: unless-stopped
+    command: celery -A main.celery beat --loglevel=info --pidfile=/tmp/celerybeat.pid
+    environment:
+      - APP_ENV=development
+      - C_FORCE_ROOT=1
+    env_file:
+      - ../../.env
+    volumes:
+      - ../..:/app:cached
+      - app_logs:/app/logs
+      - app_data:/app/data
+      - celery_data:/app/celerybeat-schedule
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - ai-finance-net
+
+  # Prometheus Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ai-finance-prometheus-dev
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    networks:
+      - ai-finance-net
+
+  # Grafana Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ai-finance-grafana-dev
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - ai-finance-net
+
+  # Mailhog for Email Testing
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: ai-finance-mailhog-dev
+    restart: unless-stopped
+    ports:
+      - "8025:8025"  # Web UI
+      - "1025:1025"  # SMTP
+    networks:
+      - ai-finance-net
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_data:
+    driver: local
+  celery_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  ai-finance-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

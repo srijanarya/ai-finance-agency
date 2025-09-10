@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Posting Queue</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f7;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+        }
+        textarea, select, input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e5e5;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+        }
+        .btn:hover {
+            background: #5a6fd8;
+        }
+        .result {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+            display: none;
+        }
+        .result.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        .result.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 2rem;
+            color: #667eea;
+            text-decoration: none;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Dashboard</a>
+        
+        <h1>🧪 Test Posting Queue</h1>
+        <p>Add test content to the posting queue</p>
+        
+        <form id="testForm">
+            <div class="form-group">
+                <label for="content">Content:</label>
+                <textarea id="content" placeholder="Enter your post content here..." required></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="platform">Platform:</label>
+                <select id="platform" required>
+                    <option value="">Select Platform</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="twitter">Twitter/X</option>
+                    <option value="telegram">Telegram</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="priority">Priority:</label>
+                <select id="priority">
+                    <option value="normal">Normal</option>
+                    <option value="low">Low</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="source">Source:</label>
+                <input type="text" id="source" value="test_dashboard" placeholder="Source identifier">
+            </div>
+            
+            <button type="submit" class="btn">Add to Queue</button>
+        </form>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'none';
+            
+            const formData = {
+                content: document.getElementById('content').value,
+                platform: document.getElementById('platform').value,
+                priority: document.getElementById('priority').value,
+                source: document.getElementById('source').value
+            };
+            
+            try {
+                const response = await fetch('/api/queue/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Added to queue! Item ID: ${result.item_id}`;
+                    document.getElementById('testForm').reset();
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Error: ${result.message || result.error}`;
+                }
+                
+                resultDiv.style.display = 'block';
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Network error: ${error.message}`;
+                resultDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

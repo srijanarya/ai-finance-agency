@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Finance Agency - Billing Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-blue-900 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <i class="fas fa-chart-line text-2xl"></i>
+                <h1 class="text-xl font-bold">AI Finance Agency - Billing Dashboard</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="text-sm">Welcome, Admin</span>
+                <a href="{{ url_for('admin_logout') }}" class="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm">
+                    <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Dashboard -->
+    <div class="container mx-auto p-6">
+        <!-- Key Metrics Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <!-- Active Subscriptions -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-green-100 rounded-full">
+                        <i class="fas fa-users text-green-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500">Active Subscriptions</h3>
+                        <p class="text-2xl font-bold text-gray-900">{{ metrics.totals.active_count }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Monthly Recurring Revenue -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-100 rounded-full">
+                        <i class="fas fa-dollar-sign text-blue-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500">Monthly Recurring Revenue</h3>
+                        <p class="text-2xl font-bold text-gray-900">${{ "%.2f"|format(metrics.totals.mrr) }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- New Subscriptions Today -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-100 rounded-full">
+                        <i class="fas fa-plus text-purple-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500">New Today</h3>
+                        <p class="text-2xl font-bold text-gray-900">{{ metrics.totals.new_today }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Failed Payments -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-red-100 rounded-full">
+                        <i class="fas fa-exclamation-triangle text-red-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-sm font-medium text-gray-500">Failed Payments (7d)</h3>
+                        <p class="text-2xl font-bold text-gray-900">{{ metrics.totals.failed_payments }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Revenue Chart -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Revenue Trend (30 Days)</h3>
+                <canvas id="revenueChart" width="400" height="200"></canvas>
+            </div>
+
+            <!-- Subscription Growth Chart -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Subscription Growth (30 Days)</h3>
+                <canvas id="growthChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Subscription Tiers Breakdown -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Tier Distribution -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Subscriptions by Tier</h3>
+                <div class="space-y-4">
+                    {% for tier, data in metrics.active_subscriptions.items() %}
+                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                        <div>
+                            <h4 class="font-medium capitalize">{{ tier }} Plan</h4>
+                            <p class="text-sm text-gray-600">${{ "%.2f"|format(data.price) }}/month</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-lg font-bold">{{ data.count }} subscribers</p>
+                            <p class="text-sm text-green-600">${{ "%.2f"|format(data.mrr) }}/month</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Payment Provider Stats -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold mb-4">Payment Provider Performance</h3>
+                <div class="space-y-4">
+                    {% for provider, stats in metrics.provider_stats.items() %}
+                    <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                        <div>
+                            <h4 class="font-medium capitalize">{{ provider }}</h4>
+                            <p class="text-sm text-gray-600">{{ stats.count }} payments</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-lg font-bold text-green-600">${{ "%.2f"|format(stats.revenue) }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-4">Quick Actions</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <a href="{{ url_for('list_subscriptions') }}" class="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg text-center transition">
+                    <i class="fas fa-list mb-2 text-xl"></i>
+                    <p>View All Subscriptions</p>
+                </a>
+                <a href="{{ url_for('list_payments') }}" class="bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg text-center transition">
+                    <i class="fas fa-credit-card mb-2 text-xl"></i>
+                    <p>Payment History</p>
+                </a>
+                <a href="{{ url_for('revenue_analytics') }}" class="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg text-center transition">
+                    <i class="fas fa-chart-bar mb-2 text-xl"></i>
+                    <p>Revenue Analytics</p>
+                </a>
+                <a href="{{ url_for('compliance_dashboard') }}" class="bg-yellow-600 hover:bg-yellow-700 text-white p-4 rounded-lg text-center transition">
+                    <i class="fas fa-shield-alt mb-2 text-xl"></i>
+                    <p>Compliance Logs</p>
+                </a>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="mt-8 bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
+            <div id="recentActivity" class="space-y-2">
+                <!-- Activity items loaded via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Initialize charts
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeRevenueChart();
+            initializeGrowthChart();
+            loadRecentActivity();
+            
+            // Auto-refresh every 5 minutes
+            setInterval(refreshData, 300000);
+        });
+
+        function initializeRevenueChart() {
+            fetch('/api/revenue/chart?days=30')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('revenueChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.map(d => d.date),
+                            datasets: [{
+                                label: 'Revenue',
+                                data: data.map(d => d.revenue),
+                                borderColor: 'rgb(59, 130, 246)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.1,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '$' + value.toFixed(2);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => console.error('Error loading revenue chart:', error));
+        }
+
+        function initializeGrowthChart() {
+            fetch('/api/subscriptions/growth?days=30')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('growthChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(d => d.date),
+                            datasets: [{
+                                label: 'New Subscriptions',
+                                data: data.map(d => d.new_subscriptions),
+                                backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                                borderColor: 'rgb(16, 185, 129)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => console.error('Error loading growth chart:', error));
+        }
+
+        function loadRecentActivity() {
+            // Simulate recent activity data
+            const activities = [
+                { time: '2 minutes ago', action: 'New subscription created', user: 'user_12345', plan: 'Professional' },
+                { time: '15 minutes ago', action: 'Payment completed', user: 'user_67890', amount: '$500.00' },
+                { time: '1 hour ago', action: 'Subscription upgraded', user: 'user_11111', plan: 'Enterprise' },
+                { time: '2 hours ago', action: 'Trial started', user: 'user_22222', plan: 'Basic' }
+            ];
+            
+            const activityDiv = document.getElementById('recentActivity');
+            activityDiv.innerHTML = activities.map(activity => `
+                <div class="flex justify-between items-center p-3 border-l-4 border-blue-500 bg-blue-50 rounded">
+                    <div>
+                        <p class="font-medium">${activity.action}</p>
+                        <p class="text-sm text-gray-600">User: ${activity.user} ${activity.plan ? '• Plan: ' + activity.plan : ''} ${activity.amount ? '• Amount: ' + activity.amount : ''}</p>
+                    </div>
+                    <span class="text-sm text-gray-500">${activity.time}</span>
+                </div>
+            `).join('');
+        }
+
+        function refreshData() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>

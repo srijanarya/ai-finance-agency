@@ -1,0 +1,36 @@
+# Logstash Configuration
+# AI Finance Agency centralized log processing
+
+node.name: logstash-ai-finance
+path.data: /usr/share/logstash/data
+path.config: /usr/share/logstash/pipeline
+path.logs: /usr/share/logstash/logs
+
+# Pipeline configuration
+pipeline.workers: 2
+pipeline.batch.size: 1000
+pipeline.batch.delay: 50
+
+# Monitoring
+monitoring.enabled: true
+monitoring.elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+# HTTP API settings
+http.host: "0.0.0.0"
+http.port: 9600
+
+# Log level
+log.level: info
+
+# Queue settings
+queue.type: persisted
+queue.max_bytes: 1gb
+queue.checkpoint.writes: 1024
+
+# Dead letter queue
+dead_letter_queue.enable: true
+dead_letter_queue.max_bytes: 1gb
+
+# X-Pack settings
+xpack.monitoring.enabled: true
+xpack.monitoring.elasticsearch.hosts: ["http://elasticsearch:9200"]

@@ -1,0 +1,216 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Business Metrics Dashboard",
+    "tags": ["ai-finance", "business", "revenue", "kpi"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "1m",
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Revenue (24h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(payment_revenue_total[24h]))",
+            "legendFormat": "Revenue"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "currencyUSD",
+            "displayName": "Daily Revenue"
+          }
+        },
+        "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Active Users",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "user_active_sessions",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Trading Volume (24h)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(increase(trading_volume_usd[24h]))",
+            "legendFormat": "Volume"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "unit": "currencyUSD"
+          }
+        },
+        "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0}
+      },
+      {
+        "id": 4,
+        "title": "Signal Accuracy",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "(sum(signals_correct_total) / sum(signals_total)) * 100",
+            "legendFormat": "Accuracy"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "yellow", "value": 60},
+                {"color": "green", "value": 75}
+              ]
+            },
+            "unit": "percent"
+          }
+        },
+        "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0}
+      },
+      {
+        "id": 5,
+        "title": "Revenue Trend",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(payment_revenue_total[1h]))",
+            "legendFormat": "Revenue/hour"
+          }
+        ],
+        "yAxes": [
+          {"label": "USD/hour"},
+          {}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6}
+      },
+      {
+        "id": 6,
+        "title": "User Growth",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(user_registrations_total[1h])",
+            "legendFormat": "New Registrations"
+          },
+          {
+            "expr": "rate(payment_subscription_new_total[1h])",
+            "legendFormat": "New Subscriptions"
+          }
+        ],
+        "yAxes": [
+          {"label": "Users/hour"},
+          {}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6}
+      },
+      {
+        "id": 7,
+        "title": "Key Performance Indicators",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "sum(payment_active_subscriptions)",
+            "legendFormat": "Active Subscriptions",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "(sum(rate(payment_transactions_total{status=\"success\"}[5m])) / sum(rate(payment_transactions_total[5m]))) * 100",
+            "legendFormat": "Payment Success Rate (%)",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "avg(user_session_duration_seconds) / 60",
+            "legendFormat": "Avg Session Duration (min)",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "(sum(rate(payment_subscription_cancellations_total[24h])) / sum(payment_active_subscriptions)) * 100",
+            "legendFormat": "Daily Churn Rate (%)",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 14}
+      },
+      {
+        "id": 8,
+        "title": "Signal Performance",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(signals_generated_total[1h])",
+            "legendFormat": "Signals Generated"
+          },
+          {
+            "expr": "rate(signals_executed_total[1h])",
+            "legendFormat": "Signals Executed"
+          },
+          {
+            "expr": "rate(signals_correct_total[1h])",
+            "legendFormat": "Correct Signals"
+          }
+        ],
+        "yAxes": [
+          {"label": "Signals/hour"},
+          {}
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 14}
+      },
+      {
+        "id": 9,
+        "title": "Content Engagement",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(education_content_views_total[1h])",
+            "legendFormat": "Content Views"
+          },
+          {
+            "expr": "rate(education_course_completions_total[1h])",
+            "legendFormat": "Course Completions"
+          }
+        ],
+        "yAxes": [
+          {"label": "Events/hour"},
+          {}
+        ],
+        "gridPos": {"h": 6, "w": 24, "x": 0, "y": 22}
+      }
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+# Persistent Volume Claims for AI Finance Agency
+
+# PVC for PostgreSQL data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-data-pvc
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: database
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: fast-ssd
+  volumeMode: Filesystem
+
+---
+# PVC for Redis data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-data-pvc
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: cache
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: fast-ssd
+  volumeMode: Filesystem
+
+---
+# PVC for application logs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-finance-logs-pvc
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: application
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: shared-storage
+  volumeMode: Filesystem
+
+---
+# PVC for application data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-finance-data-pvc
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: application
+spec:
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard-storage
+  volumeMode: Filesystem
+
+---
+# PVC for backup storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-storage-pvc
+  namespace: ai-finance-agency
+  labels:
+    app: ai-finance-agency
+    component: backup
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: backup-storage
+  volumeMode: Filesystem

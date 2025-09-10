@@ -1,0 +1,785 @@
+# TREUM AI Finance Platform - Production CI/CD Pipeline
+name: TREUM CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*', 'release/*', 'hotfix/*' ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - '*.md'
+      - '.gitignore'
+      - 'LICENSE'
+  pull_request:
+    branches: [ main, develop ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      force_deploy:
+        description: 'Force deployment (skip some validations)'
+        required: false
+        default: false
+        type: boolean
+      services:
+        description: 'Services to deploy (comma-separated, or "all")'
+        required: false
+        default: 'all'
+        type: string
+
+env:
+  # Registry and image settings
+  REGISTRY: ghcr.io
+  IMAGE_BASE: treum-ai-finance
+  
+  # Runtime versions
+  NODE_VERSION: '22.11.0'
+  NPM_VERSION: '10.9.0'
+  PYTHON_VERSION: '3.11'
+  
+  # Infrastructure settings
+  KUBERNETES_NAMESPACE: treum-production
+  
+  # Build optimization
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+  
+  # Security scanning
+  SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  
+  # Notification settings
+  SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==================== SETUP & PREPARATION ====================
+  setup:
+    name: Setup & Change Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      services-matrix: ${{ steps.changes.outputs.services-matrix }}
+      services-changed: ${{ steps.changes.outputs.services-changed }}
+      has-changes: ${{ steps.changes.outputs.has-changes }}
+      build-matrix: ${{ steps.build-matrix.outputs.matrix }}
+      should-deploy: ${{ steps.deployment.outputs.should-deploy }}
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Detect changed services
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            api-gateway:
+              - 'services/api-gateway/**'
+            user-management:
+              - 'services/user-management/**'
+            trading:
+              - 'services/trading/**'
+            payment:
+              - 'services/payment/**'
+            signals:
+              - 'services/signals/**'
+            education:
+              - 'services/education/**'
+            shared:
+              - 'packages/**'
+              - 'package.json'
+              - 'turbo.json'
+              - 'tsconfig.json'
+              - '.github/workflows/**'
+          list-files: 'json'
+          
+      - name: Build service matrix
+        id: build-matrix
+        run: |
+          SERVICES='["api-gateway", "user-management", "trading", "payment", "signals", "education"]'
+          CHANGED_SERVICES='[]'
+          
+          if [[ "${{ steps.changes.outputs.api-gateway }}" == "true" ]]; then
+            CHANGED_SERVICES=$(echo $CHANGED_SERVICES | jq '. + ["api-gateway"]')
+          fi
+          if [[ "${{ steps.changes.outputs.user-management }}" == "true" ]]; then
+            CHANGED_SERVICES=$(echo $CHANGED_SERVICES | jq '. + ["user-management"]')
+          fi
+          if [[ "${{ steps.changes.outputs.trading }}" == "true" ]]; then
+            CHANGED_SERVICES=$(echo $CHANGED_SERVICES | jq '. + ["trading"]')
+          fi
+          if [[ "${{ steps.changes.outputs.payment }}" == "true" ]]; then
+            CHANGED_SERVICES=$(echo $CHANGED_SERVICES | jq '. + ["payment"]')
+          fi
+          if [[ "${{ steps.changes.outputs.signals }}" == "true" ]]; then
+            CHANGED_SERVICES=$(echo $CHANGED_SERVICES | jq '. + ["signals"]')
+          fi
+          if [[ "${{ steps.changes.outputs.education }}" == "true" ]]; then
+            CHANGED_SERVICES=$(echo $CHANGED_SERVICES | jq '. + ["education"]')
+          fi
+          
+          # If shared files changed, build all services
+          if [[ "${{ steps.changes.outputs.shared }}" == "true" ]]; then
+            CHANGED_SERVICES=$SERVICES
+          fi
+          
+          # If no services changed but we have other changes, still run basic checks
+          if [[ $(echo $CHANGED_SERVICES | jq 'length') -eq 0 && ("${{ github.event_name }}" == "pull_request" || "${{ github.event_name }}" == "workflow_dispatch") ]]; then
+            CHANGED_SERVICES='["api-gateway"]'  # Run at least one service for validation
+          fi
+          
+          echo "matrix={\"service\":$CHANGED_SERVICES}" >> $GITHUB_OUTPUT
+          echo "services-changed=$CHANGED_SERVICES" >> $GITHUB_OUTPUT
+          echo "has-changes=$(if [[ $(echo $CHANGED_SERVICES | jq 'length') -gt 0 ]]; then echo 'true'; else echo 'false'; fi)" >> $GITHUB_OUTPUT
+          echo "services-matrix=$CHANGED_SERVICES" >> $GITHUB_OUTPUT
+          
+      - name: Determine deployment necessity
+        id: deployment
+        run: |
+          SHOULD_DEPLOY="false"
+          
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SHOULD_DEPLOY="true"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            SHOULD_DEPLOY="true"
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            SHOULD_DEPLOY="true"
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" =~ refs/heads/release/.* ]]; then
+            SHOULD_DEPLOY="true"
+          fi
+          
+          echo "should-deploy=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
+          
+      - name: Notify build start
+        if: ${{ env.SLACK_WEBHOOK_URL && steps.changes.outputs.has-changes == 'true' }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"🚀 TREUM CI/CD Pipeline started for \`${{ github.ref_name }}\` by ${{ github.actor }}\"}" \
+            ${{ env.SLACK_WEBHOOK_URL }}
+
+  # ==================== CODE QUALITY & SECURITY ====================
+  code-quality:
+    name: Code Quality & Security Analysis
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.has-changes == 'true'
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          
+      - name: Cache Turbo
+        uses: actions/cache@v3
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+            
+      - name: Type checking
+        run: |
+          npm run typecheck
+          
+      - name: Linting (ESLint)
+        run: |
+          npm run lint 2>&1 | tee eslint-report.txt
+          
+      - name: Code formatting check (Prettier)
+        run: |
+          npm run format:check
+          
+      - name: Security audit (npm)
+        run: |
+          npm audit --audit-level=moderate --json > npm-audit.json
+        continue-on-error: true
+        
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript, typescript
+          config-file: .github/codeql/codeql-config.yml
+          
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:javascript"
+          
+      - name: Run Snyk security scan
+        if: env.SNYK_TOKEN
+        run: |
+          npm install -g snyk
+          snyk auth ${{ env.SNYK_TOKEN }}
+          snyk test --json > snyk-report.json || true
+          snyk monitor || true
+        continue-on-error: true
+        
+      - name: SonarCloud Scan
+        if: env.SONAR_TOKEN
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            npm-audit.json
+            snyk-report.json
+            eslint-report.txt
+          retention-days: 30
+
+  # ==================== TESTING PIPELINE ====================
+  test:
+    name: Test Suite (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    needs: [setup, code-quality]
+    if: needs.setup.outputs.has-changes == 'true'
+    timeout-minutes: 30
+    
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.build-matrix) }}
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          
+      - name: Cache Turbo
+        uses: actions/cache@v3
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-test-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-test-
+            ${{ runner.os }}-turbo-
+            
+      - name: Setup test environment
+        run: |
+          cp .env.example .env.test
+          cat >> .env.test << EOF
+          TESTING=true
+          DATABASE_URL=postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL=redis://localhost:6379/1
+          JWT_SECRET=test-jwt-secret-key
+          NODE_ENV=test
+          LOG_LEVEL=error
+          EOF
+          
+      - name: Run unit tests
+        run: |
+          npm run test -- --filter=${{ matrix.service }} --coverage --passWithNoTests
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/1
+          
+      - name: Run integration tests
+        run: |
+          npm run test:e2e -- --filter=${{ matrix.service }} --passWithNoTests
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/1
+          
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results-${{ matrix.service }}
+          path: |
+            services/${{ matrix.service }}/coverage/
+            services/${{ matrix.service }}/test-results.xml
+          retention-days: 30
+          
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        if: always()
+        with:
+          file: ./services/${{ matrix.service }}/coverage/lcov.info
+          flags: ${{ matrix.service }}
+          name: ${{ matrix.service }}-coverage
+          fail_ci_if_error: false
+
+  # ==================== PERFORMANCE TESTING ====================
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: [setup, test]
+    if: needs.setup.outputs.has-changes == 'true' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch')
+    timeout-minutes: 20
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: |
+          npm ci --prefer-offline --no-audit
+          npm install -g artillery@latest
+          
+      - name: Build services
+        run: |
+          npm run build
+          
+      - name: Start services for testing
+        run: |
+          npm run start:prod &
+          sleep 30  # Wait for services to start
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/1
+          
+      - name: Run performance tests
+        run: |
+          artillery run tests/performance/api-load-test.yml --output performance-results.json
+          
+      - name: Generate performance report
+        run: |
+          artillery report performance-results.json --output performance-report.html
+          
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: performance-results
+          path: |
+            performance-results.json
+            performance-report.html
+          retention-days: 30
+
+  # ==================== BUILD & PACKAGE ====================
+  build:
+    name: Build & Package (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    needs: [setup, test]
+    if: needs.setup.outputs.has-changes == 'true'
+    timeout-minutes: 25
+    
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.build-matrix) }}
+    
+    outputs:
+      image-digest-${{ matrix.service }}: ${{ steps.build.outputs.digest }}
+      image-tags-${{ matrix.service }}: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_BASE }}-${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.title=TREUM ${{ matrix.service }}
+            org.opencontainers.image.description=TREUM AI Finance Platform - ${{ matrix.service }} service
+            org.opencontainers.image.vendor=TREUM ALGOTECH
+            
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          target: runtime
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ steps.meta.outputs.version }}
+            SERVICE_NAME=${{ matrix.service }}
+            
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_BASE }}-${{ matrix.service }}:${{ steps.meta.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results-${{ matrix.service }}.sarif'
+          
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results-${{ matrix.service }}.sarif'
+          category: 'trivy-${{ matrix.service }}'
+          
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: build-artifacts-${{ matrix.service }}
+          path: |
+            trivy-results-${{ matrix.service }}.sarif
+          retention-days: 30
+
+  # ==================== STAGING DEPLOYMENT ====================
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [setup, build]
+    if: needs.setup.outputs.should-deploy == 'true' && (github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch')
+    environment: 
+      name: staging
+      url: https://staging-api.treum.ai
+    timeout-minutes: 20
+    
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.build-matrix) }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+          
+      - name: Configure kubectl for staging
+        run: |
+          echo "${{ secrets.STAGING_KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl config current-context
+          kubectl get nodes
+          
+      - name: Deploy to staging
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          # Update image tags in deployment manifests
+          IMAGE_TAG="${{ github.sha }}"
+          IMAGE_NAME="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_BASE }}-${{ matrix.service }}:${GITHUB_REF_NAME}-${IMAGE_TAG:0:7}"
+          
+          # Apply Kubernetes manifests
+          envsubst < infrastructure/kubernetes/staging/${{ matrix.service }}-deployment.yaml | kubectl apply -f -
+          kubectl apply -f infrastructure/kubernetes/staging/${{ matrix.service }}-service.yaml
+          
+          # Wait for deployment to be ready
+          kubectl rollout status deployment/${{ matrix.service }}-deployment -n treum-staging --timeout=600s
+          
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+          SERVICE_NAME: ${{ matrix.service }}
+          IMAGE_TAG: ${{ github.sha }}
+          ENVIRONMENT: staging
+          
+      - name: Run smoke tests
+        run: |
+          sleep 30  # Wait for services to stabilize
+          
+          # Port forward for testing
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl port-forward service/${{ matrix.service }}-service 8080:80 -n treum-staging &
+          sleep 10
+          
+          # Basic health check
+          curl -f http://localhost:8080/health || exit 1
+          curl -f http://localhost:8080/ready || exit 1
+          
+          # Kill port-forward
+          pkill -f "kubectl port-forward" || true
+          
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+
+  # ==================== PRODUCTION DEPLOYMENT ====================
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [setup, build, deploy-staging]
+    if: needs.setup.outputs.should-deploy == 'true' && (github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && inputs.environment == 'production'))
+    environment: 
+      name: production
+      url: https://api.treum.ai
+    timeout-minutes: 30
+    
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.build-matrix) }}
+      max-parallel: 2  # Deploy services gradually
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+          
+      - name: Configure kubectl for production
+        run: |
+          echo "${{ secrets.PRODUCTION_KUBECONFIG }}" | base64 -d > /tmp/kubeconfig
+          export KUBECONFIG=/tmp/kubeconfig
+          kubectl config current-context
+          kubectl get nodes
+          
+      - name: Pre-deployment backup
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          # Create backup job
+          BACKUP_NAME="backup-$(date +%s)"
+          kubectl create job $BACKUP_NAME --from=cronjob/database-backup -n ${{ env.KUBERNETES_NAMESPACE }} || true
+          
+          # Wait for backup to complete (with timeout)
+          kubectl wait --for=condition=complete job/$BACKUP_NAME -n ${{ env.KUBERNETES_NAMESPACE }} --timeout=300s || echo "Backup job timeout"
+          
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+          
+      - name: Blue-Green Deployment
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          SERVICE_NAME="${{ matrix.service }}"
+          IMAGE_TAG="${{ github.sha }}"
+          IMAGE_NAME="${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_BASE }}-${SERVICE_NAME}:main-${IMAGE_TAG:0:7}"
+          
+          # Check current deployment
+          CURRENT_VERSION=$(kubectl get deployment ${SERVICE_NAME}-deployment -n ${{ env.KUBERNETES_NAMESPACE }} -o jsonpath='{.metadata.labels.version}' 2>/dev/null || echo "blue")
+          
+          if [ "$CURRENT_VERSION" = "blue" ]; then
+            NEW_VERSION="green"
+          else
+            NEW_VERSION="blue"
+          fi
+          
+          echo "Current version: $CURRENT_VERSION, deploying: $NEW_VERSION"
+          
+          # Update deployment manifest with new version
+          envsubst < infrastructure/kubernetes/production/${SERVICE_NAME}-deployment.yaml | \
+            sed "s/version: blue/version: $NEW_VERSION/" | \
+            sed "s/version: green/version: $NEW_VERSION/" | \
+            kubectl apply -f -
+          
+          # Wait for new deployment to be ready
+          kubectl rollout status deployment/${SERVICE_NAME}-deployment -n ${{ env.KUBERNETES_NAMESPACE }} --timeout=600s
+          
+          # Run health checks before switching traffic
+          kubectl port-forward service/${SERVICE_NAME}-service-${NEW_VERSION} 8081:80 -n ${{ env.KUBERNETES_NAMESPACE }} &
+          sleep 10
+          
+          # Health checks
+          curl -f http://localhost:8081/health || exit 1
+          curl -f http://localhost:8081/ready || exit 1
+          
+          # Kill port-forward
+          pkill -f "kubectl port-forward" || true
+          
+          # Switch traffic to new version
+          kubectl patch service ${SERVICE_NAME}-service -n ${{ env.KUBERNETES_NAMESPACE }} \
+            -p "{\"spec\":{\"selector\":{\"version\":\"$NEW_VERSION\"}}}"
+          
+          # Wait a bit then remove old deployment
+          sleep 60
+          if kubectl get deployment ${SERVICE_NAME}-deployment-${CURRENT_VERSION} -n ${{ env.KUBERNETES_NAMESPACE }} 2>/dev/null; then
+            kubectl delete deployment ${SERVICE_NAME}-deployment-${CURRENT_VERSION} -n ${{ env.KUBERNETES_NAMESPACE }}
+          fi
+          
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+          SERVICE_NAME: ${{ matrix.service }}
+          IMAGE_TAG: ${{ github.sha }}
+          ENVIRONMENT: production
+          
+      - name: Post-deployment validation
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          # Wait for pods to be ready
+          kubectl wait --for=condition=ready pod -l app=${{ matrix.service }} -n ${{ env.KUBERNETES_NAMESPACE }} --timeout=300s
+          
+          # Run critical path tests
+          if [ -f "tests/critical-path/${{ matrix.service }}.test.js" ]; then
+            npm run test:critical -- --service=${{ matrix.service }}
+          fi
+          
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+          TEST_BASE_URL: https://api.treum.ai
+          
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          export KUBECONFIG=/tmp/kubeconfig
+          
+          echo "Deployment failed, initiating rollback..."
+          kubectl rollout undo deployment/${{ matrix.service }}-deployment -n ${{ env.KUBERNETES_NAMESPACE }}
+          kubectl rollout status deployment/${{ matrix.service }}-deployment -n ${{ env.KUBERNETES_NAMESPACE }} --timeout=300s
+          
+          # Notify about rollback
+          if [ -n "${{ env.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"🚨 Production deployment failed and was rolled back: ${{ matrix.service }} on \`${{ github.ref_name }}\`\"}" \
+              ${{ env.SLACK_WEBHOOK_URL }}
+          fi
+          
+        env:
+          KUBECONFIG: /tmp/kubeconfig
+
+  # ==================== NOTIFICATIONS & CLEANUP ====================
+  notify-success:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-production]
+    if: success() && needs.setup.outputs.should-deploy == 'true'
+    
+    steps:
+      - name: Notify successful deployment
+        run: |
+          if [ -n "${{ env.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"✅ TREUM production deployment successful: \`${{ github.ref_name }}\` deployed by ${{ github.actor }}\"}" \
+              ${{ env.SLACK_WEBHOOK_URL }}
+          fi
+
+  notify-failure:
+    name: Notify Failure
+    runs-on: ubuntu-latest
+    needs: [setup, code-quality, test, build, deploy-staging, deploy-production]
+    if: failure() && needs.setup.outputs.has-changes == 'true'
+    
+    steps:
+      - name: Notify pipeline failure
+        run: |
+          if [ -n "${{ env.SLACK_WEBHOOK_URL }}" ]; then
+            FAILED_JOBS=""
+            if [[ "${{ needs.code-quality.result }}" == "failure" ]]; then FAILED_JOBS="$FAILED_JOBS code-quality"; fi
+            if [[ "${{ needs.test.result }}" == "failure" ]]; then FAILED_JOBS="$FAILED_JOBS tests"; fi
+            if [[ "${{ needs.build.result }}" == "failure" ]]; then FAILED_JOBS="$FAILED_JOBS build"; fi
+            if [[ "${{ needs.deploy-staging.result }}" == "failure" ]]; then FAILED_JOBS="$FAILED_JOBS staging-deployment"; fi
+            if [[ "${{ needs.deploy-production.result }}" == "failure" ]]; then FAILED_JOBS="$FAILED_JOBS production-deployment"; fi
+            
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"❌ TREUM CI/CD Pipeline failed for \`${{ github.ref_name }}\` - Failed jobs:$FAILED_JOBS\"}" \
+              ${{ env.SLACK_WEBHOOK_URL }}
+          fi
+
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [setup, notify-success, notify-failure]
+    if: always() && needs.setup.outputs.has-changes == 'true'
+    
+    steps:
+      - name: Clean up old container images
+        run: |
+          echo "Container registry cleanup would be performed here"
+          # This would typically be handled by a registry cleanup policy
+          
+      - name: Update deployment status
+        run: |
+          echo "Pipeline completed for commit ${{ github.sha }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Services processed: ${{ needs.setup.outputs.services-changed }}"

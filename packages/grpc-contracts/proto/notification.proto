@@ -1,0 +1,291 @@
+syntax = "proto3";
+
+package notification;
+
+import "common.proto";
+
+// Notification service definition
+service NotificationService {
+  // Send a single notification
+  rpc SendNotification(SendNotificationRequest) returns (NotificationResponse);
+  
+  // Send bulk notifications
+  rpc SendBulkNotifications(SendBulkNotificationsRequest) returns (BulkNotificationResponse);
+  
+  // Send notification using template
+  rpc SendTemplateNotification(SendTemplateNotificationRequest) returns (TemplateNotificationResponse);
+  
+  // Get notifications for a user
+  rpc GetUserNotifications(GetUserNotificationsRequest) returns (GetUserNotificationsResponse);
+  
+  // Mark notification as read
+  rpc MarkAsRead(MarkAsReadRequest) returns (NotificationResponse);
+  
+  // Mark notification as clicked
+  rpc MarkAsClicked(MarkAsClickedRequest) returns (NotificationResponse);
+  
+  // Update notification preferences
+  rpc UpdatePreferences(UpdatePreferencesRequest) returns (PreferencesResponse);
+  
+  // Get user notification preferences
+  rpc GetPreferences(GetPreferencesRequest) returns (GetPreferencesResponse);
+  
+  // Subscribe to push notifications
+  rpc SubscribePush(SubscribePushRequest) returns (PushSubscriptionResponse);
+  
+  // Unsubscribe from push notifications
+  rpc UnsubscribePush(UnsubscribePushRequest) returns (treum.common.OperationResult);
+}
+
+// Enums
+enum NotificationType {
+  NOTIFICATION_TYPE_UNSPECIFIED = 0;
+  EMAIL = 1;
+  SMS = 2;
+  PUSH = 3;
+  IN_APP = 4;
+  WEBHOOK = 5;
+}
+
+enum NotificationCategory {
+  NOTIFICATION_CATEGORY_UNSPECIFIED = 0;
+  SYSTEM = 1;
+  TRADING = 2;
+  ACCOUNT = 3;
+  SECURITY = 4;
+  EDUCATIONAL = 5;
+  PROMOTIONAL = 6;
+  SIGNAL = 7;
+  PAYMENT = 8;
+}
+
+enum NotificationPriority {
+  NOTIFICATION_PRIORITY_UNSPECIFIED = 0;
+  LOW = 1;
+  NORMAL = 2;
+  HIGH = 3;
+  URGENT = 4;
+}
+
+enum NotificationStatus {
+  NOTIFICATION_STATUS_UNSPECIFIED = 0;
+  PENDING = 1;
+  SENT = 2;
+  DELIVERED = 3;
+  FAILED = 4;
+  CANCELLED = 5;
+}
+
+// Messages
+message NotificationMessage {
+  string id = 1;
+  string user_id = 2;
+  NotificationType type = 3;
+  NotificationCategory category = 4;
+  NotificationPriority priority = 5;
+  NotificationStatus status = 6;
+  string title = 7;
+  string message = 8;
+  map<string, string> payload = 9;
+  string template_id = 10;
+  int64 scheduled_at = 11;  // Unix timestamp
+  int64 sent_at = 12;       // Unix timestamp
+  int64 delivered_at = 13;  // Unix timestamp
+  int64 failed_at = 14;     // Unix timestamp
+  string error_message = 15;
+  int32 retry_count = 16;
+  int32 max_retries = 17;
+  string external_id = 18;
+  map<string, string> metadata = 19;
+  int64 read_at = 20;       // Unix timestamp
+  int64 clicked_at = 21;    // Unix timestamp
+  int64 created_at = 22;    // Unix timestamp
+  int64 updated_at = 23;    // Unix timestamp
+}
+
+message NotificationPreference {
+  string id = 1;
+  string user_id = 2;
+  NotificationCategory category = 3;
+  NotificationType type = 4;
+  bool enabled = 5;
+  string quiet_hours_start = 6;  // HH:MM format
+  string quiet_hours_end = 7;    // HH:MM format
+  string timezone = 8;
+  map<string, string> settings = 9;
+  int64 created_at = 10;
+  int64 updated_at = 11;
+}
+
+message PushSubscription {
+  string id = 1;
+  string user_id = 2;
+  string endpoint = 3;
+  string p256dh_key = 4;
+  string auth_key = 5;
+  string user_agent = 6;
+  string device_type = 7;
+  string browser_name = 8;
+  string browser_version = 9;
+  string os_name = 10;
+  string os_version = 11;
+  bool active = 12;
+  int64 last_used_at = 13;
+  int32 failure_count = 14;
+  map<string, string> metadata = 15;
+  int64 created_at = 16;
+  int64 updated_at = 17;
+}
+
+// Request/Response Messages
+message SendNotificationRequest {
+  string user_id = 1;
+  NotificationType type = 2;
+  NotificationCategory category = 3;
+  NotificationPriority priority = 4;
+  string title = 5;
+  string message = 6;
+  map<string, string> payload = 7;
+  string template_id = 8;
+  int64 scheduled_at = 9;   // Unix timestamp
+  int32 max_retries = 10;
+  map<string, string> metadata = 11;
+}
+
+message NotificationResponse {
+  bool success = 1;
+  string message = 2;
+  NotificationMessage notification = 3;
+  repeated string errors = 4;
+}
+
+message SendBulkNotificationsRequest {
+  repeated string user_ids = 1;
+  NotificationType type = 2;
+  NotificationCategory category = 3;
+  NotificationPriority priority = 4;
+  string title = 5;
+  string message = 6;
+  map<string, string> payload = 7;
+  string template_id = 8;
+  int64 scheduled_at = 9;
+}
+
+message BulkNotificationResponse {
+  bool success = 1;
+  string message = 2;
+  repeated NotificationMessage notifications = 3;
+  int32 success_count = 4;
+  int32 failure_count = 5;
+  repeated string errors = 6;
+}
+
+message SendTemplateNotificationRequest {
+  oneof user_target {
+    string user_id = 1;
+    UserIdList user_ids = 2;
+  }
+  string template_id = 3;
+  map<string, string> variables = 4;
+  int64 scheduled_at = 5;
+  map<string, string> metadata = 6;
+}
+
+message UserIdList {
+  repeated string ids = 1;
+}
+
+message TemplateNotificationResponse {
+  bool success = 1;
+  string message = 2;
+  repeated NotificationMessage notifications = 3;
+  repeated string errors = 4;
+}
+
+message GetUserNotificationsRequest {
+  string user_id = 1;
+  NotificationType type = 2;
+  NotificationStatus status = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message GetUserNotificationsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated NotificationMessage notifications = 3;
+  int32 total = 4;
+  bool has_more = 5;
+}
+
+message MarkAsReadRequest {
+  string notification_id = 1;
+}
+
+message MarkAsClickedRequest {
+  string notification_id = 1;
+}
+
+message UpdatePreferencesRequest {
+  string user_id = 1;
+  repeated NotificationPreference preferences = 2;
+}
+
+message PreferencesResponse {
+  bool success = 1;
+  string message = 2;
+  repeated NotificationPreference preferences = 3;
+  repeated string errors = 4;
+}
+
+message GetPreferencesRequest {
+  string user_id = 1;
+  NotificationCategory category = 2;
+  NotificationType type = 3;
+}
+
+message GetPreferencesResponse {
+  bool success = 1;
+  string message = 2;
+  repeated NotificationPreference preferences = 3;
+}
+
+message SubscribePushRequest {
+  string user_id = 1;
+  string endpoint = 2;
+  string p256dh_key = 3;
+  string auth_key = 4;
+  string user_agent = 5;
+  string device_type = 6;
+  string browser_name = 7;
+  string browser_version = 8;
+  string os_name = 9;
+  string os_version = 10;
+  map<string, string> metadata = 11;
+}
+
+message PushSubscriptionResponse {
+  bool success = 1;
+  string message = 2;
+  PushSubscription subscription = 3;
+  repeated string errors = 4;
+}
+
+message UnsubscribePushRequest {
+  string user_id = 1;
+  string endpoint = 2;  // Optional: specific endpoint to unsubscribe
+}
+
+// Events (for pub/sub)
+message NotificationEvent {
+  string event_type = 1;  // created, sent, delivered, failed, read, clicked
+  NotificationMessage notification = 2;
+  int64 timestamp = 3;
+  map<string, string> metadata = 4;
+}
+
+message PreferencesUpdatedEvent {
+  string user_id = 1;
+  repeated NotificationPreference preferences = 2;
+  int64 timestamp = 3;
+}

@@ -1,0 +1,342 @@
+# AI Finance Agency - Business Metrics Alert Rules
+# Revenue, trading, and customer impact monitoring
+
+groups:
+  # =======================================================================
+  # REVENUE MONITORING
+  # =======================================================================
+  - name: revenue_monitoring
+    rules:
+      # Revenue rate tracking
+      - record: business:revenue_rate:5m
+        expr: rate(payment_revenue_total[5m])
+
+      - record: business:revenue_rate:1h
+        expr: rate(payment_revenue_total[1h])
+
+      - record: business:revenue_rate:24h
+        expr: rate(payment_revenue_total[24h])
+
+      # Revenue alerts
+      - alert: RevenueDropCritical
+        expr: |
+          (
+            rate(payment_revenue_total[1h]) < 
+            0.5 * rate(payment_revenue_total[24h] offset 24h)
+          ) and rate(payment_revenue_total[1h]) > 0
+        for: 10m
+        labels:
+          severity: critical
+          impact: revenue
+          category: business
+        annotations:
+          summary: "Critical revenue drop detected"
+          description: "Hourly revenue rate has dropped below 50% of the same hour yesterday"
+          current_rate: "{{ with query \"rate(payment_revenue_total[1h])\" }}{{ . | first | value | humanize }}{{ end }}/hour"
+          expected_rate: "{{ with query \"rate(payment_revenue_total[24h] offset 24h)\" }}{{ . | first | value | humanize }}{{ end }}/hour"
+          impact: "Immediate revenue impact - investigate payment systems"
+          runbook_url: "https://runbooks.ai-finance.com/business/revenue-drop"
+
+      - alert: RevenueDropWarning
+        expr: |
+          (
+            rate(payment_revenue_total[1h]) < 
+            0.8 * rate(payment_revenue_total[24h] offset 24h)
+          ) and rate(payment_revenue_total[1h]) > 0
+        for: 30m
+        labels:
+          severity: warning
+          impact: revenue
+          category: business
+        annotations:
+          summary: "Revenue below expected levels"
+          description: "Hourly revenue rate is 20% below yesterday's rate"
+          current_rate: "{{ with query \"rate(payment_revenue_total[1h])\" }}{{ . | first | value | humanize }}{{ end }}/hour"
+
+      # Payment failure rate
+      - alert: PaymentFailureRateHigh
+        expr: |
+          (
+            sum(rate(payment_transactions_total{status="failed"}[5m])) /
+            sum(rate(payment_transactions_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          impact: revenue
+          service: payment
+        annotations:
+          summary: "High payment failure rate"
+          description: "Payment failure rate ({{ $value | humanizePercentage }}) exceeds 5% threshold"
+          impact: "Direct revenue loss - customers cannot complete payments"
+          failure_rate: "{{ $value | humanizePercentage }}"
+
+  # =======================================================================
+  # TRADING BUSINESS METRICS
+  # =======================================================================
+  - name: trading_business
+    rules:
+      # Trading volume monitoring
+      - record: business:trading_volume:5m
+        expr: rate(trading_volume_total[5m])
+
+      - record: business:trading_volume:1h
+        expr: rate(trading_volume_total[1h])
+
+      # Trade execution rate
+      - record: business:trade_execution_rate:5m
+        expr: |
+          sum(rate(trading_trades_total{status="executed"}[5m])) /
+          sum(rate(trading_trades_total[5m]))
+
+      # Trading alerts
+      - alert: TradingVolumeLow
+        expr: |
+          (
+            rate(trading_volume_total[1h]) < 
+            0.3 * rate(trading_volume_total[24h] offset 24h)
+          ) and rate(trading_volume_total[1h]) > 0
+        for: 15m
+        labels:
+          severity: warning
+          impact: business
+          category: trading
+        annotations:
+          summary: "Trading volume significantly below normal"
+          description: "Hourly trading volume is 70% below yesterday's rate"
+          current_volume: "{{ with query \"rate(trading_volume_total[1h])\" }}{{ . | first | value | humanize }}{{ end }}/hour"
+          impact: "Reduced trading activity may indicate market issues or system problems"
+
+      - alert: TradeExecutionRateLow
+        expr: business:trade_execution_rate:5m < 0.95
+        for: 5m
+        labels:
+          severity: critical
+          impact: trading
+          service: trading
+        annotations:
+          summary: "Low trade execution rate"
+          description: "Trade execution rate ({{ $value | humanizePercentage }}) is below 95%"
+          execution_rate: "{{ $value | humanizePercentage }}"
+          impact: "Customer trades failing - potential revenue and reputation loss"
+
+      # Risk threshold breaches
+      - alert: RiskThresholdBreach
+        expr: max(risk_portfolio_exposure_ratio) > 0.8
+        for: 2m
+        labels:
+          severity: critical
+          impact: risk
+          service: risk-management
+        annotations:
+          summary: "Portfolio risk exposure exceeded threshold"
+          description: "Portfolio exposure ratio ({{ $value | humanizePercentage }}) exceeds 80% limit"
+          exposure_ratio: "{{ $value | humanizePercentage }}"
+          impact: "High risk exposure - automated trading may be halted"
+
+  # =======================================================================
+  # USER ENGAGEMENT METRICS
+  # =======================================================================
+  - name: user_engagement
+    rules:
+      # User activity rates
+      - record: business:active_users:5m
+        expr: count(increase(user_sessions_total[5m]) > 0)
+
+      - record: business:user_registrations:1h
+        expr: rate(user_registrations_total[1h])
+
+      # User engagement alerts
+      - alert: ActiveUsersLow
+        expr: business:active_users:5m < 100
+        for: 10m
+        labels:
+          severity: warning
+          impact: engagement
+          category: users
+        annotations:
+          summary: "Low active user count"
+          description: "Active user count ({{ $value }}) is below minimum threshold of 100"
+          active_users: "{{ $value }}"
+          impact: "Low user engagement - investigate system issues or market conditions"
+
+      - alert: UserRegistrationsStalled
+        expr: |
+          rate(user_registrations_total[2h]) == 0 and 
+          time() % 86400 > 21600 and time() % 86400 < 79200  # Between 6 AM and 10 PM
+        for: 30m
+        labels:
+          severity: warning
+          impact: growth
+          service: user-management
+        annotations:
+          summary: "User registrations have stalled"
+          description: "No new user registrations in the last 2 hours during business hours"
+          impact: "Growth pipeline affected - check registration system"
+
+  # =======================================================================
+  # SIGNAL GENERATION QUALITY
+  # =======================================================================
+  - name: signal_quality
+    rules:
+      # Signal generation rate
+      - record: business:signals_generated:5m
+        expr: rate(signals_generated_total[5m])
+
+      # Signal accuracy tracking
+      - record: business:signal_accuracy:1h
+        expr: |
+          sum(increase(signals_outcomes_total{outcome="correct"}[1h])) /
+          sum(increase(signals_outcomes_total[1h]))
+
+      # Signal quality alerts
+      - alert: SignalGenerationLow
+        expr: business:signals_generated:5m < 0.1  # Less than 0.1 signals per second
+        for: 10m
+        labels:
+          severity: warning
+          impact: signals
+          service: signals
+        annotations:
+          summary: "Signal generation rate is low"
+          description: "Signal generation rate ({{ $value }}/sec) is below expected threshold"
+          generation_rate: "{{ $value }}/sec"
+          impact: "Reduced signal availability for trading decisions"
+
+      - alert: SignalAccuracyDegraded
+        expr: business:signal_accuracy:1h < 0.7 and business:signal_accuracy:1h > 0
+        for: 30m
+        labels:
+          severity: critical
+          impact: signals
+          service: signals
+        annotations:
+          summary: "Signal accuracy has degraded"
+          description: "Signal accuracy ({{ $value | humanizePercentage }}) is below 70% threshold"
+          accuracy: "{{ $value | humanizePercentage }}"
+          impact: "Trading decisions based on poor signals - review ML models"
+
+  # =======================================================================
+  # CUSTOMER SUPPORT METRICS
+  # =======================================================================
+  - name: customer_support
+    rules:
+      # Support ticket creation rate
+      - record: business:support_tickets:1h
+        expr: rate(support_tickets_total[1h])
+
+      # Critical ticket alerts
+      - alert: SupportTicketSpike
+        expr: |
+          rate(support_tickets_total[1h]) > 
+          3 * rate(support_tickets_total[24h] offset 24h)
+        for: 15m
+        labels:
+          severity: warning
+          impact: support
+          category: customer_experience
+        annotations:
+          summary: "Support ticket creation rate spike"
+          description: "Support ticket rate is 3x higher than usual"
+          current_rate: "{{ with query \"rate(support_tickets_total[1h])\" }}{{ . | first | value | humanize }}{{ end }}/hour"
+          impact: "Potential system issue affecting customers"
+
+      - alert: CriticalSupportTickets
+        expr: increase(support_tickets_total{priority="critical"}[5m]) > 5
+        for: 0s
+        labels:
+          severity: critical
+          impact: support
+          category: customer_experience
+        annotations:
+          summary: "Multiple critical support tickets created"
+          description: "{{ $value }} critical support tickets created in the last 5 minutes"
+          ticket_count: "{{ $value }}"
+          impact: "Critical customer issues require immediate attention"
+
+  # =======================================================================
+  # COMPLIANCE AND AUDIT METRICS
+  # =======================================================================
+  - name: compliance_audit
+    rules:
+      # Failed compliance checks
+      - alert: ComplianceCheckFailures
+        expr: increase(compliance_checks_total{status="failed"}[15m]) > 0
+        for: 0s
+        labels:
+          severity: critical
+          impact: compliance
+          category: regulatory
+        annotations:
+          summary: "Compliance check failures detected"
+          description: "{{ $value }} compliance checks have failed in the last 15 minutes"
+          failure_count: "{{ $value }}"
+          impact: "Regulatory compliance at risk - immediate review required"
+
+      # Audit log gaps
+      - alert: AuditLogGaps
+        expr: |
+          (time() - max(audit_log_timestamp)) > 300  # 5 minutes gap
+        for: 2m
+        labels:
+          severity: warning
+          impact: audit
+          category: regulatory
+        annotations:
+          summary: "Audit log gap detected"
+          description: "No audit log entries for {{ $value | humanizeDuration }}"
+          gap_duration: "{{ $value | humanizeDuration }}"
+          impact: "Audit trail incomplete - investigate logging system"
+
+  # =======================================================================
+  # EXTERNAL DEPENDENCY MONITORING
+  # =======================================================================
+  - name: external_dependencies
+    rules:
+      # Market data feed health
+      - alert: MarketDataFeedDown
+        expr: |
+          max_over_time(up{job="market-data"}[5m]) == 0 or
+          rate(market_data_updates_total[5m]) == 0
+        for: 2m
+        labels:
+          severity: critical
+          impact: market_data
+          service: market-data
+        annotations:
+          summary: "Market data feed unavailable"
+          description: "Market data service is down or not receiving updates"
+          impact: "Trading decisions based on stale data - halt automated trading"
+
+      # Payment provider issues
+      - alert: PaymentProviderIssues
+        expr: |
+          (
+            sum(rate(payment_provider_errors_total[5m])) /
+            sum(rate(payment_provider_requests_total[5m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          impact: payments
+          service: payment
+        annotations:
+          summary: "Payment provider error rate high"
+          description: "Payment provider error rate ({{ $value | humanizePercentage }}) exceeds 10%"
+          error_rate: "{{ $value | humanizePercentage }}"
+          impact: "Customer payments failing - switch to backup provider"
+
+      # News feed delays
+      - alert: NewsFeedDelayed
+        expr: |
+          (time() - max(news_feed_last_update_timestamp)) > 1800  # 30 minutes
+        for: 5m
+        labels:
+          severity: warning
+          impact: content
+          service: content-intelligence
+        annotations:
+          summary: "News feed significantly delayed"
+          description: "News feed last updated {{ $value | humanizeDuration }} ago"
+          delay: "{{ $value | humanizeDuration }}"
+          impact: "Content intelligence operating on stale news data"

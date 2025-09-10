@@ -1,0 +1,226 @@
+syntax = "proto3";
+
+package treum.signals;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service SignalsService {
+  rpc CreateSignal(CreateSignalRequest) returns (SignalResponse);
+  rpc GetSignal(GetSignalRequest) returns (SignalResponse);
+  rpc ListSignals(ListSignalsRequest) returns (ListSignalsResponse);
+  rpc UpdateSignal(UpdateSignalRequest) returns (SignalResponse);
+  rpc ExpireSignal(ExpireSignalRequest) returns (SignalResponse);
+  rpc GetSignalPerformance(GetSignalPerformanceRequest) returns (SignalPerformanceResponse);
+  rpc ListActiveSignals(ListActiveSignalsRequest) returns (ListSignalsResponse);
+  rpc FollowSignal(FollowSignalRequest) returns (google.protobuf.Empty);
+  rpc UnfollowSignal(UnfollowSignalRequest) returns (google.protobuf.Empty);
+  rpc GetUserSignalHistory(GetUserSignalHistoryRequest) returns (UserSignalHistoryResponse);
+}
+
+// Messages
+message CreateSignalRequest {
+  string symbol = 1;
+  AssetType asset_type = 2;
+  SignalType type = 3;
+  double price = 4;
+  double stop_loss = 5;
+  double take_profit = 6;
+  RiskLevel risk_level = 7;
+  TimeFrame time_frame = 8;
+  int32 confidence = 9;
+  string analysis = 10;
+  google.protobuf.Timestamp expires_at = 11;
+  string created_by = 12;
+  repeated SubscriptionTier target_audience = 13;
+  repeated string tags = 14;
+}
+
+message UpdateSignalRequest {
+  string id = 1;
+  double price = 2;
+  double stop_loss = 3;
+  double take_profit = 4;
+  int32 confidence = 5;
+  string analysis = 6;
+  google.protobuf.Timestamp expires_at = 7;
+}
+
+message GetSignalRequest {
+  string id = 1;
+}
+
+message ExpireSignalRequest {
+  string id = 1;
+  double final_price = 2;
+  double performance = 3;
+}
+
+message ListSignalsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  AssetType asset_type_filter = 3;
+  SignalType type_filter = 4;
+  SignalStatus status_filter = 5;
+  RiskLevel risk_level_filter = 6;
+  TimeFrame time_frame_filter = 7;
+  repeated string tags = 8;
+  SubscriptionTier user_tier = 9;
+  google.protobuf.Timestamp from_date = 10;
+  google.protobuf.Timestamp to_date = 11;
+}
+
+message ListSignalsResponse {
+  repeated SignalResponse signals = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+}
+
+message SignalResponse {
+  string id = 1;
+  string symbol = 2;
+  AssetType asset_type = 3;
+  SignalType type = 4;
+  SignalStatus status = 5;
+  double price = 6;
+  double stop_loss = 7;
+  double take_profit = 8;
+  RiskLevel risk_level = 9;
+  TimeFrame time_frame = 10;
+  int32 confidence = 11;
+  string analysis = 12;
+  google.protobuf.Timestamp expires_at = 13;
+  string created_by = 14;
+  repeated SubscriptionTier target_audience = 15;
+  repeated string tags = 16;
+  SignalPerformanceData performance = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+}
+
+message SignalPerformanceData {
+  double max_pnl = 1;
+  double current_pnl = 2;
+  bool hit_stop_loss = 3;
+  bool hit_take_profit = 4;
+  google.protobuf.Timestamp closed_at = 5;
+}
+
+message GetSignalPerformanceRequest {
+  string signal_id = 1;
+}
+
+message SignalPerformanceResponse {
+  string signal_id = 1;
+  int32 total_followers = 2;
+  int32 successful_trades = 3;
+  int32 total_trades = 4;
+  double avg_pnl = 5;
+  double win_rate = 6;
+  double avg_holding_time = 7;
+  double risk_adjusted_return = 8;
+}
+
+message ListActiveSignalsRequest {
+  SubscriptionTier user_tier = 1;
+  AssetType asset_type_filter = 2;
+  RiskLevel risk_level_filter = 3;
+  int32 limit = 4;
+}
+
+message FollowSignalRequest {
+  string user_id = 1;
+  string signal_id = 2;
+  double allocation_amount = 3;
+}
+
+message UnfollowSignalRequest {
+  string user_id = 1;
+  string signal_id = 2;
+}
+
+message GetUserSignalHistoryRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  google.protobuf.Timestamp from_date = 4;
+  google.protobuf.Timestamp to_date = 5;
+}
+
+message UserSignalHistoryResponse {
+  repeated UserSignalFollow follows = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  double total_pnl = 5;
+  double total_allocated = 6;
+  int32 successful_signals = 7;
+  double win_rate = 8;
+}
+
+message UserSignalFollow {
+  string user_id = 1;
+  string signal_id = 2;
+  SignalResponse signal = 3;
+  double allocation_amount = 4;
+  double realized_pnl = 5;
+  google.protobuf.Timestamp followed_at = 6;
+  google.protobuf.Timestamp closed_at = 7;
+}
+
+// Enums
+enum AssetType {
+  ASSET_TYPE_UNSPECIFIED = 0;
+  ASSET_TYPE_STOCK = 1;
+  ASSET_TYPE_CRYPTO = 2;
+  ASSET_TYPE_FOREX = 3;
+  ASSET_TYPE_COMMODITY = 4;
+  ASSET_TYPE_INDEX = 5;
+  ASSET_TYPE_BOND = 6;
+}
+
+enum SignalType {
+  SIGNAL_TYPE_UNSPECIFIED = 0;
+  SIGNAL_TYPE_BUY = 1;
+  SIGNAL_TYPE_SELL = 2;
+  SIGNAL_TYPE_HOLD = 3;
+}
+
+enum SignalStatus {
+  SIGNAL_STATUS_UNSPECIFIED = 0;
+  SIGNAL_STATUS_ACTIVE = 1;
+  SIGNAL_STATUS_EXPIRED = 2;
+  SIGNAL_STATUS_EXECUTED = 3;
+  SIGNAL_STATUS_CANCELLED = 4;
+}
+
+enum RiskLevel {
+  RISK_LEVEL_UNSPECIFIED = 0;
+  RISK_LEVEL_LOW = 1;
+  RISK_LEVEL_MEDIUM = 2;
+  RISK_LEVEL_HIGH = 3;
+  RISK_LEVEL_VERY_HIGH = 4;
+}
+
+enum TimeFrame {
+  TIME_FRAME_UNSPECIFIED = 0;
+  TIME_FRAME_1M = 1;
+  TIME_FRAME_5M = 2;
+  TIME_FRAME_15M = 3;
+  TIME_FRAME_30M = 4;
+  TIME_FRAME_1H = 5;
+  TIME_FRAME_4H = 6;
+  TIME_FRAME_1D = 7;
+  TIME_FRAME_1W = 8;
+  TIME_FRAME_1MONTH = 9;
+}
+
+enum SubscriptionTier {
+  SUBSCRIPTION_TIER_UNSPECIFIED = 0;
+  SUBSCRIPTION_TIER_FREE = 1;
+  SUBSCRIPTION_TIER_BASIC = 2;
+  SUBSCRIPTION_TIER_PREMIUM = 3;
+  SUBSCRIPTION_TIER_ENTERPRISE = 4;
+}

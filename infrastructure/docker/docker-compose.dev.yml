@@ -1,0 +1,143 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 17.6 - Primary Database
+  postgres:
+    image: postgres:17.6
+    container_name: treum-postgres
+    environment:
+      POSTGRES_DB: treum_main
+      POSTGRES_USER: treum_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-treum_secure_2024}
+      POSTGRES_MULTIPLE_DATABASES: treum_user,treum_education,treum_signals,treum_payment,treum_trading
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
+      - ./postgres/init-schemas.sql:/docker-entrypoint-initdb.d/init-schemas.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - treum-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_admin -d treum_main"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # MongoDB 8.0.1 - Content Storage
+  mongodb:
+    image: mongo:8.0.1
+    container_name: treum-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongo_secure_2024}
+      MONGO_INITDB_DATABASE: treum_content
+    volumes:
+      - mongo_data:/data/db
+      - ./mongodb/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - treum-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis 7.4.1 - Caching and Sessions
+  redis:
+    image: redis:7.4.1-alpine
+    container_name: treum-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secure_2024} --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    ports:
+      - "6379:6379"
+    networks:
+      - treum-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # InfluxDB 2.7.10 - Time Series Data
+  influxdb:
+    image: influxdb:2.7.10
+    container_name: treum-influxdb
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_PASSWORD:-influx_secure_2024}
+      DOCKER_INFLUXDB_INIT_ORG: treum
+      DOCKER_INFLUXDB_INIT_BUCKET: trading_data
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN:-treum_influx_token_2024}
+    volumes:
+      - influx_data:/var/lib/influxdb2
+      - influx_config:/etc/influxdb2
+    ports:
+      - "8086:8086"
+    networks:
+      - treum-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Adminer - Database Management UI
+  adminer:
+    image: adminer:4.8.1
+    container_name: treum-adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: lucas
+    ports:
+      - "8080:8080"
+    networks:
+      - treum-network
+    depends_on:
+      - postgres
+      - mongodb
+    restart: unless-stopped
+
+  # Redis Commander - Redis Management UI
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: treum-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-redis_secure_2024}
+      HTTP_USER: admin
+      HTTP_PASSWORD: ${REDIS_UI_PASSWORD:-admin_secure_2024}
+    ports:
+      - "8081:8081"
+    networks:
+      - treum-network
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+networks:
+  treum-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+    driver: local
+  mongo_data:
+    driver: local
+  redis_data:
+    driver: local
+  influx_data:
+    driver: local
+  influx_config:
+    driver: local

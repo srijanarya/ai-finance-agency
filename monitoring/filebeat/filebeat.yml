@@ -1,0 +1,149 @@
+# Filebeat Configuration
+# AI Finance Agency log shipping
+
+filebeat.inputs:
+  # Docker container logs
+  - type: container
+    enabled: true
+    paths:
+      - '/var/lib/docker/containers/*/*.log'
+    
+    # Container-specific processing
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+      
+      # Only collect logs from AI Finance containers
+      - drop_event:
+          when:
+            not:
+              contains:
+                docker.container.name: "ai_finance"
+      
+      # Add service labels
+      - script:
+          lang: javascript
+          id: service_labeler
+          source: >
+            function process(event) {
+              var containerName = event.Get("docker.container.name");
+              if (containerName) {
+                // Extract service name from container name
+                var serviceName = containerName.replace(/^ai_finance_/, '').replace(/_[a-f0-9]{12}$/, '');
+                event.Put("service.name", serviceName);
+                
+                // Set service type based on name
+                if (serviceName.includes("prometheus") || serviceName.includes("grafana") || serviceName.includes("alertmanager")) {
+                  event.Put("service.type", "monitoring");
+                } else if (serviceName.includes("postgres") || serviceName.includes("redis") || serviceName.includes("mongodb")) {
+                  event.Put("service.type", "database");
+                } else if (serviceName.includes("rabbitmq")) {
+                  event.Put("service.type", "messaging");
+                } else if (serviceName.includes("nginx")) {
+                  event.Put("service.type", "proxy");
+                } else {
+                  event.Put("service.type", "application");
+                }
+              }
+            }
+
+  # Application log files
+  - type: log
+    enabled: true
+    paths:
+      - /opt/ai-finance/logs/*.log
+      - /opt/ai-finance/logs/*/*.log
+    fields:
+      logtype: application
+      environment: ${ENVIRONMENT:development}
+    fields_under_root: true
+    multiline.pattern: '^\d{4}-\d{2}-\d{2}'
+    multiline.negate: true
+    multiline.match: after
+
+  # Nginx access logs (if applicable)
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/nginx/access.log
+    fields:
+      logtype: nginx_access
+      service.name: nginx
+      service.type: proxy
+    fields_under_root: true
+
+  # Nginx error logs (if applicable)
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/nginx/error.log
+    fields:
+      logtype: nginx_error
+      service.name: nginx
+      service.type: proxy
+    fields_under_root: true
+
+# Output configuration
+output.logstash:
+  hosts: ["logstash:5044"]
+  compression_level: 3
+  bulk_max_size: 2048
+  worker: 2
+
+# Processor configuration
+processors:
+  # Add hostname
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+
+  # Add Docker metadata
+  - add_docker_metadata: ~
+
+  # Add Kubernetes metadata (if running in K8s)
+  - add_kubernetes_metadata:
+      when.contains:
+        docker.container.name: "k8s_"
+
+  # Drop empty messages
+  - drop_event:
+      when:
+        or:
+          - equals:
+              message: ""
+          - equals:
+              message: " "
+
+  # Add environment tags
+  - add_tags:
+      tags: [${ENVIRONMENT:development}, ai-finance]
+      when:
+        not:
+          has_fields: ['tags']
+
+# Logging configuration
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
+
+# Monitoring
+monitoring.enabled: true
+monitoring.elasticsearch:
+  hosts: ["http://elasticsearch:9200"]
+  
+# Performance tuning
+queue.mem:
+  events: 4096
+  flush.min_events: 512
+  flush.timeout: 1s
+
+# Registry file
+filebeat.registry.path: /usr/share/filebeat/data/registry
+
+# HTTP monitoring
+http.enabled: true
+http.host: 0.0.0.0
+http.port: 5066

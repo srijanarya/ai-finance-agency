@@ -37,6 +37,54 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # RabbitMQ Message Broker
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ai_finance_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-treum_admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-securerabbitpass}
+      RABBITMQ_DEFAULT_VHOST: treum_finance
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./infrastructure/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./infrastructure/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # Service Discovery (Consul)
+  consul:
+    image: consul:1.17-alpine
+    container_name: ai_finance_consul
+    command: >
+      consul agent 
+      -server 
+      -bootstrap 
+      -data-dir=/consul/data 
+      -config-dir=/consul/config 
+      -ui 
+      -client=0.0.0.0
+    volumes:
+      - consul_data:/consul/data
+      - ./infrastructure/consul:/consul/config:ro
+    ports:
+      - "8500:8500"   # HTTP API
+      - "8600:8600"   # DNS
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8500/v1/status/leader"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   # FastAPI Application
   api:
     build: .
@@ -183,6 +231,10 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  consul_data:
     driver: local
   prometheus_data:
     driver: local

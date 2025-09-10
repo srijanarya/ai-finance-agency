@@ -1,0 +1,273 @@
+# AI Finance Agency - SLO Alert Rules
+# Service Level Objectives monitoring with error budgets and burn rates
+
+groups:
+  # =======================================================================
+  # AVAILABILITY SLOs
+  # =======================================================================
+  - name: availability_slos
+    rules:
+      # API Gateway Availability SLO: 99.9% uptime (43 minutes downtime/month)
+      - record: slo:api_gateway_availability:ratio_rate5m
+        expr: sum(rate(treum_http_requests_total{job="api-gateway",status_code!~"5.."}[5m])) / sum(rate(treum_http_requests_total{job="api-gateway"}[5m]))
+      
+      - record: slo:api_gateway_availability:ratio_rate30d
+        expr: sum(rate(treum_http_requests_total{job="api-gateway",status_code!~"5.."}[30d])) / sum(rate(treum_http_requests_total{job="api-gateway"}[30d]))
+
+      - alert: APIGatewayAvailabilitySLOBreach
+        expr: slo:api_gateway_availability:ratio_rate5m < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          service: api-gateway
+          slo_type: availability
+          error_budget_consumed: high
+        annotations:
+          summary: "API Gateway availability SLO breach"
+          description: "API Gateway availability ({{ $value | humanizePercentage }}) is below SLO target of 99.9% for 5 minutes"
+          error_budget_remaining: "{{ with query \"(1 - (1 - 0.999) / (1 - slo:api_gateway_availability:ratio_rate30d)) * 100\" }}{{ . | first | value | humanizePercentage }}{{ end }}"
+          runbook_url: "https://runbooks.ai-finance.com/api-gateway/availability"
+          dashboard_url: "http://grafana:3000/d/api-gateway/api-gateway-dashboard"
+
+      # Payment Service Availability SLO: 99.95% uptime (22 minutes downtime/month)
+      - record: slo:payment_availability:ratio_rate5m
+        expr: sum(rate(treum_http_requests_total{job="payment",status_code!~"5.."}[5m])) / sum(rate(treum_http_requests_total{job="payment"}[5m]))
+      
+      - record: slo:payment_availability:ratio_rate30d
+        expr: sum(rate(treum_http_requests_total{job="payment",status_code!~"5.."}[30d])) / sum(rate(treum_http_requests_total{job="payment"}[30d]))
+
+      - alert: PaymentAvailabilitySLOBreach
+        expr: slo:payment_availability:ratio_rate5m < 0.9995
+        for: 2m
+        labels:
+          severity: critical
+          service: payment
+          slo_type: availability
+          error_budget_consumed: high
+        annotations:
+          summary: "Payment service availability SLO breach"
+          description: "Payment service availability ({{ $value | humanizePercentage }}) is below SLO target of 99.95% for 2 minutes"
+          impact: "Revenue at risk - payment processing degraded"
+          runbook_url: "https://runbooks.ai-finance.com/payment/availability"
+
+      # Trading Service Availability SLO: 99.9% uptime
+      - record: slo:trading_availability:ratio_rate5m
+        expr: sum(rate(treum_http_requests_total{job="trading",status_code!~"5.."}[5m])) / sum(rate(treum_http_requests_total{job="trading"}[5m]))
+
+      - alert: TradingAvailabilitySLOBreach
+        expr: slo:trading_availability:ratio_rate5m < 0.999
+        for: 3m
+        labels:
+          severity: critical
+          service: trading
+          slo_type: availability
+          error_budget_consumed: high
+        annotations:
+          summary: "Trading service availability SLO breach"
+          description: "Trading service availability ({{ $value | humanizePercentage }}) is below SLO target of 99.9% for 3 minutes"
+          impact: "Trading operations degraded - customer trades affected"
+
+  # =======================================================================
+  # LATENCY SLOs
+  # =======================================================================
+  - name: latency_slos
+    rules:
+      # API Gateway Latency SLO: 95% of requests < 500ms, 99% < 2s
+      - record: slo:api_gateway_latency_p95:ratio_rate5m
+        expr: histogram_quantile(0.95, sum(rate(treum_http_request_duration_seconds_bucket{job="api-gateway"}[5m])) by (le))
+
+      - record: slo:api_gateway_latency_p99:ratio_rate5m
+        expr: histogram_quantile(0.99, sum(rate(treum_http_request_duration_seconds_bucket{job="api-gateway"}[5m])) by (le))
+
+      - alert: APIGatewayLatencySLOBreach
+        expr: slo:api_gateway_latency_p95:ratio_rate5m > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: api-gateway
+          slo_type: latency
+          percentile: p95
+        annotations:
+          summary: "API Gateway latency SLO breach (P95)"
+          description: "API Gateway P95 latency ({{ $value }}s) exceeds SLO target of 500ms"
+          dashboard_url: "http://grafana:3000/d/api-gateway/api-gateway-dashboard?panelId=2"
+
+      - alert: APIGatewayLatencySLOBreachCritical
+        expr: slo:api_gateway_latency_p99:ratio_rate5m > 2.0
+        for: 3m
+        labels:
+          severity: critical
+          service: api-gateway
+          slo_type: latency
+          percentile: p99
+        annotations:
+          summary: "API Gateway latency SLO critical breach (P99)"
+          description: "API Gateway P99 latency ({{ $value }}s) exceeds SLO target of 2s"
+          impact: "User experience severely degraded"
+
+      # Payment Service Latency SLO: 95% of requests < 1s, 99% < 5s
+      - record: slo:payment_latency_p95:ratio_rate5m
+        expr: histogram_quantile(0.95, sum(rate(treum_http_request_duration_seconds_bucket{job="payment"}[5m])) by (le))
+
+      - record: slo:payment_latency_p99:ratio_rate5m
+        expr: histogram_quantile(0.99, sum(rate(treum_http_request_duration_seconds_bucket{job="payment"}[5m])) by (le))
+
+      - alert: PaymentLatencySLOBreach
+        expr: slo:payment_latency_p95:ratio_rate5m > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          service: payment
+          slo_type: latency
+        annotations:
+          summary: "Payment service latency SLO breach"
+          description: "Payment service P95 latency ({{ $value }}s) exceeds SLO target of 1s"
+
+      # Trading Service Latency SLO: 99% of requests < 100ms (high frequency)
+      - record: slo:trading_latency_p99:ratio_rate1m
+        expr: histogram_quantile(0.99, sum(rate(treum_http_request_duration_seconds_bucket{job="trading"}[1m])) by (le))
+
+      - alert: TradingLatencySLOBreach
+        expr: slo:trading_latency_p99:ratio_rate1m > 0.1
+        for: 1m
+        labels:
+          severity: critical
+          service: trading
+          slo_type: latency
+        annotations:
+          summary: "Trading service latency SLO breach"
+          description: "Trading service P99 latency ({{ $value }}s) exceeds SLO target of 100ms"
+          impact: "High-frequency trading affected - potential revenue loss"
+
+  # =======================================================================
+  # ERROR RATE SLOs
+  # =======================================================================
+  - name: error_rate_slos
+    rules:
+      # API Gateway Error Rate SLO: < 1% error rate
+      - record: slo:api_gateway_error_rate:ratio_rate5m
+        expr: sum(rate(treum_http_requests_total{job="api-gateway",status_code=~"5.."}[5m])) / sum(rate(treum_http_requests_total{job="api-gateway"}[5m]))
+
+      - alert: APIGatewayErrorRateSLOBreach
+        expr: slo:api_gateway_error_rate:ratio_rate5m > 0.01
+        for: 5m
+        labels:
+          severity: warning
+          service: api-gateway
+          slo_type: error_rate
+        annotations:
+          summary: "API Gateway error rate SLO breach"
+          description: "API Gateway error rate ({{ $value | humanizePercentage }}) exceeds SLO target of 1%"
+          current_rate: "{{ $value | humanizePercentage }}"
+
+      # Payment Service Error Rate SLO: < 0.1% error rate (critical for revenue)
+      - record: slo:payment_error_rate:ratio_rate5m
+        expr: sum(rate(treum_http_requests_total{job="payment",status_code=~"5.."}[5m])) / sum(rate(treum_http_requests_total{job="payment"}[5m]))
+
+      - alert: PaymentErrorRateSLOBreach
+        expr: slo:payment_error_rate:ratio_rate5m > 0.001
+        for: 2m
+        labels:
+          severity: critical
+          service: payment
+          slo_type: error_rate
+        annotations:
+          summary: "Payment service error rate SLO breach"
+          description: "Payment service error rate ({{ $value | humanizePercentage }}) exceeds SLO target of 0.1%"
+          impact: "Revenue at risk - payment failures occurring"
+          current_rate: "{{ $value | humanizePercentage }}"
+
+      # Trading Service Error Rate SLO: < 0.5% error rate
+      - record: slo:trading_error_rate:ratio_rate5m
+        expr: sum(rate(treum_http_requests_total{job="trading",status_code=~"5.."}[5m])) / sum(rate(treum_http_requests_total{job="trading"}[5m]))
+
+      - alert: TradingErrorRateSLOBreach
+        expr: slo:trading_error_rate:ratio_rate5m > 0.005
+        for: 3m
+        labels:
+          severity: critical
+          service: trading
+          slo_type: error_rate
+        annotations:
+          summary: "Trading service error rate SLO breach"
+          description: "Trading service error rate ({{ $value | humanizePercentage }}) exceeds SLO target of 0.5%"
+          current_rate: "{{ $value | humanizePercentage }}"
+
+  # =======================================================================
+  # ERROR BUDGET BURN RATE ALERTS
+  # =======================================================================
+  - name: error_budget_burn_rate
+    rules:
+      # Fast burn rate: 14.4x normal rate (1h to exhaust monthly budget)
+      - alert: ErrorBudgetBurnRateFast
+        expr: (
+          sum(rate(treum_http_requests_total{status_code=~"5.."}[1h])) /
+          sum(rate(treum_http_requests_total[1h]))
+        ) > (14.4 * 0.001)  # 14.4x the 0.1% error budget
+        for: 2m
+        labels:
+          severity: critical
+          burn_rate: fast
+        annotations:
+          summary: "Error budget burning too fast"
+          description: "Error budget will be exhausted in {{ $value | humanizeDuration }} at current burn rate"
+          action: "Immediate investigation required"
+
+      # Slow burn rate: 6x normal rate (6h to exhaust monthly budget)
+      - alert: ErrorBudgetBurnRateSlow
+        expr: (
+          sum(rate(treum_http_requests_total{status_code=~"5.."}[6h])) /
+          sum(rate(treum_http_requests_total[6h]))
+        ) > (6 * 0.001)  # 6x the 0.1% error budget
+        for: 15m
+        labels:
+          severity: warning
+          burn_rate: slow
+        annotations:
+          summary: "Error budget burning at elevated rate"
+          description: "Error budget will be exhausted in {{ $value | humanizeDuration }} at current burn rate"
+          action: "Monitor closely and investigate if continues"
+
+  # =======================================================================
+  # SLO COMPLIANCE TRACKING
+  # =======================================================================
+  - name: slo_compliance
+    rules:
+      # Monthly SLO compliance tracking
+      - record: slo:monthly_compliance:api_gateway
+        expr: |
+          (
+            sum(increase(treum_http_requests_total{job="api-gateway",status_code!~"5.."}[30d])) /
+            sum(increase(treum_http_requests_total{job="api-gateway"}[30d]))
+          ) >= 0.999
+
+      - record: slo:monthly_compliance:payment
+        expr: |
+          (
+            sum(increase(treum_http_requests_total{job="payment",status_code!~"5.."}[30d])) /
+            sum(increase(treum_http_requests_total{job="payment"}[30d]))
+          ) >= 0.9995
+
+      - record: slo:monthly_compliance:trading
+        expr: |
+          (
+            sum(increase(treum_http_requests_total{job="trading",status_code!~"5.."}[30d])) /
+            sum(increase(treum_http_requests_total{job="trading"}[30d]))
+          ) >= 0.999
+
+      # SLO compliance alerts for monthly review
+      - alert: MonthlySLOComplianceWarning
+        expr: |
+          (
+            sum(increase(treum_http_requests_total{status_code!~"5.."}[30d])) /
+            sum(increase(treum_http_requests_total[30d]))
+          ) < 0.999
+        for: 1h
+        labels:
+          severity: warning
+          frequency: monthly
+        annotations:
+          summary: "Monthly SLO compliance at risk"
+          description: "Service {{ $labels.job }} is at risk of missing monthly SLO targets"
+          compliance_rate: "{{ $value | humanizePercentage }}"
+          action: "Review error budget and consider feature freeze if needed"

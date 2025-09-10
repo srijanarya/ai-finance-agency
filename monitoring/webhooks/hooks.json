@@ -1,0 +1,182 @@
+[
+  {
+    "id": "sms-alert",
+    "execute-command": "/scripts/send-sms.sh",
+    "command-working-directory": "/scripts",
+    "response-message": "SMS alert sent",
+    "trigger-rule": {
+      "and": [
+        {
+          "match": {
+            "type": "payload-hash-sha1",
+            "secret": "${SMS_WEBHOOK_SECRET}",
+            "parameter": {
+              "source": "header",
+              "name": "X-Hub-Signature"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "value",
+            "value": "critical",
+            "parameter": {
+              "source": "payload",
+              "name": "severity"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "slack-enhancement",
+    "execute-command": "/scripts/enhance-slack.sh",
+    "command-working-directory": "/scripts",
+    "response-message": "Enhanced Slack notification sent",
+    "pass-arguments-to-command": [
+      {
+        "source": "payload",
+        "name": "alertname"
+      },
+      {
+        "source": "payload",
+        "name": "service"
+      },
+      {
+        "source": "payload",
+        "name": "severity"
+      }
+    ]
+  },
+  {
+    "id": "pagerduty-incident",
+    "execute-command": "/scripts/create-pagerduty-incident.sh",
+    "command-working-directory": "/scripts",
+    "response-message": "PagerDuty incident created",
+    "trigger-rule": {
+      "and": [
+        {
+          "match": {
+            "type": "value",
+            "value": "critical",
+            "parameter": {
+              "source": "payload",
+              "name": "severity"
+            }
+          }
+        },
+        {
+          "or": [
+            {
+              "match": {
+                "type": "value",
+                "value": "payment",
+                "parameter": {
+                  "source": "payload",
+                  "name": "service"
+                }
+              }
+            },
+            {
+              "match": {
+                "type": "value",
+                "value": "trading",
+                "parameter": {
+                  "source": "payload",
+                  "name": "service"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "auto-scale-trigger",
+    "execute-command": "/scripts/auto-scale.sh",
+    "command-working-directory": "/scripts",
+    "response-message": "Auto-scaling triggered",
+    "trigger-rule": {
+      "and": [
+        {
+          "match": {
+            "type": "regex",
+            "regex": "High.*Usage",
+            "parameter": {
+              "source": "payload",
+              "name": "alertname"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "value",
+            "value": "warning",
+            "parameter": {
+              "source": "payload",
+              "name": "severity"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "business-impact-notification",
+    "execute-command": "/scripts/business-impact.sh",
+    "command-working-directory": "/scripts",
+    "response-message": "Business team notified",
+    "trigger-rule": {
+      "or": [
+        {
+          "match": {
+            "type": "value",
+            "value": "revenue",
+            "parameter": {
+              "source": "payload",
+              "name": "impact"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "value",
+            "value": "trading",
+            "parameter": {
+              "source": "payload",
+              "name": "impact"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "value",
+            "value": "compliance",
+            "parameter": {
+              "source": "payload",
+              "name": "category"
+            }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "maintenance-mode",
+    "execute-command": "/scripts/maintenance-mode.sh",
+    "command-working-directory": "/scripts",
+    "response-message": "Maintenance mode toggled",
+    "trigger-rule": {
+      "match": {
+        "type": "value",
+        "value": "${MAINTENANCE_SECRET}",
+        "parameter": {
+          "source": "payload",
+          "name": "secret"
+        }
+      }
+    }
+  }
+]

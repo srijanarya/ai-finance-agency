@@ -1,16 +1,23 @@
-# AI Finance Agency - Comprehensive Prometheus Configuration
+# AI Finance Agency - Enhanced Prometheus Configuration
 # Production-ready monitoring for 10 microservices architecture
+# SRE-grade observability with comprehensive metrics collection
 
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  scrape_timeout: 10s
   external_labels:
     cluster: 'ai-finance'
     environment: 'production'
+    region: 'us-east-1'
+    version: '1.0.0'
 
 # Rule files for alerting
 rule_files:
   - "rules/*.yml"
+  - "rules/slo/*.yml"
+  - "rules/business/*.yml"
+  - "rules/infrastructure/*.yml"
 
 # Alertmanager configuration
 alerting:
@@ -105,6 +112,20 @@ scrape_configs:
     metrics_path: '/metrics'
     scrape_interval: 15s
 
+  # Background Worker Service
+  - job_name: 'worker'
+    static_configs:
+      - targets: ['worker:3010']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Task Scheduler Service
+  - job_name: 'scheduler'
+    static_configs:
+      - targets: ['scheduler:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
   # =======================================================================
   # INFRASTRUCTURE METRICS
   # =======================================================================
@@ -157,6 +178,31 @@ scrape_configs:
     scrape_interval: 15s
     metrics_path: '/metrics'
 
+  # Blackbox Exporter - External service monitoring
+  - job_name: 'blackbox'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+        - http://api-gateway:3000/health
+        - http://user-management:3002/health
+        - http://payment:3001/health
+        - http://trading:3004/health
+        - http://signals:3003/health
+        - http://education:3005/health
+        - http://notification:3006/health
+        - http://risk-management:3007/health
+        - http://market-data:3008/health
+        - http://content-intelligence:3009/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
   # =======================================================================
   # SELF-MONITORING
   # =======================================================================
@@ -203,6 +249,36 @@ scrape_configs:
     metrics_path: '/metrics/revenue'
     scrape_interval: 60s
 
+  # SLO metrics collection
+  - job_name: 'slo-metrics'
+    static_configs:
+      - targets:
+        - 'api-gateway:3000'
+        - 'payment:3001'
+        - 'trading:3004'
+        - 'market-data:3008'
+    metrics_path: '/metrics/slo'
+    scrape_interval: 30s
+    params:
+      slo: ['availability', 'latency', 'error_rate']
+
+  # Custom application metrics
+  - job_name: 'app-metrics'
+    static_configs:
+      - targets:
+        - 'api-gateway:3000'
+        - 'user-management:3002'
+        - 'payment:3001'
+        - 'signals:3003'
+        - 'trading:3004'
+        - 'education:3005'
+        - 'notification:3006'
+        - 'risk-management:3007'
+        - 'market-data:3008'
+        - 'content-intelligence:3009'
+    metrics_path: '/metrics/custom'
+    scrape_interval: 30s
+
 # Remote write configuration for long-term storage (optional)
 # remote_write:
 #   - url: "https://prometheus-prod.grafana.net/api/prom/push"
@@ -216,3 +292,34 @@ storage:
     retention.time: 30d
     retention.size: 10GB
     wal-compression: true
+    # High performance settings
+    max-block-duration: 2h
+    min-block-duration: 2h
+
+# Recording rules for performance optimization
+recording_rules:
+  - record: instance:node_cpu_utilisation:rate5m
+    expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) BY (instance)
+  - record: instance:node_memory_utilisation:ratio
+    expr: 1 - ((node_memory_MemAvailable_bytes or node_memory_MemFree_bytes) / node_memory_MemTotal_bytes)
+  - record: instance:node_load1_per_cpu:ratio
+    expr: (node_load1 / count(node_cpu_seconds_total{mode="idle"}) BY (instance))
+  - record: cluster:namespace:pod_memory:active:kube_pod_overhead
+    expr: kube_pod_overhead{resource="memory"} + on(namespace, pod) group_left() kube_pod_container_resource_requests{resource="memory"}
+  - record: cluster:namespace:pod_cpu:active:kube_pod_overhead
+    expr: kube_pod_overhead{resource="cpu"} + on(namespace, pod) group_left() kube_pod_container_resource_requests{resource="cpu"}
+
+# Federated monitoring for external data sources
+federate:
+  - job_name: 'federate'
+    scrape_interval: 15s
+    honor_labels: true
+    metrics_path: '/federate'
+    params:
+      'match[]':
+        - '{job=~"prometheus|node|cadvisor"}
+        - '{__name__=~"job:.*"}'
+        - '{__name__=~"instance:.*"}'
+    static_configs:
+      - targets:
+        # Add external Prometheus instances here if needed

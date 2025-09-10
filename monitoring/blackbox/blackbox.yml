@@ -1,0 +1,134 @@
+# Blackbox Exporter Configuration
+# External service monitoring and health checks
+
+modules:
+  # HTTP 2xx check
+  http_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+      valid_status_codes: [200, 201, 202, 204]
+      method: GET
+      headers:
+        Accept: "application/json"
+        User-Agent: "AI-Finance-Blackbox-Exporter/1.0"
+      no_follow_redirects: false
+      fail_if_ssl: false
+      fail_if_not_ssl: false
+      tls_config:
+        insecure_skip_verify: true
+
+  # HTTP POST check for API endpoints
+  http_post_2xx:
+    prober: http
+    timeout: 5s
+    http:
+      method: POST
+      headers:
+        Content-Type: "application/json"
+        Accept: "application/json"
+      body: '{}'
+
+  # TCP connect check
+  tcp_connect:
+    prober: tcp
+    timeout: 5s
+
+  # ICMP ping check
+  icmp:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      protocol: "icmp"
+
+  # DNS lookup check
+  dns:
+    prober: dns
+    timeout: 5s
+    dns:
+      query_name: "ai-finance.local"
+      query_type: "A"
+
+  # SSL certificate expiry check
+  http_ssl:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      fail_if_not_ssl: true
+      tls_config:
+        insecure_skip_verify: false
+
+  # WebSocket health check
+  websocket:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      headers:
+        Connection: "Upgrade"
+        Upgrade: "websocket"
+        Sec-WebSocket-Key: "x3JJHMbDL1EzLkh9GBhXDw=="
+        Sec-WebSocket-Version: "13"
+
+  # Database connection checks
+  postgres_connect:
+    prober: tcp
+    timeout: 5s
+
+  # Redis connection check
+  redis_connect:
+    prober: tcp
+    timeout: 5s
+
+  # MongoDB connection check
+  mongodb_connect:
+    prober: tcp
+    timeout: 5s
+
+  # RabbitMQ management API check
+  rabbitmq_management:
+    prober: http
+    timeout: 5s
+    http:
+      method: GET
+      valid_status_codes: [200]
+      basic_auth:
+        username: "${RABBITMQ_USER:-ai_finance_admin}"
+        password: "${RABBITMQ_PASSWORD:-securerabbitpass}"
+
+  # Custom business endpoint checks
+  payment_health:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      valid_status_codes: [200]
+      headers:
+        Accept: "application/json"
+      fail_if_body_not_matches_regexp:
+        - '"status":\s*"healthy"'
+
+  trading_health:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      valid_status_codes: [200]
+      headers:
+        Accept: "application/json"
+      fail_if_body_not_matches_regexp:
+        - '"status":\s*"healthy"'
+
+  # Market data feed check
+  market_data_health:
+    prober: http
+    timeout: 15s
+    http:
+      method: GET
+      valid_status_codes: [200]
+      headers:
+        Accept: "application/json"
+      fail_if_body_not_matches_regexp:
+        - '"feed_status":\s*"active"'

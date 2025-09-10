@@ -1,0 +1,559 @@
+# AI Finance Agency - Enhanced Monitoring Stack
+# Complete SRE-grade observability with all monitoring components
+
+services:
+  # =======================================================================
+  # METRICS COLLECTION
+  # =======================================================================
+  
+  # Prometheus - Main metrics collection server
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: ai_finance_prometheus_enhanced
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ./data/prometheus:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - ai_finance_network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=10GB'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+      - '--log.level=info'
+      - '--web.external-url=http://localhost:9090'
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+
+  # AlertManager - Alert routing and notifications
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: ai_finance_alertmanager_enhanced
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./alertmanager/templates:/etc/alertmanager/templates:ro
+      - ./data/alertmanager:/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - ai_finance_network
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--log.level=info'
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9093/-/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # =======================================================================
+  # VISUALIZATION
+  # =======================================================================
+  
+  # Grafana - Metrics visualization and dashboards
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: ai_finance_grafana_enhanced
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
+      GF_SECURITY_ALLOW_EMBEDDING: true
+      GF_SECURITY_COOKIE_SAMESITE: none
+      GF_INSTALL_PLUGINS: grafana-clock-panel,grafana-simple-json-datasource,grafana-piechart-panel,grafana-worldmap-panel,grafana-polystat-panel
+      GF_FEATURE_TOGGLES_ENABLE: publicDashboards
+      GF_UNIFIED_ALERTING_ENABLED: true
+      GF_ALERTING_ENABLED: false
+      GF_RENDERING_SERVER_URL: http://grafana-renderer:8081/render
+      GF_RENDERING_CALLBACK_URL: http://grafana:3000/
+      GF_LOG_FILTERS: rendering:debug
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/plugins:/var/lib/grafana/plugins:ro
+      - ./grafana/alerting:/etc/grafana/provisioning/alerting:ro
+    ports:
+      - "3001:3000"
+    networks:
+      - ai_finance_network
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # Grafana Image Renderer - For PDF/PNG exports
+  grafana-renderer:
+    image: grafana/grafana-image-renderer:3.8.0
+    container_name: ai_finance_grafana_renderer
+    environment:
+      ENABLE_METRICS: true
+      HTTP_PORT: 8081
+    ports:
+      - "8081:8081"
+    networks:
+      - ai_finance_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # =======================================================================
+  # INFRASTRUCTURE EXPORTERS
+  # =======================================================================
+  
+  # Node Exporter - System metrics
+  node-exporter:
+    image: prom/node-exporter:v1.6.1
+    container_name: ai_finance_node_exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    ports:
+      - "9100:9100"
+    networks:
+      - ai_finance_network
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - '--collector.systemd'
+      - '--collector.processes'
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # cAdvisor - Container metrics
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: ai_finance_cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8080:8080"
+    networks:
+      - ai_finance_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # PostgreSQL Exporter
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.13.2
+    container_name: ai_finance_postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${POSTGRES_USER:-ai_finance_user}:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/ai_finance_db?sslmode=disable"
+      PG_EXPORTER_INCLUDE_DATABASES: "ai_finance_db,trading_db,signals_db,payment_db,education_db,risk_db,user_db"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: true
+      PG_EXPORTER_EXTEND_QUERY_PATH: "/etc/postgres_exporter/queries.yaml"
+    volumes:
+      - ./exporters/postgres/queries.yaml:/etc/postgres_exporter/queries.yaml:ro
+    ports:
+      - "9187:9187"
+    networks:
+      - ai_finance_network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # Redis Exporter
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.52.0
+    container_name: ai_finance_redis_exporter
+    environment:
+      REDIS_ADDR: "redis://redis:6379"
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+    ports:
+      - "9121:9121"
+    networks:
+      - ai_finance_network
+    depends_on:
+      - redis
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+
+  # MongoDB Exporter
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.39.0
+    container_name: ai_finance_mongodb_exporter
+    environment:
+      MONGODB_URI: "mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-securepass123}@mongodb:27017"
+    ports:
+      - "9216:9216"
+    networks:
+      - ai_finance_network
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # Nginx Exporter (for when Nginx is used)
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:0.11.0
+    container_name: ai_finance_nginx_exporter
+    environment:
+      SCRAPE_URI: "http://nginx:80/nginx_status"
+      TELEMETRY_PATH: "/metrics"
+    ports:
+      - "9113:9113"
+    networks:
+      - ai_finance_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+    profiles:
+      - production
+
+  # Blackbox Exporter - External monitoring
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.24.0
+    container_name: ai_finance_blackbox_exporter
+    volumes:
+      - ./blackbox/blackbox.yml:/config/blackbox.yml:ro
+    ports:
+      - "9115:9115"
+    networks:
+      - ai_finance_network
+    command:
+      - '--config.file=/config/blackbox.yml'
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+  # =======================================================================
+  # DISTRIBUTED TRACING
+  # =======================================================================
+  
+  # Jaeger All-in-One - Distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:1.48
+    container_name: ai_finance_jaeger_enhanced
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+      COLLECTOR_ZIPKIN_HOST_PORT: :9411
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: false
+      BADGER_DIRECTORY_VALUE: /badger/data
+      BADGER_DIRECTORY_KEY: /badger/key
+    volumes:
+      - ./data/jaeger:/badger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # HTTP collector
+      - "14250:14250"  # OTLP gRPC
+      - "14269:14269"  # OTLP HTTP
+      - "9411:9411"    # Zipkin compatible endpoint
+    networks:
+      - ai_finance_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:16686"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # =======================================================================
+  # LOG AGGREGATION
+  # =======================================================================
+  
+  # Elasticsearch - Log storage
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+    container_name: ai_finance_elasticsearch_enhanced
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: false
+      ES_JAVA_OPTS: -Xms1g -Xmx1g
+      cluster.name: ai-finance-logs
+      node.name: elasticsearch-01
+    volumes:
+      - ./data/elasticsearch:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - ai_finance_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Logstash - Log processing
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.9.0
+    container_name: ai_finance_logstash_enhanced
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    ports:
+      - "5044:5044"    # Beats input
+      - "5000:5000"    # TCP input
+      - "9600:9600"    # HTTP API
+    networks:
+      - ai_finance_network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      LS_JAVA_OPTS: -Xms512m -Xmx512m
+      XPACK_MONITORING_ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Kibana - Log visualization
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.9.0
+    container_name: ai_finance_kibana_enhanced
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      SERVER_NAME: kibana
+      SERVER_PUBLICBASEURL: http://localhost:5601
+    ports:
+      - "5601:5601"
+    networks:
+      - ai_finance_network
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5601/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Filebeat - Log shipping
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.9.0
+    container_name: ai_finance_filebeat
+    user: root
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./data/filebeat:/usr/share/filebeat/data
+    networks:
+      - ai_finance_network
+    depends_on:
+      - logstash
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # =======================================================================
+  # SYNTHETIC MONITORING
+  # =======================================================================
+  
+  # Uptime-kuma - Uptime monitoring
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: ai_finance_uptime_kuma
+    volumes:
+      - ./data/uptime-kuma:/app/data
+    ports:
+      - "3002:3001"
+    networks:
+      - ai_finance_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
+  # =======================================================================
+  # PERFORMANCE TESTING
+  # =======================================================================
+  
+  # K6 - Performance testing (on demand)
+  k6:
+    image: grafana/k6:0.46.0
+    container_name: ai_finance_k6
+    volumes:
+      - ./k6/tests:/tests
+      - ./k6/results:/results
+    networks:
+      - ai_finance_network
+    environment:
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM: true
+    profiles:
+      - testing
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # =======================================================================
+  # NOTIFICATION SERVICES
+  # =======================================================================
+  
+  # Webhook service for custom notifications
+  webhook-service:
+    image: adnanh/webhook:2.8.0
+    container_name: ai_finance_webhook_service
+    volumes:
+      - ./webhooks/hooks.json:/etc/webhook/hooks.json:ro
+      - ./webhooks/scripts:/scripts:ro
+    ports:
+      - "9000:9000"
+    networks:
+      - ai_finance_network
+    command: ["-verbose", "-hooks=/etc/webhook/hooks.json", "-hotreload"]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
+
+# =======================================================================
+# NETWORKS
+# =======================================================================
+networks:
+  ai_finance_network:
+    external: true
+    name: ai_finance_network
+
+# =======================================================================
+# VOLUMES
+# =======================================================================
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  alertmanager_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+  jaeger_data:
+    driver: local
+  uptime_kuma_data:
+    driver: local

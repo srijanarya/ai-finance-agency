@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
-import { Role } from '../entities/role.entity';
+import { Role, RoleType } from '../entities/role.entity';
 import { Permission } from '../entities/permission.entity';
 import { AuditAction } from '../entities/audit-log.entity';
 import {
@@ -29,7 +29,7 @@ export class RoleService {
   async findAll(): Promise<Role[]> {
     return this.roleRepository.find({
       relations: ['permissions', 'users'],
-      order: { priority: 'DESC', createdAt: 'ASC' },
+      order: { hierarchyLevel: 'DESC', createdAt: 'ASC' },
     });
   }
 
@@ -139,7 +139,7 @@ export class RoleService {
     const role = await this.findById(id);
 
     // Prevent deletion of system roles
-    if (role.isSystem) {
+    if (role.isSystemRole) {
       throw new BadRequestException('Cannot delete system roles');
     }
 
@@ -242,7 +242,7 @@ export class RoleService {
     return this.roleRepository.find({
       where: { isActive: true },
       relations: ['permissions'],
-      order: { priority: 'DESC', name: 'ASC' },
+      order: { hierarchyLevel: 'DESC', name: 'ASC' },
     });
   }
 
@@ -255,7 +255,7 @@ export class RoleService {
     const [totalRoles, activeRoles, systemRoles] = await Promise.all([
       this.roleRepository.count(),
       this.roleRepository.count({ where: { isActive: true } }),
-      this.roleRepository.count({ where: { isSystem: true } }),
+      this.roleRepository.count({ where: { type: RoleType.SYSTEM } }),
     ]);
 
     const customRoles = totalRoles - systemRoles;

@@ -58,11 +58,17 @@ export class AuthService {
     private auditService: AuditService,
   ) {}
 
-  async register(registerDto: RegisterDto, ipAddress?: string): Promise<{ message: string; userId: string }> {
-    const { email, password, firstName, lastName, phone, dateOfBirth } = registerDto;
+  async register(
+    registerDto: RegisterDto,
+    ipAddress?: string,
+  ): Promise<{ message: string; userId: string }> {
+    const { email, password, firstName, lastName, phone, dateOfBirth } =
+      registerDto;
 
     // Check if user already exists
-    const existingUser = await this.userRepository.findOne({ where: { email } });
+    const existingUser = await this.userRepository.findOne({
+      where: { email },
+    });
     if (existingUser) {
       throw new ConflictException('User with this email already exists');
     }
@@ -87,7 +93,10 @@ export class AuthService {
     const savedUser = await this.userRepository.save(user);
 
     // Send verification email
-    await this.emailService.sendVerificationEmail(email, emailVerificationToken);
+    await this.emailService.sendVerificationEmail(
+      email,
+      emailVerificationToken,
+    );
 
     // Log the registration
     await this.auditService.log({
@@ -99,12 +108,17 @@ export class AuthService {
     });
 
     return {
-      message: 'User registered successfully. Please check your email for verification.',
+      message:
+        'User registered successfully. Please check your email for verification.',
       userId: savedUser.id,
     };
   }
 
-  async login(loginDto: LoginDto, ipAddress?: string, userAgent?: string): Promise<AuthResponse> {
+  async login(
+    loginDto: LoginDto,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AuthResponse> {
     const { email, password, deviceId, deviceName } = loginDto;
 
     const user = await this.userRepository.findOne({
@@ -118,7 +132,9 @@ export class AuthService {
 
     // Check if account is locked
     if (user.isLocked) {
-      throw new ForbiddenException('Account is temporarily locked due to too many failed login attempts');
+      throw new ForbiddenException(
+        'Account is temporarily locked due to too many failed login attempts',
+      );
     }
 
     // Validate password
@@ -130,7 +146,9 @@ export class AuthService {
 
     // Check if email is verified
     if (!user.emailVerified) {
-      throw new ForbiddenException('Please verify your email address before logging in');
+      throw new ForbiddenException(
+        'Please verify your email address before logging in',
+      );
     }
 
     // Check if account is active
@@ -153,14 +171,22 @@ export class AuthService {
     });
 
     // Create session
-    const session = await this.createSession(user.id, deviceId, deviceName, ipAddress, userAgent);
+    const session = await this.createSession(
+      user.id,
+      deviceId,
+      deviceName,
+      ipAddress,
+      userAgent,
+    );
 
     // Generate tokens
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       roles: user.roles.map((role) => role.name),
-      permissions: user.roles.flatMap((role) => role.permissions.map((perm) => perm.name)),
+      permissions: user.roles.flatMap((role) =>
+        role.permissions.map((perm) => perm.name),
+      ),
       sessionId: session.id,
     };
 
@@ -186,7 +212,10 @@ export class AuthService {
     };
   }
 
-  async refreshToken(refreshDto: RefreshTokenDto, ipAddress?: string): Promise<AuthResponse> {
+  async refreshToken(
+    refreshDto: RefreshTokenDto,
+    ipAddress?: string,
+  ): Promise<AuthResponse> {
     const { refreshToken } = refreshDto;
 
     const session = await this.sessionRepository.findOne({
@@ -205,7 +234,9 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       roles: user.roles.map((role) => role.name),
-      permissions: user.roles.flatMap((role) => role.permissions.map((perm) => perm.name)),
+      permissions: user.roles.flatMap((role) =>
+        role.permissions.map((perm) => perm.name),
+      ),
       sessionId: session.id,
     };
 
@@ -219,10 +250,13 @@ export class AuthService {
     };
   }
 
-  async logout(userId: string, sessionId: string): Promise<{ message: string }> {
+  async logout(
+    userId: string,
+    sessionId: string,
+  ): Promise<{ message: string }> {
     await this.sessionRepository.update(
       { id: sessionId, userId },
-      { isActive: false }
+      { isActive: false },
     );
 
     await this.auditService.log({
@@ -235,13 +269,18 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto, ipAddress?: string): Promise<{ message: string }> {
+  async forgotPassword(
+    forgotPasswordDto: ForgotPasswordDto,
+    ipAddress?: string,
+  ): Promise<{ message: string }> {
     const { email } = forgotPasswordDto;
 
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
       // Don't reveal if email exists
-      return { message: 'If the email exists, a password reset link has been sent.' };
+      return {
+        message: 'If the email exists, a password reset link has been sent.',
+      };
     }
 
     // Generate reset token
@@ -265,10 +304,15 @@ export class AuthService {
       ipAddress,
     });
 
-    return { message: 'If the email exists, a password reset link has been sent.' };
+    return {
+      message: 'If the email exists, a password reset link has been sent.',
+    };
   }
 
-  async resetPassword(resetPasswordDto: ResetPasswordDto, ipAddress?: string): Promise<{ message: string }> {
+  async resetPassword(
+    resetPasswordDto: ResetPasswordDto,
+    ipAddress?: string,
+  ): Promise<{ message: string }> {
     const { token, newPassword } = resetPasswordDto;
 
     const user = await this.userRepository.findOne({
@@ -277,7 +321,11 @@ export class AuthService {
       },
     });
 
-    if (!user || !user.passwordResetExpires || user.passwordResetExpires < new Date()) {
+    if (
+      !user ||
+      !user.passwordResetExpires ||
+      user.passwordResetExpires < new Date()
+    ) {
       throw new BadRequestException('Invalid or expired reset token');
     }
 
@@ -293,7 +341,7 @@ export class AuthService {
     // Invalidate all sessions
     await this.sessionRepository.update(
       { userId: user.id },
-      { isActive: false }
+      { isActive: false },
     );
 
     // Log the password reset
@@ -311,7 +359,7 @@ export class AuthService {
   async changePassword(
     userId: string,
     changePasswordDto: ChangePasswordDto,
-    ipAddress?: string
+    ipAddress?: string,
   ): Promise<{ message: string }> {
     const { currentPassword, newPassword } = changePasswordDto;
 
@@ -343,14 +391,21 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
-  async verifyEmail(token: string, ipAddress?: string): Promise<{ message: string }> {
+  async verifyEmail(
+    token: string,
+    ipAddress?: string,
+  ): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({
       where: {
         emailVerificationToken: token,
       },
     });
 
-    if (!user || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
+    if (
+      !user ||
+      !user.emailVerificationExpires ||
+      user.emailVerificationExpires < new Date()
+    ) {
       throw new BadRequestException('Invalid or expired verification token');
     }
 
@@ -379,7 +434,7 @@ export class AuthService {
     deviceId?: string,
     deviceName?: string,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
   ): Promise<UserSession> {
     const refreshToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -397,13 +452,16 @@ export class AuthService {
     return this.sessionRepository.save(session);
   }
 
-  private async handleFailedLogin(user: User, ipAddress?: string): Promise<void> {
+  private async handleFailedLogin(
+    user: User,
+    ipAddress?: string,
+  ): Promise<void> {
     const failedAttempts = user.failedLoginAttempts + 1;
     const updateData: Partial<User> = { failedLoginAttempts: failedAttempts };
 
     if (failedAttempts >= this.MAX_LOGIN_ATTEMPTS) {
       updateData.lockedUntil = new Date(Date.now() + this.LOCKOUT_TIME);
-      
+
       await this.auditService.log({
         userId: user.id,
         action: AuditAction.ACCOUNT_LOCKED,
@@ -425,14 +483,14 @@ export class AuthService {
   }
 
   private sanitizeUser(user: User): Partial<User> {
-    const { 
-      password: _password, 
-      passwordResetToken: _passwordResetToken, 
-      passwordResetExpires: _passwordResetExpires, 
-      emailVerificationToken: _emailVerificationToken, 
-      emailVerificationExpires: _emailVerificationExpires, 
-      twoFactorSecret: _twoFactorSecret, 
-      ...sanitized 
+    const {
+      password: _password,
+      passwordResetToken: _passwordResetToken,
+      passwordResetExpires: _passwordResetExpires,
+      emailVerificationToken: _emailVerificationToken,
+      emailVerificationExpires: _emailVerificationExpires,
+      twoFactorSecret: _twoFactorSecret,
+      ...sanitized
     } = user;
     return sanitized;
   }

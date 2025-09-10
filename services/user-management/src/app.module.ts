@@ -1,6 +1,25 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { PassportModule } from '@nestjs/passport';
+import { JwtModule } from '@nestjs/jwt';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { User } from './entities/user.entity';
+import { Role } from './entities/role.entity';
+import { Permission } from './entities/permission.entity';
+import { UserSession } from './entities/user-session.entity';
+import { AuditLog } from './entities/audit-log.entity';
+import { AuthController } from './controllers/auth.controller';
+import { UserController } from './controllers/user.controller';
+import { RoleController } from './controllers/role.controller';
+import { AuthService } from './services/auth.service';
+import { UserService } from './services/user.service';
+import { RoleService } from './services/role.service';
+import { EmailService } from './services/email.service';
+import { AuditService } from './services/audit.service';
 
 @Module({
   imports: [

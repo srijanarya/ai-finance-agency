@@ -123,7 +123,7 @@ export class UserService {
       if (existingUser) {
         throw new ConflictException('User with this email already exists');
       }
-      updateData.email = email;
+      (updateData as any).email = email;
     }
 
     // Update user
@@ -168,7 +168,11 @@ export class UserService {
     await this.findById(id); // Ensure user exists
 
     await this.userRepository.update(id, {
-      preferences: updatePreferencesDto.preferences,
+      newsletterSubscribed: updatePreferencesDto.newsletterSubscribed,
+      notificationsEnabled: updatePreferencesDto.notificationsEnabled,
+      marketingEmailsEnabled: updatePreferencesDto.marketingEmailsEnabled,
+      timezone: updatePreferencesDto.timezone,
+      language: updatePreferencesDto.language,
     });
 
     // Log the preferences update
@@ -266,17 +270,17 @@ export class UserService {
 
   async search(searchDto: UserSearchDto): Promise<PaginatedUsers> {
     const {
-      search,
+      query,
       status,
       role,
       sortBy = 'createdAt',
-      sortOrder = 'DESC',
-      page = '1',
-      limit = '10',
+      sortOrder = 'desc',
+      page = 1,
+      limit = 10,
     } = searchDto;
 
-    const pageNumber = parseInt(page, 10);
-    const limitNumber = parseInt(limit, 10);
+    const pageNumber = typeof page === 'string' ? parseInt(page, 10) : page;
+    const limitNumber = typeof limit === 'string' ? parseInt(limit, 10) : limit;
     const offset = (pageNumber - 1) * limitNumber;
 
     const queryBuilder = this.userRepository
@@ -285,10 +289,10 @@ export class UserService {
       .leftJoinAndSelect('roles.permissions', 'permissions');
 
     // Apply search filter
-    if (search) {
+    if (query) {
       queryBuilder.andWhere(
-        '(user.firstName ILIKE :search OR user.lastName ILIKE :search OR user.email ILIKE :search)',
-        { search: `%${search}%` },
+        '(user.firstName ILIKE :query OR user.lastName ILIKE :query OR user.email ILIKE :query)',
+        { query: `%${query}%` },
       );
     }
 
@@ -303,8 +307,11 @@ export class UserService {
     }
 
     // Apply sorting
-    if (sortBy && (sortOrder === 'ASC' || sortOrder === 'DESC')) {
-      queryBuilder.orderBy(`user.${sortBy}`, sortOrder);
+    if (sortBy && (sortOrder === 'asc' || sortOrder === 'desc')) {
+      queryBuilder.orderBy(
+        `user.${sortBy}`,
+        sortOrder.toUpperCase() as 'ASC' | 'DESC',
+      );
     }
 
     // Apply pagination

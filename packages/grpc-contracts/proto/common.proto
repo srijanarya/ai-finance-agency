@@ -67,6 +67,14 @@ message MetricData {
   google.protobuf.Timestamp timestamp = 6;
 }
 
+// Common Operation Result
+message OperationResult {
+  bool success = 1;
+  string message = 2;
+  string error_code = 3;
+  map<string, string> metadata = 4;
+}
+
 // Common Error Response
 message ErrorResponse {
   string code = 1;

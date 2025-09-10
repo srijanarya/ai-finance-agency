@@ -204,8 +204,8 @@ export class ContentGenerationController {
   async listContent(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
-    @Query('contentType') contentType?: string,
-    @Query('status') status?: string,
+    @Query('contentType') contentType: string = '',
+    @Query('status') status: string = '',
     @Req() req: Request,
   ): Promise<{
     content: GeneratedContentResponseDto[];

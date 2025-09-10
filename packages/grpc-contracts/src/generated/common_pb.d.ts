@@ -243,6 +243,37 @@ export namespace MetricData {
     }
 }
 
+export class OperationResult extends jspb.Message { 
+    getSuccess(): boolean;
+    setSuccess(value: boolean): OperationResult;
+    getMessage(): string;
+    setMessage(value: string): OperationResult;
+    getErrorCode(): string;
+    setErrorCode(value: string): OperationResult;
+
+    getMetadataMap(): jspb.Map<string, string>;
+    clearMetadataMap(): void;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): OperationResult.AsObject;
+    static toObject(includeInstance: boolean, msg: OperationResult): OperationResult.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: OperationResult, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): OperationResult;
+    static deserializeBinaryFromReader(message: OperationResult, reader: jspb.BinaryReader): OperationResult;
+}
+
+export namespace OperationResult {
+    export type AsObject = {
+        success: boolean,
+        message: string,
+        errorCode: string,
+
+        metadataMap: Array<[string, string]>,
+    }
+}
+
 export class ErrorResponse extends jspb.Message { 
     getCode(): string;
     setCode(value: string): ErrorResponse;

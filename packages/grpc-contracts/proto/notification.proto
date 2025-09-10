@@ -34,7 +34,7 @@ service NotificationService {
   rpc SubscribePush(SubscribePushRequest) returns (PushSubscriptionResponse);
   
   // Unsubscribe from push notifications
-  rpc UnsubscribePush(UnsubscribePushRequest) returns (common.OperationResult);
+  rpc UnsubscribePush(UnsubscribePushRequest) returns (treum.common.OperationResult);
 }
 
 // Enums
@@ -183,12 +183,16 @@ message BulkNotificationResponse {
 message SendTemplateNotificationRequest {
   oneof user_target {
     string user_id = 1;
-    repeated string user_ids = 2;
+    UserIdList user_ids = 2;
   }
   string template_id = 3;
   map<string, string> variables = 4;
   int64 scheduled_at = 5;
   map<string, string> metadata = 6;
+}
+
+message UserIdList {
+  repeated string ids = 1;
 }
 
 message TemplateNotificationResponse {

@@ -464,6 +464,59 @@ services:
       timeout: 10s
       retries: 3
 
+  # Market Data Service
+  market-data:
+    build:
+      context: ./services/market-data
+      dockerfile: Dockerfile
+    container_name: treum_market_data
+    ports:
+      - "3008:3008"
+      - "50059:50059"  # gRPC port
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=3008
+      - GRPC_PORT=50059
+      - SERVICE_NAME=market-data
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD:-securepassword123}@postgres:5432/treum_finance
+      - REDIS_URL=redis://redis:6379
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-treum_admin}:${RABBITMQ_PASSWORD:-securerabbitpass}@rabbitmq:5672/treum_finance
+      - CONSUL_HOST=consul
+      - CONSUL_PORT=8500
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-dev-encryption-key}
+      - ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}
+      - IEX_API_TOKEN=${IEX_API_TOKEN}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      - ENABLE_SCHEDULED_FETCH=${ENABLE_SCHEDULED_FETCH:-true}
+      - DATA_FETCH_INTERVAL=${DATA_FETCH_INTERVAL:-30}
+      - CACHE_TTL=${CACHE_TTL:-300}
+      - THROTTLE_TTL=60000
+      - THROTTLE_LIMIT=100
+      - WS_MAX_CONNECTIONS=${WS_MAX_CONNECTIONS:-1000}
+      - WS_MAX_SYMBOLS_PER_CLIENT=${WS_MAX_SYMBOLS_PER_CLIENT:-50}
+    volumes:
+      - ./logs/market-data:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      user-management:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - treum_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3008/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # Monitoring and Observability
   
   # Prometheus

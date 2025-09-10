@@ -197,7 +197,8 @@ export class PersonalizationService {
     }
 
     // Determine complexity level
-    let complexityLevel: 'basic' | 'intermediate' | 'advanced' = userProfile.experienceLevel;
+    let complexityLevel: 'basic' | 'intermediate' | 'advanced' = 
+      userProfile.experienceLevel === 'beginner' ? 'basic' : userProfile.experienceLevel as 'basic' | 'intermediate' | 'advanced';
     
     if (data.complexityLevel) {
       complexityLevel = data.complexityLevel as any;

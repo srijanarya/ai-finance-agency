@@ -29,13 +29,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      
+
       if (typeof exceptionResponse === 'object' && exceptionResponse !== null) {
         message = (exceptionResponse as any).message || exception.message;
         errors = (exceptionResponse as any).errors || null;
-        
+
         // Handle validation errors from class-validator
-        if (exception instanceof BadRequestException && (exceptionResponse as any).message) {
+        if (
+          exception instanceof BadRequestException &&
+          (exceptionResponse as any).message
+        ) {
           const validationMessages = (exceptionResponse as any).message;
           if (Array.isArray(validationMessages)) {
             errors = this.formatValidationErrors(validationMessages);
@@ -45,7 +48,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       } else {
         message = exceptionResponse as string;
       }
-      
+
       stack = exception.stack;
     } else if (exception instanceof QueryFailedError) {
       // Handle database errors
@@ -79,12 +82,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
       this.logger.error(
         `${request.method} ${request.url} - ${status} - ${message}`,
         stack,
-        'HttpException'
+        'HttpException',
       );
     } else if (status >= 400) {
       this.logger.warn(
         `${request.method} ${request.url} - ${status} - ${message}`,
-        'HttpException'
+        'HttpException',
       );
     }
 
@@ -98,7 +101,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       path: errorDetails.path,
       requestId: errorDetails.requestId,
       // Include stack trace only in development
-      ...(process.env.NODE_ENV !== 'production' && { stack: errorDetails.stack }),
+      ...(process.env.NODE_ENV !== 'production' && {
+        stack: errorDetails.stack,
+      }),
     });
   }
 
@@ -106,21 +111,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (typeof errors[0] === 'string') {
       return errors;
     }
-    
+
     const validationErrors = errors as ValidationError[];
     const formattedErrors: any = {};
-    
-    validationErrors.forEach(error => {
+
+    validationErrors.forEach((error) => {
       const property = error.property;
       formattedErrors[property] = Object.values(error.constraints || {});
     });
-    
+
     return formattedErrors;
   }
 
   private handleDatabaseError(error: QueryFailedError): string {
     const message = error.message.toLowerCase();
-    
+
     // Handle common database constraints
     if (message.includes('duplicate') || message.includes('unique')) {
       if (message.includes('email')) {
@@ -131,18 +136,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
       return 'Duplicate entry found';
     }
-    
+
     if (message.includes('foreign key')) {
       return 'Related resource not found';
     }
-    
+
     if (message.includes('not null')) {
       return 'Required field is missing';
     }
-    
+
     // Log the full error for debugging
     this.logger.error('Database error', error.stack, 'DatabaseError');
-    
+
     // Return generic message in production
     return process.env.NODE_ENV === 'production'
       ? 'Database operation failed'

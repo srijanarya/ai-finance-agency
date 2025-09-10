@@ -9,12 +9,9 @@ import {
   IsBoolean,
   IsUUID,
   IsPhoneNumber,
-  IsEnum,
   Length,
   IsNotEmpty,
-  ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterDto {

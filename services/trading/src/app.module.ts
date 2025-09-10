@@ -2,10 +2,13 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { InstitutionalController } from './controllers/institutional.controller';
 import { InstitutionalTradingService } from './services/institutional-trading.service';
+import { ComplianceEngineService } from './services/compliance-engine.service';
+import { RiskManagementService } from './services/risk-management.service';
 import { InstitutionalOrder } from './entities/institutional-order.entity';
 import { Portfolio } from './entities/portfolio.entity';
 import { InstitutionalStrategy } from './entities/institutional-strategy.entity';
@@ -15,6 +18,7 @@ import { InstitutionalStrategy } from './entities/institutional-strategy.entity'
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    EventEmitterModule.forRoot(),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -42,6 +46,11 @@ import { InstitutionalStrategy } from './entities/institutional-strategy.entity'
     TypeOrmModule.forFeature([InstitutionalOrder, Portfolio, InstitutionalStrategy]),
   ],
   controllers: [AppController, InstitutionalController],
-  providers: [AppService, InstitutionalTradingService],
+  providers: [
+    AppService,
+    InstitutionalTradingService,
+    ComplianceEngineService,
+    RiskManagementService,
+  ],
 })
 export class AppModule {}

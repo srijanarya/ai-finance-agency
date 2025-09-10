@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -28,6 +29,8 @@ import { AuditService } from './services/audit.service';
       isGlobal: true,
       envFilePath: ['.env', '.env.local', '.env.development'],
     }),
+
+    EventEmitterModule.forRoot(),
 
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
@@ -82,7 +85,7 @@ import { AuditService } from './services/audit.service';
       ],
       inject: [ConfigService],
     }),
-    
+
     // HealthModule,
   ],
 

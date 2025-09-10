@@ -11,25 +11,27 @@ import { Logger } from '@nestjs/common';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  
+
   try {
     const app = await NestFactory.create(AppModule, {
       cors: false, // We'll configure CORS manually
     });
-    
+
     const configService = app.get(ConfigService);
     const port = configService.get<number>('PORT', 3001);
     const environment = configService.get<string>('NODE_ENV', 'development');
-    
+
     // Security middleware
-    app.use(helmet.default({
-      contentSecurityPolicy: environment === 'production' ? undefined : false,
-      crossOriginEmbedderPolicy: environment === 'production',
-    }));
-    
+    app.use(
+      helmet.default({
+        contentSecurityPolicy: environment === 'production' ? undefined : false,
+        crossOriginEmbedderPolicy: environment === 'production',
+      }),
+    );
+
     // Compression middleware
     app.use(compression());
-    
+
     // CORS configuration
     app.enableCors({
       origin: configService.get<string>('CORS_ORIGIN', '*').split(','),
@@ -41,20 +43,24 @@ async function bootstrap() {
         'X-Request-Id',
         'X-API-Key',
       ],
-      exposedHeaders: ['X-Request-Id', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
+      exposedHeaders: [
+        'X-Request-Id',
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+      ],
       maxAge: 86400, // 24 hours
     });
-    
+
     // API versioning
     app.enableVersioning({
       type: VersioningType.URI,
       defaultVersion: '1',
       prefix: 'api/v',
     });
-    
+
     // Global prefix
     app.setGlobalPrefix('api');
-    
+
     // Global pipes
     app.useGlobalPipes(
       new ValidationPipe({
@@ -70,18 +76,20 @@ async function bootstrap() {
         },
       }),
     );
-    
+
     // Global filters
     app.useGlobalFilters(new AllExceptionsFilter());
-    
+
     // Global interceptors
     app.useGlobalInterceptors(new LoggingInterceptor());
-    
+
     // Swagger documentation
     if (environment !== 'production') {
       const config = new DocumentBuilder()
         .setTitle('User Management API')
-        .setDescription('Comprehensive user management service for AI Finance Agency')
+        .setDescription(
+          'Comprehensive user management service for AI Finance Agency',
+        )
         .setVersion('1.0')
         .addBearerAuth(
           {
@@ -107,7 +115,7 @@ async function bootstrap() {
         .addServer('https://api.staging.aifinanceagency.com', 'Staging')
         .addServer('https://api.aifinanceagency.com', 'Production')
         .build();
-        
+
       const document = SwaggerModule.createDocument(app, config);
       SwaggerModule.setup('api/docs', app, document, {
         swaggerOptions: {
@@ -116,16 +124,18 @@ async function bootstrap() {
           operationsSorter: 'alpha',
         },
       });
-      
-      logger.log(`Swagger documentation available at http://localhost:${port}/api/docs`);
+
+      logger.log(
+        `Swagger documentation available at http://localhost:${port}/api/docs`,
+      );
     }
-    
+
     // Graceful shutdown
     const signals = ['SIGTERM', 'SIGINT'];
-    signals.forEach(signal => {
+    signals.forEach((signal) => {
       process.on(signal, async () => {
         logger.log(`Received ${signal}, starting graceful shutdown...`);
-        
+
         try {
           await app.close();
           logger.log('Application closed successfully');
@@ -136,10 +146,10 @@ async function bootstrap() {
         }
       });
     });
-    
+
     // Start the application
     await app.listen(port, '0.0.0.0');
-    
+
     logger.log(`
       ========================================
       User Management Service Started

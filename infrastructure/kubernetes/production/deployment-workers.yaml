@@ -1,0 +1,232 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: treum-signal-worker
+  namespace: treum-production
+  labels:
+    app: treum-signal-worker
+    environment: production
+    component: worker
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: treum-signal-worker
+  template:
+    metadata:
+      labels:
+        app: treum-signal-worker
+        environment: production
+        component: worker
+    spec:
+      imagePullSecrets:
+      - name: docker-registry-secret
+      
+      containers:
+      - name: signal-worker
+        image: treum/worker:latest
+        imagePullPolicy: Always
+        
+        command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info", "--concurrency=4"]
+        
+        envFrom:
+        - configMapRef:
+            name: treum-config
+        - secretRef:
+            name: treum-secrets
+        
+        env:
+        - name: WORKER_TYPE
+          value: "signals"
+        - name: CELERY_QUEUE
+          value: "signals,high_priority"
+        
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        
+        livenessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - app.workers.celery_app
+            - inspect
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 10
+        
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      
+      nodeSelector:
+        node-role: worker
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: treum-portfolio-worker
+  namespace: treum-production
+  labels:
+    app: treum-portfolio-worker
+    environment: production
+    component: worker
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: treum-portfolio-worker
+  template:
+    metadata:
+      labels:
+        app: treum-portfolio-worker
+        environment: production
+        component: worker
+    spec:
+      imagePullSecrets:
+      - name: docker-registry-secret
+      
+      containers:
+      - name: portfolio-worker
+        image: treum/worker:latest
+        imagePullPolicy: Always
+        
+        command: ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
+        
+        envFrom:
+        - configMapRef:
+            name: treum-config
+        - secretRef:
+            name: treum-secrets
+        
+        env:
+        - name: WORKER_TYPE
+          value: "portfolio"
+        - name: CELERY_QUEUE
+          value: "portfolio,orders,risk_management"
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        
+        livenessProbe:
+          exec:
+            command:
+            - celery
+            - -A
+            - app.workers.celery_app
+            - inspect
+            - ping
+          initialDelaySeconds: 30
+          periodSeconds: 60
+          timeoutSeconds: 10
+        
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      
+      nodeSelector:
+        node-role: worker
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: treum-scheduler
+  namespace: treum-production
+  labels:
+    app: treum-scheduler
+    environment: production
+    component: scheduler
+spec:
+  replicas: 1  # Only one scheduler instance
+  strategy:
+    type: Recreate  # Ensure only one instance runs at a time
+  selector:
+    matchLabels:
+      app: treum-scheduler
+  template:
+    metadata:
+      labels:
+        app: treum-scheduler
+        environment: production
+        component: scheduler
+    spec:
+      imagePullSecrets:
+      - name: docker-registry-secret
+      
+      containers:
+      - name: scheduler
+        image: treum/worker:latest
+        imagePullPolicy: Always
+        
+        command: ["celery", "-A", "app.workers.celery_app", "beat", "--loglevel=info"]
+        
+        envFrom:
+        - configMapRef:
+            name: treum-config
+        - secretRef:
+            name: treum-secrets
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        
+        volumeMounts:
+        - name: celerybeat-schedule
+          mountPath: /app/celerybeat-schedule
+      
+      volumes:
+      - name: celerybeat-schedule
+        persistentVolumeClaim:
+          claimName: celerybeat-schedule-pvc
+      
+      nodeSelector:
+        node-role: worker
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: celerybeat-schedule-pvc
+  namespace: treum-production
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  storageClassName: fast-ssd

@@ -4,7 +4,7 @@ API v1 router
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, health, content, market_data, social_media, profile, payments, webhooks, signals, signal_stream
+from app.api.v1.endpoints import auth, health, content, market_data, social_media, profile, payments, webhooks, signals, signal_stream, ai_signals, trading, subscriptions, dashboard, compliance
 
 api_router = APIRouter()
 
@@ -17,5 +17,10 @@ api_router.include_router(market_data.router, prefix="/market", tags=["market-da
 api_router.include_router(social_media.router, prefix="/social", tags=["social-media"])
 api_router.include_router(payments.router, prefix="/payments", tags=["payments"])
 api_router.include_router(signals.router, prefix="/signals", tags=["signals"])
+api_router.include_router(ai_signals.router, prefix="/ai-signals", tags=["ai-signals"])
 api_router.include_router(signal_stream.router, prefix="/stream", tags=["signal-stream"])
+api_router.include_router(trading.router, prefix="/trading", tags=["trading"])
+api_router.include_router(subscriptions.router, prefix="/subscriptions", tags=["subscriptions"])
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+api_router.include_router(compliance.router, prefix="/compliance", tags=["compliance"])
 api_router.include_router(webhooks.router, tags=["webhooks"])

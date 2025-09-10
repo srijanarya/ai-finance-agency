@@ -53,8 +53,8 @@ export class AuthController {
     @Body(ValidationPipe) refreshTokenDto: RefreshTokenDto,
     @Req() req: Request,
   ) {
-    const ipAddress = req.ip || req.connection.remoteAddress;
-    return this.authService.refreshToken(refreshTokenDto, ipAddress);
+    void req; // ipAddress is available if needed
+    return this.authService.refreshToken(refreshTokenDto);
   }
 
   @Post('logout')

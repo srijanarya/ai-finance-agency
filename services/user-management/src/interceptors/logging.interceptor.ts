@@ -16,10 +16,10 @@ export class LoggingInterceptor implements NestInterceptor {
     const ctx = context.switchToHttp();
     const request = ctx.getRequest();
     const response = ctx.getResponse();
-    
+
     const { method, url } = request;
     const startTime = Date.now();
-    
+
     return next.handle().pipe(
       tap({
         next: () => {
@@ -30,9 +30,11 @@ export class LoggingInterceptor implements NestInterceptor {
         error: (error) => {
           const duration = Date.now() - startTime;
           const statusCode = error.status || 500;
-          this.logger.error(`${method} ${url} ${statusCode} ${duration}ms - ${error.message}`);
-        }
-      })
+          this.logger.error(
+            `${method} ${url} ${statusCode} ${duration}ms - ${error.message}`,
+          );
+        },
+      }),
     );
   }
 }

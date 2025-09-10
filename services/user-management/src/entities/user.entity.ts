@@ -7,9 +7,7 @@ import {
   BeforeInsert,
   BeforeUpdate,
   ManyToMany,
-  ManyToOne,
   JoinTable,
-  JoinColumn,
   OneToMany,
   Index,
 } from 'typeorm';
@@ -17,7 +15,6 @@ import * as bcrypt from 'bcryptjs';
 import { Role } from './role.entity';
 import { UserSession } from './user-session.entity';
 import { AuditLog } from './audit-log.entity';
-import { EnterpriseTenant } from './enterprise-tenant.entity';
 
 export enum UserStatus {
   PENDING_VERIFICATION = 'pending_verification',
@@ -236,12 +233,6 @@ export class User {
   @Column({ name: 'tenant_id', nullable: true })
   @Index()
   tenantId?: string;
-
-  @ManyToOne(() => EnterpriseTenant, (tenant) => tenant.users, {
-    onDelete: 'SET NULL',
-  })
-  @JoinColumn({ name: 'tenant_id' })
-  tenant?: EnterpriseTenant;
 
   // Virtual properties
   get fullName(): string {

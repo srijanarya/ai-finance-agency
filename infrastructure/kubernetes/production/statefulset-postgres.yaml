@@ -1,0 +1,255 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: treum-production
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  clusterIP: None  # Headless service for StatefulSet
+  selector:
+    app: postgres
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: treum-production
+  labels:
+    app: postgres
+    environment: production
+spec:
+  serviceName: postgres-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+        environment: production
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        
+        ports:
+        - containerPort: 5432
+          name: postgres
+        
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: treum-config
+              key: DATABASE_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: treum-secrets
+              key: DATABASE_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: treum-secrets
+              key: DATABASE_PASSWORD
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        
+        # PostgreSQL Configuration
+        - name: POSTGRES_INITDB_ARGS
+          value: "--encoding=UTF8 --locale=en_US.UTF-8"
+        - name: POSTGRES_HOST_AUTH_METHOD
+          value: "scram-sha-256"
+        
+        # Performance Tuning
+        command:
+        - postgres
+        - -c
+        - max_connections=200
+        - -c
+        - shared_buffers=1GB
+        - -c
+        - effective_cache_size=3GB
+        - -c
+        - maintenance_work_mem=256MB
+        - -c
+        - checkpoint_completion_target=0.9
+        - -c
+        - wal_buffers=16MB
+        - -c
+        - default_statistics_target=100
+        - -c
+        - random_page_cost=1.1
+        - -c
+        - effective_io_concurrency=200
+        - -c
+        - work_mem=5MB
+        - -c
+        - min_wal_size=1GB
+        - -c
+        - max_wal_size=4GB
+        - -c
+        - max_worker_processes=4
+        - -c
+        - max_parallel_workers=4
+        - -c
+        - max_parallel_workers_per_gather=2
+        - -c
+        - max_parallel_maintenance_workers=2
+        
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - $(POSTGRES_USER)
+            - -d
+            - $(POSTGRES_DB)
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - $(POSTGRES_USER)
+            - -d
+            - $(POSTGRES_DB)
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+        
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        - name: postgres-config
+          mountPath: /etc/postgresql
+        - name: postgres-backup
+          mountPath: /backup
+      
+      # Backup sidecar
+      - name: postgres-backup
+        image: postgres:15-alpine
+        command:
+        - /bin/sh
+        - -c
+        - |
+          while true; do
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            pg_dump -h localhost -U $POSTGRES_USER -d $POSTGRES_DB | gzip > /backup/backup_$TIMESTAMP.sql.gz
+            # Keep only last 7 days of backups
+            find /backup -name "backup_*.sql.gz" -mtime +7 -delete
+            # Sleep for 6 hours
+            sleep 21600
+          done
+        
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: treum-secrets
+              key: DATABASE_USER
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: treum-config
+              key: DATABASE_NAME
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: treum-secrets
+              key: DATABASE_PASSWORD
+        
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "250m"
+        
+        volumeMounts:
+        - name: postgres-backup
+          mountPath: /backup
+      
+      volumes:
+      - name: postgres-config
+        configMap:
+          name: postgres-config
+      
+      nodeSelector:
+        node-role: database
+      
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: fast-ssd
+      resources:
+        requests:
+          storage: 100Gi
+  - metadata:
+      name: postgres-backup
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 50Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: treum-production
+data:
+  postgresql.conf: |
+    # Custom PostgreSQL configuration
+    listen_addresses = '*'
+    port = 5432
+    
+    # Logging
+    log_destination = 'stderr'
+    logging_collector = on
+    log_directory = '/var/log/postgresql'
+    log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+    log_rotation_age = 1d
+    log_rotation_size = 100MB
+    log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
+    log_checkpoints = on
+    log_connections = on
+    log_disconnections = on
+    log_duration = off
+    log_error_verbosity = default
+    log_hostname = on
+    log_lock_waits = on
+    log_statement = 'ddl'
+    log_temp_files = 0
+    
+    # Replication
+    wal_level = replica
+    archive_mode = on
+    archive_command = 'test ! -f /backup/wal/%f && cp %p /backup/wal/%f'
+    max_wal_senders = 3
+    wal_keep_size = 1GB
+    hot_standby = on

@@ -212,10 +212,7 @@ export class AuthService {
     };
   }
 
-  async refreshToken(
-    refreshDto: RefreshTokenDto,
-    ipAddress?: string,
-  ): Promise<AuthResponse> {
+  async refreshToken(refreshDto: RefreshTokenDto): Promise<AuthResponse> {
     const { refreshToken } = refreshDto;
 
     const session = await this.sessionRepository.findOne({
@@ -484,14 +481,21 @@ export class AuthService {
 
   private sanitizeUser(user: User): Partial<User> {
     const {
-      password: _password,
-      passwordResetToken: _passwordResetToken,
-      passwordResetExpires: _passwordResetExpires,
-      emailVerificationToken: _emailVerificationToken,
-      emailVerificationExpires: _emailVerificationExpires,
-      twoFactorSecret: _twoFactorSecret,
+      password,
+      passwordResetToken,
+      passwordResetExpires,
+      emailVerificationToken,
+      emailVerificationExpires,
+      twoFactorSecret,
       ...sanitized
     } = user;
+    // Ensure sensitive fields are not returned
+    void password;
+    void passwordResetToken;
+    void passwordResetExpires;
+    void emailVerificationToken;
+    void emailVerificationExpires;
+    void twoFactorSecret;
     return sanitized;
   }
 }

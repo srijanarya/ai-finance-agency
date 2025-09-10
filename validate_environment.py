@@ -94,9 +94,18 @@ def check_configuration() -> bool:
         print("✅ Configuration loaded successfully")
         
         # Check critical settings
-        if not hasattr(settings, 'secret_key') or not settings.secret_key or settings.secret_key == "your-secret-key-here":
-            print("⚠️ SECRET_KEY is not configured properly")
+        if not hasattr(settings, 'jwt_secret') or not settings.jwt_secret:
+            print("⚠️ JWT_SECRET is missing")
             return False
+        
+        # In development mode, default values are acceptable
+        if hasattr(settings, 'environment') and settings.environment == "production":
+            if settings.jwt_secret == "dev-jwt-secret-change-in-production":
+                print("⚠️ JWT_SECRET must be changed for production")
+                return False
+        else:
+            if settings.jwt_secret == "dev-jwt-secret-change-in-production":
+                print("✅ Using development JWT_SECRET (acceptable for dev mode)")
         
         print("✅ Critical configuration validated")
         return True

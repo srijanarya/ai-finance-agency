@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindManyOptions, Between, In } from 'typeorm';
+import { Repository, Between, In } from 'typeorm';
 import {
   AuditLog,
   AuditAction,

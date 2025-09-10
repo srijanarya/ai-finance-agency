@@ -15,19 +15,17 @@ import {
   IsInt,
   Min,
   Max,
-  ValidateNested,
   ArrayMinSize,
   IsNotEmpty,
-  IsDecimal,
 } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   UserStatus,
   KycStatus,
   TwoFactorStatus,
 } from '../entities/user.entity';
-import { SystemRole } from '../entities/role.entity';
+// import { SystemRole } from '../entities/role.entity';
 
 export class CreateUserDto {
   @ApiProperty({

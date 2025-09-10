@@ -20,6 +20,7 @@ import { UserService } from './services/user.service';
 import { RoleService } from './services/role.service';
 import { EmailService } from './services/email.service';
 import { AuditService } from './services/audit.service';
+// import { HealthModule } from './modules/health.module';
 
 @Module({
   imports: [
@@ -81,6 +82,8 @@ import { AuditService } from './services/audit.service';
       ],
       inject: [ConfigService],
     }),
+    
+    // HealthModule,
   ],
 
   controllers: [AppController, AuthController, UserController, RoleController],

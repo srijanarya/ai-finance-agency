@@ -227,6 +227,9 @@ export class InstitutionalOrder {
   @Column({ name: 'arrival_price', type: 'decimal', precision: 20, scale: 8, nullable: true })
   arrivalPrice?: number;
 
+  @Column({ name: 'executed_price', type: 'decimal', precision: 20, scale: 8, nullable: true })
+  executedPrice?: number;
+
   @Column({ name: 'vwap_benchmark', type: 'decimal', precision: 20, scale: 8, nullable: true })
   vwapBenchmark?: number;
 

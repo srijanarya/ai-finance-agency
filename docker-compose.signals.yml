@@ -1,0 +1,353 @@
+# Docker Compose for TREUM Signal Generation Service
+# Production-ready deployment supporting ₹60-90 Cr revenue target
+# Handles 1M+ users with sub-100ms latency
+
+version: '3.8'
+
+services:
+  # Main Signal Generation API
+  signal-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: treum/signal-api:latest
+    container_name: treum-signal-api
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD}@postgres:5432/treum_signals
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - PROMETHEUS_ENABLED=true
+      - SENTRY_DSN=${SENTRY_DSN}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+
+  # Celery Workers for Background Tasks
+  signal-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: treum/signal-worker:latest
+    container_name: treum-signal-worker
+    restart: unless-stopped
+    command: celery -A app.services.signal_scheduler worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD}@postgres:5432/treum_signals
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+      - YAHOO_FINANCE_RATE_LIMIT=100
+      - EXTERNAL_API_TIMEOUT=30
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+      replicas: 2
+
+  # Celery Beat Scheduler
+  signal-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: treum/signal-scheduler:latest
+    container_name: treum-signal-scheduler
+    restart: unless-stopped
+    command: celery -A app.services.signal_scheduler beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      - DATABASE_URL=postgresql://treum_user:${POSTGRES_PASSWORD}@postgres:5432/treum_signals
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./logs:/app/logs
+      - ./celerybeat-schedule:/app/celerybeat-schedule
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: treum-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=treum_signals
+      - POSTGRES_USER=treum_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --locale=C
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U treum_user -d treum_signals"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis for Caching and Message Queue
+  redis:
+    image: redis:7-alpine
+    container_name: treum-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Prometheus for Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: treum-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+
+  # Grafana for Monitoring Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: treum-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - treum-network
+    depends_on:
+      - prometheus
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # NGINX Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: treum-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - signal-api
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # Flower for Celery Monitoring
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: treum/flower:latest
+    container_name: treum-flower
+    restart: unless-stopped
+    command: celery -A app.services.signal_scheduler flower --port=5555
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - FLOWER_BASIC_AUTH=${FLOWER_USERNAME}:${FLOWER_PASSWORD}
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+
+  # Log Aggregator (ELK Stack alternative)
+  loki:
+    image: grafana/loki:latest
+    container_name: treum-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+      - ./monitoring/loki.yml:/etc/loki/local-config.yaml
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  # Log Shipper
+  promtail:
+    image: grafana/promtail:latest
+    container_name: treum-promtail
+    restart: unless-stopped
+    volumes:
+      - ./logs:/var/log/app:ro
+      - ./monitoring/promtail.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+
+  # Notification Service
+  notification-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: treum/notification-worker:latest
+    container_name: treum-notification-worker
+    restart: unless-stopped
+    command: python -m app.services.notification_processor
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USERNAME=${SMTP_USERNAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - FIREBASE_CREDENTIALS=${FIREBASE_CREDENTIALS}
+    depends_on:
+      - redis
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - treum-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  loki_data:
+    driver: local
+
+networks:
+  treum-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

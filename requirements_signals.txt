@@ -1,0 +1,33 @@
+# Additional requirements for TREUM Signal Generation Service
+# Add these to your main requirements.txt
+
+# Financial data and technical analysis
+yfinance>=0.2.18                    # Yahoo Finance data
+pandas>=2.0.0                       # Data manipulation
+numpy>=1.24.0                       # Numerical computing
+scipy>=1.10.0                       # Scientific computing
+
+# Real-time communications
+aioredis>=2.0.1                     # Async Redis client for notifications
+websockets>=11.0.2                  # WebSocket support
+
+# Machine learning (for advanced signal generation)
+scikit-learn>=1.3.0                 # ML algorithms
+ta-lib>=0.4.25                      # Technical analysis library (optional)
+
+# Background task processing
+celery>=5.3.0                       # Task queue
+redis>=4.6.0                        # Message broker
+
+# Notification services
+twilio>=8.5.0                       # SMS notifications
+sendgrid>=6.10.0                    # Email notifications
+firebase-admin>=6.2.0               # Push notifications
+
+# Performance monitoring
+prometheus-client>=0.17.0           # Metrics collection
+structlog>=23.1.0                   # Structured logging
+
+# Additional utilities
+python-dateutil>=2.8.2             # Date utilities
+pytz>=2023.3                        # Timezone handling

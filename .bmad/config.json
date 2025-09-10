@@ -1,7 +1,11 @@
 {
   "version": "4.43.0",
   "projectPath": "/Users/srijan/ai-finance-agency",
-  "installedPacks": ["core"],
+  "installedPacks": [
+    "core",
+    "bmad-infrastructure-devops",
+    "bmad-creative-writing"
+  ],
   "settings": {
     "autoStart": false,
     "defaultAgent": "orchestrator"

@@ -140,10 +140,8 @@ export class ContentCacheService implements OnModuleInit {
       port: this.configService.get<number>('redis.port'),
       password: this.configService.get<string>('redis.password'),
       keyPrefix: 'content-cache:',
-      retryDelayOnFailure: 100,
       maxRetriesPerRequest: 3,
-      lazyConnect: true,
-      maxMemoryPolicy: 'allkeys-lru'
+      lazyConnect: true
     });
 
     // Separate Redis instance for analytics

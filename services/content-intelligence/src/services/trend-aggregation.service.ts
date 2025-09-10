@@ -328,7 +328,6 @@ export class TrendAggregationService implements OnModuleInit {
       host: this.configService.get<string>('redis.host'),
       port: this.configService.get<number>('redis.port'),
       password: this.configService.get<string>('redis.password'),
-      retryDelayOnFailover: 100,
       maxRetriesPerRequest: 3,
       keyPrefix: 'trend-aggregation:'
     });
@@ -1142,15 +1141,15 @@ export class TrendAggregationService implements OnModuleInit {
     });
     
     this.eventEmitter.on('sentiment.trend.detected', (data: any) => {
-      this.handleSentimentTrend(data);
+      this.handleRealtimeTrend(data);
     });
     
     this.eventEmitter.on('pattern.detected', (data: any) => {
-      this.handlePatternTrend(data);
+      this.handleRealtimeTrend(data);
     });
     
     this.eventEmitter.on('velocity.trend.detected', (data: any) => {
-      this.handleVelocityTrend(data);
+      this.handleRealtimeTrend(data);
     });
   }
 

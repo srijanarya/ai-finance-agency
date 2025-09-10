@@ -172,7 +172,6 @@ export class RealtimeTrendDetectorService implements OnModuleInit, OnModuleDestr
       host: this.configService.get<string>('redis.host'),
       port: this.configService.get<number>('redis.port'),
       password: this.configService.get<string>('redis.password'),
-      retryDelayOnFailover: 100,
       maxRetriesPerRequest: 3,
       keyPrefix: 'realtime-trends:'
     });

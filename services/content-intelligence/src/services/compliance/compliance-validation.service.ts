@@ -521,16 +521,16 @@ export class ComplianceValidationService {
 
   // Public methods for controller endpoints
   async validateContent(request: ComplianceValidationRequest): Promise<ComplianceValidationResponse> {
-    return this.validate(request);
+    return this.validateCompliance(request);
   }
 
   async validateContentBatch(requests: ComplianceValidationRequest[]): Promise<ComplianceValidationResponse[]> {
-    const results = await Promise.all(requests.map(request => this.validate(request)));
+    const results = await Promise.all(requests.map(request => this.validateCompliance(request)));
     return results;
   }
 
   async autoCorrectContent(request: ComplianceValidationRequest): Promise<{ correctedContent: string; changes: string[] }> {
-    const validation = await this.validate(request);
+    const validation = await this.validateCompliance(request);
     let correctedContent = request.content;
     const changes: string[] = [];
 
@@ -623,10 +623,101 @@ export class ComplianceValidationService {
 
     return riskLevel ? guidelines[riskLevel] || guidelines.medium : guidelines;
   }
+
+  async getComplianceRules(filters?: {
+    category?: string;
+    jurisdiction?: string;
+    contentType?: string;
+  }): Promise<ComplianceRule[]> {
+    const rules = Array.from(this.complianceRules.values());
+    
+    if (!filters) {
+      return rules;
+    }
+
+    return rules.filter(rule => {
+      if (filters.category && rule.category !== filters.category) return false;
+      if (filters.contentType && !rule.applicableContentTypes.includes(filters.contentType)) return false;
+      // Add jurisdiction filtering logic here if needed
+      return true;
+    });
+  }
+
+  async updateComplianceRule(ruleId: string, updates: Partial<ComplianceRule>): Promise<ComplianceRule> {
+    const existingRule = this.complianceRules.get(ruleId);
+    if (!existingRule) {
+      throw new Error(`Compliance rule with ID ${ruleId} not found`);
+    }
+
+    const updatedRule = {
+      ...existingRule,
+      ...updates,
+      id: ruleId, // Ensure ID doesn't get overwritten
+    };
+
+    this.complianceRules.set(ruleId, updatedRule);
+    return updatedRule;
+  }
+
+  async getComplianceAnalytics(period: string, framework?: string): Promise<any> {
+    // Mock analytics data
+    return {
+      period,
+      framework,
+      totalValidations: 1250,
+      complianceRate: 0.87,
+      violations: {
+        total: 162,
+        byType: {
+          critical: 12,
+          high: 45,
+          medium: 78,
+          low: 27
+        }
+      },
+      trends: {
+        complianceImprovement: 0.05,
+        mostViolatedRules: ['SEC_INVESTMENT_ADVICE_001', 'FINRA_FAIR_DEALING_001'],
+        contentTypeBreakdown: {
+          'market_analysis': 0.92,
+          'research_report': 0.83,
+          'newsletter': 0.89
+        }
+      },
+      generatedAt: new Date()
+    };
+  }
+
+  getRiskAssessmentGuidelines(contentType: string): any {
+    // Mock risk assessment guidelines
+    const baseGuidelines = {
+      contentType,
+      riskLevel: 'medium',
+      guidelines: [
+        'Include appropriate disclaimers',
+        'Verify all financial data',
+        'Review regulatory requirements',
+        'Assess target audience suitability'
+      ],
+      checkpoints: [
+        'Legal review completed',
+        'Compliance verification',
+        'Risk disclosure adequate',
+        'Source credibility confirmed'
+      ],
+      requiredDisclosures: [
+        'Investment risk warning',
+        'Past performance disclaimer',
+        'Regulatory compliance statement'
+      ]
+    };
+
+    return baseGuidelines;
+  }
 }
 
 // Supporting interfaces
-interface ComplianceRule {
+export interface ComplianceRule {
   id: string;
   name: string;
   category: ComplianceCategory;

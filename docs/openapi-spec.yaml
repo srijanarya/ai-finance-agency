@@ -1,0 +1,975 @@
+openapi: 3.0.3
+info:
+  title: TREUM AI Finance Agency API
+  description: |
+    The TREUM AI Finance Agency API provides programmatic access to AI-generated trading signals,
+    portfolio management, automated trading execution, and regulatory compliance features for
+    Indian financial markets.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: api-support@treum.ai
+    url: https://docs.treum.ai
+  license:
+    name: Proprietary
+    url: https://treum.ai/terms
+servers:
+  - url: https://api.treum.ai/api/v1
+    description: Production Server
+  - url: https://staging-api.treum.ai/api/v1
+    description: Staging Server
+  - url: https://sandbox-api.treum.ai/api/v1
+    description: Sandbox Server (Test Mode)
+tags:
+  - name: Authentication
+    description: User authentication and authorization
+  - name: AI Signals
+    description: AI-generated trading signals
+  - name: Portfolio
+    description: Portfolio management and analytics
+  - name: Trading
+    description: Order execution and management
+  - name: Market Data
+    description: Real-time and historical market data
+  - name: Compliance
+    description: KYC, AML, and regulatory compliance
+  - name: Subscriptions
+    description: Subscription and billing management
+  - name: Dashboard
+    description: User dashboard and analytics
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistration'
+      responses:
+        '201':
+          description: User successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successfully authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  description: Refresh token obtained during login
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /ai-signals/generate:
+    post:
+      tags:
+        - AI Signals
+      summary: Generate AI trading signals
+      operationId: generateSignals
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignalGenerationRequest'
+      responses:
+        '200':
+          description: Signals generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /ai-signals/{signalId}/performance:
+    get:
+      tags:
+        - AI Signals
+      summary: Get signal performance metrics
+      operationId: getSignalPerformance
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: signalId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique signal identifier
+      responses:
+        '200':
+          description: Signal performance data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalPerformance'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /ai-signals/{signalId}/execute:
+    post:
+      tags:
+        - AI Signals
+      summary: Execute trading signal
+      operationId: executeSignal
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: signalId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignalExecutionRequest'
+      responses:
+        '200':
+          description: Signal executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /dashboard/portfolio/summary:
+    get:
+      tags:
+        - Portfolio
+      summary: Get portfolio summary
+      operationId: getPortfolioSummary
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Portfolio summary data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /trading/positions:
+    get:
+      tags:
+        - Trading
+      summary: Get current positions
+      operationId: getPositions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: segment
+          in: query
+          schema:
+            type: string
+            enum: [EQUITY, FNO, COMMODITY, CURRENCY]
+          description: Filter by market segment
+      responses:
+        '200':
+          description: List of positions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionsResponse'
+
+  /trading/orders/place:
+    post:
+      tags:
+        - Trading
+      summary: Place new order
+      operationId: placeOrder
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+      responses:
+        '201':
+          description: Order placed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /trading/orders/{orderId}:
+    get:
+      tags:
+        - Trading
+      summary: Get order details
+      operationId: getOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderDetails'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /trading/orders/{orderId}/cancel:
+    delete:
+      tags:
+        - Trading
+      summary: Cancel order
+      operationId: cancelOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /market/quotes:
+    get:
+      tags:
+        - Market Data
+      summary: Get live market quotes
+      operationId: getQuotes
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: symbols
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated list of symbols
+          example: RELIANCE,TCS,INFY
+      responses:
+        '200':
+          description: Market quotes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotesResponse'
+
+  /compliance/kyc/submit:
+    post:
+      tags:
+        - Compliance
+      summary: Submit KYC information
+      operationId: submitKYC
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KYCRequest'
+      responses:
+        '200':
+          description: KYC submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KYCResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /compliance/trading-limits:
+    get:
+      tags:
+        - Compliance
+      summary: Get trading limits
+      operationId: getTradingLimits
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Trading limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradingLimits'
+
+  /subscriptions/plans:
+    get:
+      tags:
+        - Subscriptions
+      summary: Get subscription plans
+      operationId: getPlans
+      responses:
+        '200':
+          description: Available subscription plans
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlansResponse'
+
+  /subscriptions/create:
+    post:
+      tags:
+        - Subscriptions
+      summary: Create subscription
+      operationId: createSubscription
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionRequest'
+      responses:
+        '201':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+
+  /dashboard/overview:
+    get:
+      tags:
+        - Dashboard
+      summary: Get dashboard overview
+      operationId: getDashboardOverview
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: time_range
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month, year]
+            default: month
+      responses:
+        '200':
+          description: Dashboard overview data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardOverview'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserRegistration:
+      type: object
+      required:
+        - email
+        - password
+        - first_name
+        - last_name
+        - phone
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        first_name:
+          type: string
+        last_name:
+          type: string
+        phone:
+          type: string
+          pattern: '^\+91[0-9]{10}$'
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+          default: bearer
+        expires_in:
+          type: integer
+          description: Token validity in seconds
+
+    SignalGenerationRequest:
+      type: object
+      required:
+        - symbols
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 10
+        signal_type:
+          type: string
+          enum: [intraday, swing, positional]
+          default: intraday
+        risk_level:
+          type: string
+          enum: [low, moderate, high]
+          default: moderate
+        use_ensemble:
+          type: boolean
+          default: true
+        capital:
+          type: number
+          minimum: 10000
+
+    SignalResponse:
+      type: object
+      properties:
+        signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signal'
+
+    Signal:
+      type: object
+      properties:
+        signal_id:
+          type: string
+        symbol:
+          type: string
+        signal_type:
+          type: string
+          enum: [BUY, SELL, HOLD]
+        entry_price:
+          type: number
+        target_price:
+          type: number
+        stop_loss:
+          type: number
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        ai_models:
+          type: array
+          items:
+            type: string
+        rationale:
+          type: string
+        generated_at:
+          type: string
+          format: date-time
+
+    SignalPerformance:
+      type: object
+      properties:
+        signal_id:
+          type: string
+        symbol:
+          type: string
+        entry_price:
+          type: number
+        current_price:
+          type: number
+        pnl:
+          type: number
+        pnl_percentage:
+          type: number
+        status:
+          type: string
+          enum: [active, executed, expired, cancelled]
+        execution_time:
+          type: string
+          format: date-time
+
+    SignalExecutionRequest:
+      type: object
+      required:
+        - quantity
+        - broker
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+        broker:
+          type: string
+          enum: [zerodha, upstox, angel]
+        execution_type:
+          type: string
+          enum: [market, limit]
+          default: market
+
+    ExecutionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        order_id:
+          type: string
+        execution_price:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+
+    PortfolioSummary:
+      type: object
+      properties:
+        total_value:
+          type: number
+        total_invested:
+          type: number
+        current_pnl:
+          type: number
+        pnl_percentage:
+          type: number
+        positions_count:
+          type: integer
+        cash_balance:
+          type: number
+        margin_available:
+          type: number
+
+    PositionsResponse:
+      type: object
+      properties:
+        positions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Position'
+
+    Position:
+      type: object
+      properties:
+        symbol:
+          type: string
+        quantity:
+          type: integer
+        average_price:
+          type: number
+        current_price:
+          type: number
+        pnl:
+          type: number
+        pnl_percentage:
+          type: number
+        segment:
+          type: string
+
+    OrderRequest:
+      type: object
+      required:
+        - symbol
+        - quantity
+        - order_type
+        - side
+      properties:
+        symbol:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: number
+        order_type:
+          type: string
+          enum: [MARKET, LIMIT, SL, SL-M]
+        side:
+          type: string
+          enum: [BUY, SELL]
+        product:
+          type: string
+          enum: [CNC, MIS, NRML]
+        validity:
+          type: string
+          enum: [DAY, IOC, GTC]
+
+    OrderResponse:
+      type: object
+      properties:
+        order_id:
+          type: string
+        status:
+          type: string
+        message:
+          type: string
+
+    OrderDetails:
+      type: object
+      properties:
+        order_id:
+          type: string
+        symbol:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: number
+        status:
+          type: string
+        filled_quantity:
+          type: integer
+        average_price:
+          type: number
+        placed_at:
+          type: string
+          format: date-time
+
+    CancelResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        message:
+          type: string
+
+    QuotesResponse:
+      type: object
+      properties:
+        quotes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Quote'
+
+    Quote:
+      type: object
+      properties:
+        last_price:
+          type: number
+        change:
+          type: number
+        change_percent:
+          type: number
+        volume:
+          type: integer
+        bid:
+          type: number
+        ask:
+          type: number
+        open:
+          type: number
+        high:
+          type: number
+        low:
+          type: number
+        close:
+          type: number
+
+    KYCRequest:
+      type: object
+      required:
+        - pan_number
+        - aadhaar_last_four
+        - bank_account_number
+        - bank_ifsc
+      properties:
+        pan_number:
+          type: string
+          pattern: '[A-Z]{5}[0-9]{4}[A-Z]{1}'
+        aadhaar_last_four:
+          type: string
+          pattern: '[0-9]{4}'
+        bank_account_number:
+          type: string
+        bank_ifsc:
+          type: string
+        income_range:
+          type: string
+        occupation:
+          type: string
+        trading_experience:
+          type: string
+        risk_profile:
+          type: string
+
+    KYCResponse:
+      type: object
+      properties:
+        check_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        risk_score:
+          type: integer
+        risk_category:
+          type: string
+
+    TradingLimits:
+      type: object
+      properties:
+        limits:
+          type: object
+          properties:
+            daily_trade_limit:
+              type: number
+            single_trade_limit:
+              type: number
+            margin_limit:
+              type: number
+        usage:
+          type: object
+          properties:
+            daily_traded:
+              type: number
+            daily_remaining:
+              type: number
+
+    PlansResponse:
+      type: object
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plan'
+
+    Plan:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        billing_interval:
+          type: string
+        features:
+          type: object
+
+    SubscriptionRequest:
+      type: object
+      required:
+        - plan_id
+      properties:
+        plan_id:
+          type: string
+        payment_method_id:
+          type: string
+
+    SubscriptionResponse:
+      type: object
+      properties:
+        subscription_id:
+          type: string
+        status:
+          type: string
+        current_period_end:
+          type: string
+          format: date-time
+
+    DashboardOverview:
+      type: object
+      properties:
+        portfolio_summary:
+          $ref: '#/components/schemas/PortfolioSummary'
+        recent_signals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Signal'
+        analytics:
+          type: object
+          properties:
+            total_signals:
+              type: integer
+            win_rate:
+              type: number
+            sharpe_ratio:
+              type: number
+            max_drawdown:
+              type: number
+        risk_metrics:
+          type: object
+          properties:
+            portfolio_beta:
+              type: number
+            risk_score:
+              type: integer
+            risk_level:
+              type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+        timestamp:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Rate limited
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

@@ -6,7 +6,8 @@ export enum DataSource {
   IEX = 'iex',
   YAHOO_FINANCE = 'yahoo_finance',
   BINANCE = 'binance',
-  COINBASE = 'coinbase'
+  COINBASE = 'coinbase',
+  FINNHUB = 'finnhub'
 }
 
 @Entity('market_data')

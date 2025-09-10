@@ -9,6 +9,7 @@ import { MarketDataController } from '../controllers/market-data.controller';
 import { MarketDataGateway } from '../gateways/market-data.gateway';
 import { HistoricalDataModule } from './historical-data.module';
 import { TechnicalIndicatorsModule } from './technical-indicators.module';
+import { CacheService } from '../services/cache.service';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { TechnicalIndicatorsModule } from './technical-indicators.module';
     TechnicalIndicatorsModule,
   ],
   controllers: [MarketDataController],
-  providers: [MarketDataService, MarketDataGateway],
-  exports: [MarketDataService],
+  providers: [MarketDataService, MarketDataGateway, CacheService],
+  exports: [MarketDataService, CacheService],
 })
 export class MarketDataModule {}

@@ -242,9 +242,196 @@ export class MarketDataService {
   }
 
   private async initializeWebSocketConnections(): Promise<void> {
-    // Initialize WebSocket connections for real-time data
-    // This is a placeholder - implement based on your data providers
     this.logger.log('Initializing WebSocket connections...');
+    
+    // Initialize Finnhub WebSocket for real-time data
+    const finnhubWsUrl = this.configService.get('FINNHUB_WS_URL', 'wss://ws.finnhub.io');
+    const finnhubToken = this.configService.get('FINNHUB_API_KEY');
+    
+    if (finnhubToken) {
+      this.connectToFinnhub(finnhubWsUrl, finnhubToken);
+    }
+    
+    // Initialize Binance WebSocket for crypto data
+    this.connectToBinance();
+  }
+
+  private connectToFinnhub(wsUrl: string, token: string): void {
+    try {
+      const ws = new WebSocket(`${wsUrl}?token=${token}`);
+      
+      ws.on('open', () => {
+        this.logger.log('Connected to Finnhub WebSocket');
+        this.wsConnections.set('finnhub', ws);
+        
+        // Subscribe to default symbols
+        const defaultSymbols = ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN'];
+        defaultSymbols.forEach(symbol => {
+          ws.send(JSON.stringify({ type: 'subscribe', symbol: symbol }));
+        });
+      });
+      
+      ws.on('message', async (data: Buffer) => {
+        try {
+          const message = JSON.parse(data.toString());
+          if (message.type === 'trade' && message.data) {
+            for (const trade of message.data) {
+              await this.processFinnhubTrade(trade);
+            }
+          }
+        } catch (error) {
+          this.logger.error('Error processing Finnhub message:', error);
+        }
+      });
+      
+      ws.on('error', (error) => {
+        this.logger.error('Finnhub WebSocket error:', error);
+      });
+      
+      ws.on('close', () => {
+        this.logger.warn('Finnhub WebSocket closed, reconnecting in 5 seconds...');
+        setTimeout(() => this.connectToFinnhub(wsUrl, token), 5000);
+      });
+    } catch (error) {
+      this.logger.error('Error connecting to Finnhub:', error);
+    }
+  }
+
+  private connectToBinance(): void {
+    try {
+      const binanceWsUrl = 'wss://stream.binance.com:9443/ws';
+      const ws = new WebSocket(binanceWsUrl);
+      
+      ws.on('open', () => {
+        this.logger.log('Connected to Binance WebSocket');
+        this.wsConnections.set('binance', ws);
+        
+        // Subscribe to crypto streams
+        const cryptoStreams = [
+          'btcusdt@miniTicker',
+          'ethusdt@miniTicker',
+          'bnbusdt@miniTicker'
+        ];
+        
+        ws.send(JSON.stringify({
+          method: 'SUBSCRIBE',
+          params: cryptoStreams,
+          id: 1
+        }));
+      });
+      
+      ws.on('message', async (data: Buffer) => {
+        try {
+          const message = JSON.parse(data.toString());
+          if (message.e === '24hrMiniTicker') {
+            await this.processBinanceTicker(message);
+          }
+        } catch (error) {
+          this.logger.error('Error processing Binance message:', error);
+        }
+      });
+      
+      ws.on('error', (error) => {
+        this.logger.error('Binance WebSocket error:', error);
+      });
+      
+      ws.on('close', () => {
+        this.logger.warn('Binance WebSocket closed, reconnecting in 5 seconds...');
+        setTimeout(() => this.connectToBinance(), 5000);
+      });
+    } catch (error) {
+      this.logger.error('Error connecting to Binance:', error);
+    }
+  }
+
+  private async processFinnhubTrade(trade: any): Promise<void> {
+    try {
+      const marketData: MarketDataDto = {
+        symbol: trade.s,
+        price: trade.p,
+        volume: trade.v,
+        change: undefined,
+        changePercent: undefined
+      };
+      
+      await this.updateMarketData(trade.s, marketData, DataSource.FINNHUB);
+    } catch (error) {
+      this.logger.error('Error processing Finnhub trade:', error);
+    }
+  }
+
+  private async processBinanceTicker(ticker: any): Promise<void> {
+    try {
+      const symbol = ticker.s.replace('USDT', '-USD');
+      const marketData: MarketDataDto = {
+        symbol: symbol,
+        price: parseFloat(ticker.c),
+        volume: parseFloat(ticker.v),
+        change: parseFloat(ticker.c) - parseFloat(ticker.o),
+        changePercent: ((parseFloat(ticker.c) - parseFloat(ticker.o)) / parseFloat(ticker.o)) * 100,
+        dayHigh: parseFloat(ticker.h),
+        dayLow: parseFloat(ticker.l),
+        previousClose: parseFloat(ticker.o)
+      };
+      
+      await this.updateMarketData(symbol, marketData, DataSource.BINANCE);
+    } catch (error) {
+      this.logger.error('Error processing Binance ticker:', error);
+    }
+  }
+
+  async subscribeToSymbol(symbol: string): Promise<void> {
+    try {
+      // Subscribe to Finnhub
+      const finnhubWs = this.wsConnections.get('finnhub');
+      if (finnhubWs && finnhubWs.readyState === WebSocket.OPEN) {
+        finnhubWs.send(JSON.stringify({ type: 'subscribe', symbol }));
+        this.logger.log(`Subscribed to ${symbol} on Finnhub`);
+      }
+      
+      // For crypto symbols, subscribe to Binance
+      if (symbol.includes('BTC') || symbol.includes('ETH') || symbol.includes('BNB')) {
+        const binanceWs = this.wsConnections.get('binance');
+        if (binanceWs && binanceWs.readyState === WebSocket.OPEN) {
+          const stream = `${symbol.toLowerCase().replace('-USD', 'usdt')}@miniTicker`;
+          binanceWs.send(JSON.stringify({
+            method: 'SUBSCRIBE',
+            params: [stream],
+            id: Date.now()
+          }));
+          this.logger.log(`Subscribed to ${symbol} on Binance`);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error subscribing to ${symbol}:`, error);
+    }
+  }
+
+  async unsubscribeFromSymbol(symbol: string): Promise<void> {
+    try {
+      // Unsubscribe from Finnhub
+      const finnhubWs = this.wsConnections.get('finnhub');
+      if (finnhubWs && finnhubWs.readyState === WebSocket.OPEN) {
+        finnhubWs.send(JSON.stringify({ type: 'unsubscribe', symbol }));
+        this.logger.log(`Unsubscribed from ${symbol} on Finnhub`);
+      }
+      
+      // For crypto symbols, unsubscribe from Binance
+      if (symbol.includes('BTC') || symbol.includes('ETH') || symbol.includes('BNB')) {
+        const binanceWs = this.wsConnections.get('binance');
+        if (binanceWs && binanceWs.readyState === WebSocket.OPEN) {
+          const stream = `${symbol.toLowerCase().replace('-USD', 'usdt')}@miniTicker`;
+          binanceWs.send(JSON.stringify({
+            method: 'UNSUBSCRIBE',
+            params: [stream],
+            id: Date.now()
+          }));
+          this.logger.log(`Unsubscribed from ${symbol} on Binance`);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error unsubscribing from ${symbol}:`, error);
+    }
   }
 
   private async getActiveSymbols(): Promise<string[]> {
@@ -309,7 +496,8 @@ export class MarketDataService {
     }
   }
 
-  async searchSymbols(query: string): Promise<string[]> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async searchSymbols(_query: string): Promise<string[]> {
     try {
       // Implement symbol search logic
       // This is a placeholder - implement based on your data providers

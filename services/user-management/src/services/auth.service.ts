@@ -11,10 +11,9 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
-import * as speakeasy from 'speakeasy';
 import { User, UserStatus } from '../entities/user.entity';
 import { UserSession } from '../entities/user-session.entity';
-import { AuditLog, AuditAction } from '../entities/audit-log.entity';
+import { AuditAction } from '../entities/audit-log.entity';
 import {
   RegisterDto,
   LoginDto,
@@ -344,7 +343,7 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
-  async verifyEmail(token: string): Promise<{ message: string }> {
+  async verifyEmail(token: string, ipAddress?: string): Promise<{ message: string }> {
     const user = await this.userRepository.findOne({
       where: {
         emailVerificationToken: token,
@@ -369,6 +368,7 @@ export class AuthService {
       action: AuditAction.EMAIL_VERIFIED,
       resource: 'user',
       resourceId: user.id,
+      ipAddress,
     });
 
     return { message: 'Email verified successfully' };
@@ -425,8 +425,15 @@ export class AuthService {
   }
 
   private sanitizeUser(user: User): Partial<User> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, passwordResetToken, passwordResetExpires, emailVerificationToken, emailVerificationExpires, twoFactorSecret, ...sanitized } = user;
+    const { 
+      password: _password, 
+      passwordResetToken: _passwordResetToken, 
+      passwordResetExpires: _passwordResetExpires, 
+      emailVerificationToken: _emailVerificationToken, 
+      emailVerificationExpires: _emailVerificationExpires, 
+      twoFactorSecret: _twoFactorSecret, 
+      ...sanitized 
+    } = user;
     return sanitized;
   }
 }

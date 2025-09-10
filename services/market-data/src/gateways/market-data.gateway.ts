@@ -16,6 +16,7 @@ import { MarketDataService } from "../services/market-data.service";
 import { WatchlistService } from "../services/watchlist.service";
 import { RateLimiterService } from "../services/rate-limiter.service";
 import { DataAggregationService } from "../services/data-aggregation.service";
+import { MonitoringService } from "../services/monitoring.service";
 import { MarketData } from "../entities/market-data.entity";
 
 interface AuthenticatedSocket extends Socket {
@@ -47,6 +48,7 @@ export class MarketDataGateway
     private watchlistService: WatchlistService,
     private rateLimiterService: RateLimiterService,
     private dataAggregationService: DataAggregationService,
+    private monitoringService: MonitoringService,
     private jwtService: JwtService,
   ) {}
 
@@ -81,6 +83,10 @@ export class MarketDataGateway
       this.logger.log(
         `Client connected: ${client.id} (Total: ${this.connectedClients.size})`,
       );
+
+      // Record connection in monitoring service
+      this.monitoringService.recordRequest(0, true); // Connection successful
+      this.server.emit("connection_stats", this.getConnectionStats());
     } catch (error) {
       this.logger.error("Error handling client connection:", error);
       client.disconnect();
@@ -101,6 +107,9 @@ export class MarketDataGateway
       this.logger.log(
         `Client disconnected: ${client.id} (Total: ${this.connectedClients.size})`,
       );
+
+      // Update connection stats
+      this.server.emit("connection_stats", this.getConnectionStats());
     } catch (error) {
       this.logger.error("Error handling client disconnection:", error);
     }
@@ -342,6 +351,155 @@ export class MarketDataGateway
       client.emit("pong", { timestamp: new Date().toISOString() });
     } catch (error) {
       this.logger.error("Error handling ping:", error);
+    }
+  }
+
+  @SubscribeMessage("get_aggregated_data")
+  async handleGetAggregatedData(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody()
+    data: {
+      symbol: string;
+      period: "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "1d";
+      startTime?: string;
+      endTime?: string;
+    },
+  ) {
+    try {
+      // Check rate limit
+      const rateLimitResult = await this.rateLimiterService.checkWebSocketLimit(
+        client.id,
+        "get_market_data",
+      );
+      if (!rateLimitResult.allowed) {
+        client.emit("rate_limit_exceeded", {
+          message: "Get aggregated data rate limit exceeded",
+          retryAfter: rateLimitResult.retryAfter,
+          resetTime: rateLimitResult.resetTime,
+        });
+        return;
+      }
+
+      const { symbol, period, startTime, endTime } = data;
+
+      if (!symbol || !period) {
+        client.emit("error", { message: "Symbol and period are required" });
+        return;
+      }
+
+      const start = startTime ? new Date(startTime) : undefined;
+      const end = endTime ? new Date(endTime) : undefined;
+
+      const aggregatedData = await this.dataAggregationService.aggregateData(
+        symbol.toUpperCase(),
+        period,
+        start,
+        end,
+      );
+
+      client.emit("aggregated_data_response", {
+        symbol: symbol.toUpperCase(),
+        period,
+        data: aggregatedData,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.debug(
+        `Sent aggregated data for ${symbol.toUpperCase()} ${period} to client ${client.id}`,
+      );
+    } catch (error) {
+      this.logger.error("Error handling get aggregated data:", error);
+      client.emit("error", { message: "Failed to get aggregated data" });
+    }
+  }
+
+  @SubscribeMessage("get_technical_indicators")
+  async handleGetTechnicalIndicators(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { symbol: string; period?: number },
+  ) {
+    try {
+      // Check rate limit
+      const rateLimitResult = await this.rateLimiterService.checkWebSocketLimit(
+        client.id,
+        "get_market_data",
+      );
+      if (!rateLimitResult.allowed) {
+        client.emit("rate_limit_exceeded", {
+          message: "Get technical indicators rate limit exceeded",
+          retryAfter: rateLimitResult.retryAfter,
+          resetTime: rateLimitResult.resetTime,
+        });
+        return;
+      }
+
+      const { symbol, period } = data;
+
+      if (!symbol) {
+        client.emit("error", { message: "Symbol is required" });
+        return;
+      }
+
+      const [statistics, trend] = await Promise.all([
+        this.dataAggregationService.calculateStatistics(
+          symbol.toUpperCase(),
+          period,
+        ),
+        this.dataAggregationService.analyzeTrend(symbol.toUpperCase()),
+      ]);
+
+      client.emit("technical_indicators_response", {
+        symbol: symbol.toUpperCase(),
+        statistics,
+        trend,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.debug(
+        `Sent technical indicators for ${symbol.toUpperCase()} to client ${client.id}`,
+      );
+    } catch (error) {
+      this.logger.error("Error handling get technical indicators:", error);
+      client.emit("error", { message: "Failed to get technical indicators" });
+    }
+  }
+
+  @SubscribeMessage("subscribe_market_overview")
+  async handleSubscribeMarketOverview(
+    @ConnectedSocket() client: AuthenticatedSocket,
+  ) {
+    try {
+      // Check rate limit
+      const rateLimitResult = await this.rateLimiterService.checkWebSocketLimit(
+        client.id,
+        "subscribe",
+      );
+      if (!rateLimitResult.allowed) {
+        client.emit("rate_limit_exceeded", {
+          message: "Subscribe market overview rate limit exceeded",
+          retryAfter: rateLimitResult.retryAfter,
+          resetTime: rateLimitResult.resetTime,
+        });
+        return;
+      }
+
+      // Subscribe client to market overview updates
+      client.join("market_overview");
+
+      // Send current market overview
+      const marketOverview =
+        await this.dataAggregationService.getMarketOverview();
+
+      client.emit("market_overview_subscription_confirmed", {
+        message: "Subscribed to market overview updates",
+        data: marketOverview,
+        timestamp: new Date().toISOString(),
+      });
+
+      this.logger.log(`Client ${client.id} subscribed to market overview`);
+    } catch (error) {
+      this.logger.error("Error handling subscribe market overview:", error);
+      client.emit("error", { message: "Market overview subscription failed" });
     }
   }
 

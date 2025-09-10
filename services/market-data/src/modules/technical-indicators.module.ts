@@ -1,7 +1,7 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module, forwardRef } from "@nestjs/common";
 
-import { TechnicalIndicatorsService } from '../services/technical-indicators.service';
-import { HistoricalDataModule } from './historical-data.module';
+import { TechnicalIndicatorsService } from "../services/technical-indicators.service";
+import { HistoricalDataModule } from "./historical-data.module";
 
 @Module({
   imports: [forwardRef(() => HistoricalDataModule)],

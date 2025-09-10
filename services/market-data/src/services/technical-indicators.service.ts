@@ -1,10 +1,10 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import * as TI from 'technicalindicators';
+import { Injectable, Logger, Inject } from "@nestjs/common";
+import { CACHE_MANAGER } from "@nestjs/cache-manager";
+import { Cache } from "cache-manager";
+import * as TI from "technicalindicators";
 
-import { HistoricalDataService } from './historical-data.service';
-import { TimeInterval } from '../entities/historical-data.entity';
+import { HistoricalDataService } from "./historical-data.service";
+import { TimeInterval } from "../entities/historical-data.entity";
 
 export interface IndicatorInput {
   symbol: string;
@@ -18,24 +18,24 @@ export interface RSIResult {
   interval: TimeInterval;
   values: { timestamp: Date; rsi: number }[];
   currentRSI: number;
-  signal: 'overbought' | 'oversold' | 'neutral';
+  signal: "overbought" | "oversold" | "neutral";
 }
 
 export interface MACDResult {
   symbol: string;
   interval: TimeInterval;
-  values: { 
-    timestamp: Date; 
-    macd: number; 
-    signal: number; 
-    histogram: number; 
+  values: {
+    timestamp: Date;
+    macd: number;
+    signal: number;
+    histogram: number;
   }[];
   currentMACD: {
     macd: number;
     signal: number;
     histogram: number;
   };
-  crossover: 'bullish' | 'bearish' | 'none';
+  crossover: "bullish" | "bearish" | "none";
 }
 
 export interface BollingerBandsResult {
@@ -54,18 +54,18 @@ export interface BollingerBandsResult {
     lower: number;
     price: number;
   };
-  signal: 'upper_breach' | 'lower_breach' | 'neutral';
+  signal: "upper_breach" | "lower_breach" | "neutral";
 }
 
 export interface MovingAverageResult {
   symbol: string;
   interval: TimeInterval;
-  type: 'SMA' | 'EMA';
+  type: "SMA" | "EMA";
   period: number;
   values: { timestamp: Date; ma: number; price: number }[];
   currentMA: number;
   currentPrice: number;
-  signal: 'above' | 'below' | 'neutral';
+  signal: "above" | "below" | "neutral";
 }
 
 export interface StochasticResult {
@@ -80,7 +80,7 @@ export interface StochasticResult {
     k: number;
     d: number;
   };
-  signal: 'overbought' | 'oversold' | 'neutral';
+  signal: "overbought" | "oversold" | "neutral";
 }
 
 export interface VolumeIndicatorResult {
@@ -105,7 +105,7 @@ export class TechnicalIndicatorsService {
   async calculateRSI(input: IndicatorInput): Promise<RSIResult> {
     try {
       const cacheKey = `rsi_${input.symbol}_${input.interval}_${input.period || 14}_${input.days || 100}`;
-      
+
       // Check cache
       const cached = await this.cacheManager.get<RSIResult>(cacheKey);
       if (cached) {
@@ -116,23 +116,29 @@ export class TechnicalIndicatorsService {
       const days = input.days || 100;
 
       // Get historical data
-      const historicalData = await this.historicalDataService.getHistoricalData({
-        symbol: input.symbol,
-        interval: input.interval,
-        startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
-        limit: days * 24, // Ensure we have enough data
-      });
+      const historicalData = await this.historicalDataService.getHistoricalData(
+        {
+          symbol: input.symbol,
+          interval: input.interval,
+          startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
+          limit: days * 24, // Ensure we have enough data
+        },
+      );
 
       if (historicalData.length < period + 1) {
-        throw new Error(`Insufficient data for RSI calculation. Need at least ${period + 1} data points.`);
+        throw new Error(
+          `Insufficient data for RSI calculation. Need at least ${period + 1} data points.`,
+        );
       }
 
       // Sort by timestamp ascending
-      const sortedData = historicalData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      
+      const sortedData = historicalData.sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+      );
+
       // Extract close prices
-      const closes = sortedData.map(data => Number(data.close));
-      
+      const closes = sortedData.map((data) => Number(data.close));
+
       // Calculate RSI
       const rsiValues = TI.RSI.calculate({
         values: closes,
@@ -146,12 +152,12 @@ export class TechnicalIndicatorsService {
       }));
 
       const currentRSI = rsiValues[rsiValues.length - 1];
-      let signal: 'overbought' | 'oversold' | 'neutral' = 'neutral';
-      
+      let signal: "overbought" | "oversold" | "neutral" = "neutral";
+
       if (currentRSI > 70) {
-        signal = 'overbought';
+        signal = "overbought";
       } else if (currentRSI < 30) {
-        signal = 'oversold';
+        signal = "oversold";
       }
 
       const result: RSIResult = {
@@ -167,7 +173,7 @@ export class TechnicalIndicatorsService {
 
       return result;
     } catch (error) {
-      this.logger.error('Error calculating RSI:', error);
+      this.logger.error("Error calculating RSI:", error);
       throw error;
     }
   }
@@ -175,7 +181,7 @@ export class TechnicalIndicatorsService {
   async calculateMACD(input: IndicatorInput): Promise<MACDResult> {
     try {
       const cacheKey = `macd_${input.symbol}_${input.interval}_${input.days || 100}`;
-      
+
       const cached = await this.cacheManager.get<MACDResult>(cacheKey);
       if (cached) {
         return cached;
@@ -183,19 +189,24 @@ export class TechnicalIndicatorsService {
 
       const days = input.days || 100;
 
-      const historicalData = await this.historicalDataService.getHistoricalData({
-        symbol: input.symbol,
-        interval: input.interval,
-        startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
-        limit: days * 24,
-      });
+      const historicalData = await this.historicalDataService.getHistoricalData(
+        {
+          symbol: input.symbol,
+          interval: input.interval,
+          startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
+          limit: days * 24,
+        },
+      );
 
-      if (historicalData.length < 35) { // Need at least 35 data points for MACD
-        throw new Error('Insufficient data for MACD calculation.');
+      if (historicalData.length < 35) {
+        // Need at least 35 data points for MACD
+        throw new Error("Insufficient data for MACD calculation.");
       }
 
-      const sortedData = historicalData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      const closes = sortedData.map(data => Number(data.close));
+      const sortedData = historicalData.sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+      );
+      const closes = sortedData.map((data) => Number(data.close));
 
       const macdValues = TI.MACD.calculate({
         values: closes,
@@ -215,13 +226,16 @@ export class TechnicalIndicatorsService {
 
       const current = macdValues[macdValues.length - 1];
       const previous = macdValues[macdValues.length - 2];
-      
-      let crossover: 'bullish' | 'bearish' | 'none' = 'none';
+
+      let crossover: "bullish" | "bearish" | "none" = "none";
       if (current && previous) {
         if (previous.MACD <= previous.signal && current.MACD > current.signal) {
-          crossover = 'bullish';
-        } else if (previous.MACD >= previous.signal && current.MACD < current.signal) {
-          crossover = 'bearish';
+          crossover = "bullish";
+        } else if (
+          previous.MACD >= previous.signal &&
+          current.MACD < current.signal
+        ) {
+          crossover = "bearish";
         }
       }
 
@@ -240,16 +254,19 @@ export class TechnicalIndicatorsService {
       await this.cacheManager.set(cacheKey, result, 300000);
       return result;
     } catch (error) {
-      this.logger.error('Error calculating MACD:', error);
+      this.logger.error("Error calculating MACD:", error);
       throw error;
     }
   }
 
-  async calculateBollingerBands(input: IndicatorInput): Promise<BollingerBandsResult> {
+  async calculateBollingerBands(
+    input: IndicatorInput,
+  ): Promise<BollingerBandsResult> {
     try {
       const cacheKey = `bb_${input.symbol}_${input.interval}_${input.period || 20}_${input.days || 100}`;
-      
-      const cached = await this.cacheManager.get<BollingerBandsResult>(cacheKey);
+
+      const cached =
+        await this.cacheManager.get<BollingerBandsResult>(cacheKey);
       if (cached) {
         return cached;
       }
@@ -257,19 +274,25 @@ export class TechnicalIndicatorsService {
       const period = input.period || 20;
       const days = input.days || 100;
 
-      const historicalData = await this.historicalDataService.getHistoricalData({
-        symbol: input.symbol,
-        interval: input.interval,
-        startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
-        limit: days * 24,
-      });
+      const historicalData = await this.historicalDataService.getHistoricalData(
+        {
+          symbol: input.symbol,
+          interval: input.interval,
+          startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
+          limit: days * 24,
+        },
+      );
 
       if (historicalData.length < period) {
-        throw new Error(`Insufficient data for Bollinger Bands calculation. Need at least ${period} data points.`);
+        throw new Error(
+          `Insufficient data for Bollinger Bands calculation. Need at least ${period} data points.`,
+        );
       }
 
-      const sortedData = historicalData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      const closes = sortedData.map(data => Number(data.close));
+      const sortedData = historicalData.sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+      );
+      const closes = sortedData.map((data) => Number(data.close));
 
       const bbValues = TI.BollingerBands.calculate({
         values: closes,
@@ -287,12 +310,12 @@ export class TechnicalIndicatorsService {
 
       const current = bbValues[bbValues.length - 1];
       const currentPrice = closes[closes.length - 1];
-      
-      let signal: 'upper_breach' | 'lower_breach' | 'neutral' = 'neutral';
+
+      let signal: "upper_breach" | "lower_breach" | "neutral" = "neutral";
       if (currentPrice > current.upper) {
-        signal = 'upper_breach';
+        signal = "upper_breach";
       } else if (currentPrice < current.lower) {
-        signal = 'lower_breach';
+        signal = "lower_breach";
       }
 
       const result: BollingerBandsResult = {
@@ -311,18 +334,18 @@ export class TechnicalIndicatorsService {
       await this.cacheManager.set(cacheKey, result, 300000);
       return result;
     } catch (error) {
-      this.logger.error('Error calculating Bollinger Bands:', error);
+      this.logger.error("Error calculating Bollinger Bands:", error);
       throw error;
     }
   }
 
   async calculateMovingAverage(
-    input: IndicatorInput & { type: 'SMA' | 'EMA' }
+    input: IndicatorInput & { type: "SMA" | "EMA" },
   ): Promise<MovingAverageResult> {
     try {
       const period = input.period || 20;
       const cacheKey = `ma_${input.type}_${input.symbol}_${input.interval}_${period}_${input.days || 100}`;
-      
+
       const cached = await this.cacheManager.get<MovingAverageResult>(cacheKey);
       if (cached) {
         return cached;
@@ -330,23 +353,29 @@ export class TechnicalIndicatorsService {
 
       const days = input.days || 100;
 
-      const historicalData = await this.historicalDataService.getHistoricalData({
-        symbol: input.symbol,
-        interval: input.interval,
-        startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
-        limit: days * 24,
-      });
+      const historicalData = await this.historicalDataService.getHistoricalData(
+        {
+          symbol: input.symbol,
+          interval: input.interval,
+          startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
+          limit: days * 24,
+        },
+      );
 
       if (historicalData.length < period) {
-        throw new Error(`Insufficient data for Moving Average calculation. Need at least ${period} data points.`);
+        throw new Error(
+          `Insufficient data for Moving Average calculation. Need at least ${period} data points.`,
+        );
       }
 
-      const sortedData = historicalData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      const closes = sortedData.map(data => Number(data.close));
+      const sortedData = historicalData.sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+      );
+      const closes = sortedData.map((data) => Number(data.close));
 
       let maValues: number[];
-      
-      if (input.type === 'SMA') {
+
+      if (input.type === "SMA") {
         maValues = TI.SMA.calculate({
           values: closes,
           period,
@@ -366,12 +395,13 @@ export class TechnicalIndicatorsService {
 
       const currentMA = maValues[maValues.length - 1];
       const currentPrice = closes[closes.length - 1];
-      
-      let signal: 'above' | 'below' | 'neutral' = 'neutral';
-      if (currentPrice > currentMA * 1.02) { // 2% threshold
-        signal = 'above';
+
+      let signal: "above" | "below" | "neutral" = "neutral";
+      if (currentPrice > currentMA * 1.02) {
+        // 2% threshold
+        signal = "above";
       } else if (currentPrice < currentMA * 0.98) {
-        signal = 'below';
+        signal = "below";
       }
 
       const result: MovingAverageResult = {
@@ -388,7 +418,7 @@ export class TechnicalIndicatorsService {
       await this.cacheManager.set(cacheKey, result, 300000);
       return result;
     } catch (error) {
-      this.logger.error('Error calculating Moving Average:', error);
+      this.logger.error("Error calculating Moving Average:", error);
       throw error;
     }
   }
@@ -396,7 +426,7 @@ export class TechnicalIndicatorsService {
   async calculateStochastic(input: IndicatorInput): Promise<StochasticResult> {
     try {
       const cacheKey = `stoch_${input.symbol}_${input.interval}_${input.period || 14}_${input.days || 100}`;
-      
+
       const cached = await this.cacheManager.get<StochasticResult>(cacheKey);
       if (cached) {
         return cached;
@@ -405,23 +435,29 @@ export class TechnicalIndicatorsService {
       const period = input.period || 14;
       const days = input.days || 100;
 
-      const historicalData = await this.historicalDataService.getHistoricalData({
-        symbol: input.symbol,
-        interval: input.interval,
-        startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
-        limit: days * 24,
-      });
+      const historicalData = await this.historicalDataService.getHistoricalData(
+        {
+          symbol: input.symbol,
+          interval: input.interval,
+          startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
+          limit: days * 24,
+        },
+      );
 
       if (historicalData.length < period + 3) {
-        throw new Error(`Insufficient data for Stochastic calculation. Need at least ${period + 3} data points.`);
+        throw new Error(
+          `Insufficient data for Stochastic calculation. Need at least ${period + 3} data points.`,
+        );
       }
 
-      const sortedData = historicalData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      
+      const sortedData = historicalData.sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+      );
+
       const stochValues = TI.Stochastic.calculate({
-        high: sortedData.map(data => Number(data.high)),
-        low: sortedData.map(data => Number(data.low)),
-        close: sortedData.map(data => Number(data.close)),
+        high: sortedData.map((data) => Number(data.high)),
+        low: sortedData.map((data) => Number(data.low)),
+        close: sortedData.map((data) => Number(data.close)),
         period,
         signalPeriod: 3,
       });
@@ -433,12 +469,12 @@ export class TechnicalIndicatorsService {
       }));
 
       const current = stochValues[stochValues.length - 1];
-      
-      let signal: 'overbought' | 'oversold' | 'neutral' = 'neutral';
+
+      let signal: "overbought" | "oversold" | "neutral" = "neutral";
       if (current.k > 80 && current.d > 80) {
-        signal = 'overbought';
+        signal = "overbought";
       } else if (current.k < 20 && current.d < 20) {
-        signal = 'oversold';
+        signal = "oversold";
       }
 
       const result: StochasticResult = {
@@ -455,35 +491,42 @@ export class TechnicalIndicatorsService {
       await this.cacheManager.set(cacheKey, result, 300000);
       return result;
     } catch (error) {
-      this.logger.error('Error calculating Stochastic:', error);
+      this.logger.error("Error calculating Stochastic:", error);
       throw error;
     }
   }
 
-  async calculateVolumeIndicators(input: IndicatorInput): Promise<VolumeIndicatorResult> {
+  async calculateVolumeIndicators(
+    input: IndicatorInput,
+  ): Promise<VolumeIndicatorResult> {
     try {
       const cacheKey = `vol_${input.symbol}_${input.interval}_${input.days || 50}`;
-      
-      const cached = await this.cacheManager.get<VolumeIndicatorResult>(cacheKey);
+
+      const cached =
+        await this.cacheManager.get<VolumeIndicatorResult>(cacheKey);
       if (cached) {
         return cached;
       }
 
       const days = input.days || 50;
 
-      const historicalData = await this.historicalDataService.getHistoricalData({
-        symbol: input.symbol,
-        interval: input.interval,
-        startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
-        limit: days * 24,
-      });
+      const historicalData = await this.historicalDataService.getHistoricalData(
+        {
+          symbol: input.symbol,
+          interval: input.interval,
+          startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
+          limit: days * 24,
+        },
+      );
 
       if (historicalData.length < 20) {
-        throw new Error('Insufficient data for volume indicators calculation.');
+        throw new Error("Insufficient data for volume indicators calculation.");
       }
 
-      const sortedData = historicalData.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      
+      const sortedData = historicalData.sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+      );
+
       // Calculate OBV (On-Balance Volume)
       let obv = 0;
       const obvValues = sortedData.map((data, index) => {
@@ -492,14 +535,14 @@ export class TechnicalIndicatorsService {
         } else {
           const prevClose = Number(sortedData[index - 1].close);
           const currentClose = Number(data.close);
-          
+
           if (currentClose > prevClose) {
             obv += Number(data.volume);
           } else if (currentClose < prevClose) {
             obv -= Number(data.volume);
           }
         }
-        
+
         return {
           timestamp: data.timestamp,
           obv,
@@ -507,7 +550,7 @@ export class TechnicalIndicatorsService {
       });
 
       // Calculate Volume SMA
-      const volumes = sortedData.map(data => Number(data.volume));
+      const volumes = sortedData.map((data) => Number(data.volume));
       const volumeSMAValues = TI.SMA.calculate({
         values: volumes,
         period: 20,
@@ -536,7 +579,7 @@ export class TechnicalIndicatorsService {
       await this.cacheManager.set(cacheKey, result, 300000);
       return result;
     } catch (error) {
-      this.logger.error('Error calculating volume indicators:', error);
+      this.logger.error("Error calculating volume indicators:", error);
       throw error;
     }
   }
@@ -552,85 +595,130 @@ export class TechnicalIndicatorsService {
     ema20: MovingAverageResult;
     stochastic: StochasticResult;
     volumeIndicators: VolumeIndicatorResult;
-    overallSignal: 'bullish' | 'bearish' | 'neutral';
+    overallSignal: "bullish" | "bearish" | "neutral";
     signals: {
       indicator: string;
       signal: string;
-      strength: 'strong' | 'moderate' | 'weak';
+      strength: "strong" | "moderate" | "weak";
     }[];
   }> {
     try {
-      const [rsi, macd, bb, sma20, ema20, stochastic, volume] = await Promise.all([
-        this.calculateRSI(input),
-        this.calculateMACD(input),
-        this.calculateBollingerBands(input),
-        this.calculateMovingAverage({ ...input, type: 'SMA', period: 20 }),
-        this.calculateMovingAverage({ ...input, type: 'EMA', period: 20 }),
-        this.calculateStochastic(input),
-        this.calculateVolumeIndicators(input),
-      ]);
+      const [rsi, macd, bb, sma20, ema20, stochastic, volume] =
+        await Promise.all([
+          this.calculateRSI(input),
+          this.calculateMACD(input),
+          this.calculateBollingerBands(input),
+          this.calculateMovingAverage({ ...input, type: "SMA", period: 20 }),
+          this.calculateMovingAverage({ ...input, type: "EMA", period: 20 }),
+          this.calculateStochastic(input),
+          this.calculateVolumeIndicators(input),
+        ]);
 
       const signals = [];
       let bullishSignals = 0;
       let bearishSignals = 0;
 
       // RSI signals
-      if (rsi.signal === 'oversold') {
-        signals.push({ indicator: 'RSI', signal: 'Oversold - Potential Buy', strength: 'moderate' as const });
+      if (rsi.signal === "oversold") {
+        signals.push({
+          indicator: "RSI",
+          signal: "Oversold - Potential Buy",
+          strength: "moderate" as const,
+        });
         bullishSignals++;
-      } else if (rsi.signal === 'overbought') {
-        signals.push({ indicator: 'RSI', signal: 'Overbought - Potential Sell', strength: 'moderate' as const });
+      } else if (rsi.signal === "overbought") {
+        signals.push({
+          indicator: "RSI",
+          signal: "Overbought - Potential Sell",
+          strength: "moderate" as const,
+        });
         bearishSignals++;
       }
 
       // MACD signals
-      if (macd.crossover === 'bullish') {
-        signals.push({ indicator: 'MACD', signal: 'Bullish Crossover', strength: 'strong' as const });
+      if (macd.crossover === "bullish") {
+        signals.push({
+          indicator: "MACD",
+          signal: "Bullish Crossover",
+          strength: "strong" as const,
+        });
         bullishSignals += 2;
-      } else if (macd.crossover === 'bearish') {
-        signals.push({ indicator: 'MACD', signal: 'Bearish Crossover', strength: 'strong' as const });
+      } else if (macd.crossover === "bearish") {
+        signals.push({
+          indicator: "MACD",
+          signal: "Bearish Crossover",
+          strength: "strong" as const,
+        });
         bearishSignals += 2;
       }
 
       // Bollinger Bands signals
-      if (bb.signal === 'lower_breach') {
-        signals.push({ indicator: 'Bollinger Bands', signal: 'Lower Band Breach - Oversold', strength: 'moderate' as const });
+      if (bb.signal === "lower_breach") {
+        signals.push({
+          indicator: "Bollinger Bands",
+          signal: "Lower Band Breach - Oversold",
+          strength: "moderate" as const,
+        });
         bullishSignals++;
-      } else if (bb.signal === 'upper_breach') {
-        signals.push({ indicator: 'Bollinger Bands', signal: 'Upper Band Breach - Overbought', strength: 'moderate' as const });
+      } else if (bb.signal === "upper_breach") {
+        signals.push({
+          indicator: "Bollinger Bands",
+          signal: "Upper Band Breach - Overbought",
+          strength: "moderate" as const,
+        });
         bearishSignals++;
       }
 
       // Moving Average signals
-      if (sma20.signal === 'above') {
-        signals.push({ indicator: 'SMA(20)', signal: 'Price Above SMA', strength: 'weak' as const });
+      if (sma20.signal === "above") {
+        signals.push({
+          indicator: "SMA(20)",
+          signal: "Price Above SMA",
+          strength: "weak" as const,
+        });
         bullishSignals++;
-      } else if (sma20.signal === 'below') {
-        signals.push({ indicator: 'SMA(20)', signal: 'Price Below SMA', strength: 'weak' as const });
+      } else if (sma20.signal === "below") {
+        signals.push({
+          indicator: "SMA(20)",
+          signal: "Price Below SMA",
+          strength: "weak" as const,
+        });
         bearishSignals++;
       }
 
       // Stochastic signals
-      if (stochastic.signal === 'oversold') {
-        signals.push({ indicator: 'Stochastic', signal: 'Oversold Condition', strength: 'moderate' as const });
+      if (stochastic.signal === "oversold") {
+        signals.push({
+          indicator: "Stochastic",
+          signal: "Oversold Condition",
+          strength: "moderate" as const,
+        });
         bullishSignals++;
-      } else if (stochastic.signal === 'overbought') {
-        signals.push({ indicator: 'Stochastic', signal: 'Overbought Condition', strength: 'moderate' as const });
+      } else if (stochastic.signal === "overbought") {
+        signals.push({
+          indicator: "Stochastic",
+          signal: "Overbought Condition",
+          strength: "moderate" as const,
+        });
         bearishSignals++;
       }
 
       // Volume signals
       if (volume.volumeSpike) {
-        signals.push({ indicator: 'Volume', signal: 'Volume Spike Detected', strength: 'moderate' as const });
+        signals.push({
+          indicator: "Volume",
+          signal: "Volume Spike Detected",
+          strength: "moderate" as const,
+        });
         // Volume spike is neutral but adds conviction to other signals
       }
 
       // Determine overall signal
-      let overallSignal: 'bullish' | 'bearish' | 'neutral' = 'neutral';
+      let overallSignal: "bullish" | "bearish" | "neutral" = "neutral";
       if (bullishSignals > bearishSignals + 1) {
-        overallSignal = 'bullish';
+        overallSignal = "bullish";
       } else if (bearishSignals > bullishSignals + 1) {
-        overallSignal = 'bearish';
+        overallSignal = "bearish";
       }
 
       return {
@@ -648,7 +736,7 @@ export class TechnicalIndicatorsService {
         signals,
       };
     } catch (error) {
-      this.logger.error('Error getting comprehensive analysis:', error);
+      this.logger.error("Error getting comprehensive analysis:", error);
       throw error;
     }
   }

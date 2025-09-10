@@ -122,7 +122,7 @@ export class DataAggregationService {
         timestamp: end,
       };
 
-      await this.cacheService.set(cacheKey, aggregated, 60);
+      await this.cacheService.setAggregatedData(cacheKey, aggregated);
 
       this.eventEmitter.emit("market.data.aggregated", {
         symbol,
@@ -202,7 +202,7 @@ export class DataAggregationService {
         dataPoints: data.length,
       };
 
-      await this.cacheService.set(cacheKey, stats, 300);
+      await this.cacheService.setMarketStatistics(cacheKey, stats);
 
       return stats;
     } catch (error) {
@@ -274,7 +274,7 @@ export class DataAggregationService {
         timestamp: new Date(),
       };
 
-      await this.cacheService.set(cacheKey, trendAnalysis, 300);
+      await this.cacheService.setTechnicalIndicators(cacheKey, trendAnalysis);
 
       this.eventEmitter.emit("market.trend.analyzed", {
         symbol,

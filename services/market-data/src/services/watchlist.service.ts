@@ -1,10 +1,10 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { EventEmitter2 } from "@nestjs/event-emitter";
 
-import { Watchlist } from '../entities/watchlist.entity';
-import { MarketDataService } from './market-data.service';
+import { Watchlist } from "../entities/watchlist.entity";
+import { MarketDataService } from "./market-data.service";
 
 export interface CreateWatchlistDto {
   userId: string;
@@ -51,7 +51,9 @@ export class WatchlistService {
     private eventEmitter: EventEmitter2,
   ) {}
 
-  async addToWatchlist(createWatchlistDto: CreateWatchlistDto): Promise<Watchlist> {
+  async addToWatchlist(
+    createWatchlistDto: CreateWatchlistDto,
+  ): Promise<Watchlist> {
     try {
       // Check if symbol already exists in user's watchlist
       const existing = await this.watchlistRepository.findOne({
@@ -62,12 +64,12 @@ export class WatchlistService {
       });
 
       if (existing) {
-        throw new Error('Symbol already in watchlist');
+        throw new Error("Symbol already in watchlist");
       }
 
       // Get current market data for the symbol
       const marketData = await this.marketDataService.getRealtimeData(
-        createWatchlistDto.symbol
+        createWatchlistDto.symbol,
       );
 
       const watchlistItem = this.watchlistRepository.create({
@@ -81,26 +83,26 @@ export class WatchlistService {
 
       const savedItem = await this.watchlistRepository.save(watchlistItem);
 
-      this.eventEmitter.emit('watchlist.symbol.added', {
+      this.eventEmitter.emit("watchlist.symbol.added", {
         userId: savedItem.userId,
         symbol: savedItem.symbol,
         watchlistItem: savedItem,
       });
 
       this.logger.log(
-        `Added ${savedItem.symbol} to watchlist for user ${savedItem.userId}`
+        `Added ${savedItem.symbol} to watchlist for user ${savedItem.userId}`,
       );
 
       return savedItem;
     } catch (error) {
-      this.logger.error('Error adding to watchlist:', error);
+      this.logger.error("Error adding to watchlist:", error);
       throw error;
     }
   }
 
   async updateWatchlistItem(
     id: string,
-    updateWatchlistDto: UpdateWatchlistDto
+    updateWatchlistDto: UpdateWatchlistDto,
   ): Promise<Watchlist> {
     try {
       const watchlistItem = await this.watchlistRepository.findOne({
@@ -108,14 +110,14 @@ export class WatchlistService {
       });
 
       if (!watchlistItem) {
-        throw new NotFoundException('Watchlist item not found');
+        throw new NotFoundException("Watchlist item not found");
       }
 
       Object.assign(watchlistItem, updateWatchlistDto);
 
       const updatedItem = await this.watchlistRepository.save(watchlistItem);
 
-      this.eventEmitter.emit('watchlist.item.updated', {
+      this.eventEmitter.emit("watchlist.item.updated", {
         userId: updatedItem.userId,
         symbol: updatedItem.symbol,
         watchlistItem: updatedItem,
@@ -126,7 +128,7 @@ export class WatchlistService {
 
       return updatedItem;
     } catch (error) {
-      this.logger.error('Error updating watchlist item:', error);
+      this.logger.error("Error updating watchlist item:", error);
       throw error;
     }
   }
@@ -138,22 +140,22 @@ export class WatchlistService {
       });
 
       if (!watchlistItem) {
-        throw new NotFoundException('Watchlist item not found');
+        throw new NotFoundException("Watchlist item not found");
       }
 
       await this.watchlistRepository.remove(watchlistItem);
 
-      this.eventEmitter.emit('watchlist.symbol.removed', {
+      this.eventEmitter.emit("watchlist.symbol.removed", {
         userId: watchlistItem.userId,
         symbol: watchlistItem.symbol,
         watchlistItem,
       });
 
       this.logger.log(
-        `Removed ${watchlistItem.symbol} from watchlist for user ${watchlistItem.userId}`
+        `Removed ${watchlistItem.symbol} from watchlist for user ${watchlistItem.userId}`,
       );
     } catch (error) {
-      this.logger.error('Error removing from watchlist:', error);
+      this.logger.error("Error removing from watchlist:", error);
       throw error;
     }
   }
@@ -162,38 +164,41 @@ export class WatchlistService {
     try {
       const watchlistItems = await this.watchlistRepository.find({
         where: { userId, isActive: true },
-        order: { sortOrder: 'ASC', createdAt: 'DESC' },
+        order: { sortOrder: "ASC", createdAt: "DESC" },
       });
 
       // Fetch current market data for all symbols
-      const symbols = watchlistItems.map(item => item.symbol);
-      const marketDataList = await this.marketDataService.getMultipleRealtimeData(symbols);
-      
+      const symbols = watchlistItems.map((item) => item.symbol);
+      const marketDataList =
+        await this.marketDataService.getMultipleRealtimeData(symbols);
+
       // Create a map for quick lookup
       const marketDataMap = new Map();
-      marketDataList.forEach(data => {
+      marketDataList.forEach((data) => {
         marketDataMap.set(data.symbol, data);
       });
 
       // Combine watchlist items with market data
-      const watchlistWithData: WatchlistWithMarketData[] = watchlistItems.map(item => {
-        const marketData = marketDataMap.get(item.symbol);
-        
-        return {
-          ...item,
-          currentPrice: marketData?.price,
-          change: marketData?.change,
-          changePercent: marketData?.changePercent,
-          dayHigh: marketData?.dayHigh,
-          dayLow: marketData?.dayLow,
-          volume: marketData?.volume,
-          isMarketOpen: marketData?.isMarketOpen,
-        };
-      });
+      const watchlistWithData: WatchlistWithMarketData[] = watchlistItems.map(
+        (item) => {
+          const marketData = marketDataMap.get(item.symbol);
+
+          return {
+            ...item,
+            currentPrice: marketData?.price,
+            change: marketData?.change,
+            changePercent: marketData?.changePercent,
+            dayHigh: marketData?.dayHigh,
+            dayLow: marketData?.dayLow,
+            volume: marketData?.volume,
+            isMarketOpen: marketData?.isMarketOpen,
+          };
+        },
+      );
 
       return watchlistWithData;
     } catch (error) {
-      this.logger.error('Error getting user watchlist:', error);
+      this.logger.error("Error getting user watchlist:", error);
       throw error;
     }
   }
@@ -209,7 +214,7 @@ export class WatchlistService {
       }
 
       const marketData = await this.marketDataService.getRealtimeData(
-        watchlistItem.symbol
+        watchlistItem.symbol,
       );
 
       return {
@@ -223,62 +228,63 @@ export class WatchlistService {
         isMarketOpen: marketData?.isMarketOpen,
       };
     } catch (error) {
-      this.logger.error('Error getting watchlist item:', error);
+      this.logger.error("Error getting watchlist item:", error);
       throw error;
     }
   }
 
   async reorderWatchlist(
     userId: string,
-    itemOrders: { id: string; sortOrder: number }[]
+    itemOrders: { id: string; sortOrder: number }[],
   ): Promise<void> {
     try {
       for (const { id, sortOrder } of itemOrders) {
-        await this.watchlistRepository.update(
-          { id, userId },
-          { sortOrder }
-        );
+        await this.watchlistRepository.update({ id, userId }, { sortOrder });
       }
 
-      this.eventEmitter.emit('watchlist.reordered', {
+      this.eventEmitter.emit("watchlist.reordered", {
         userId,
         itemOrders,
       });
 
       this.logger.log(`Reordered watchlist for user ${userId}`);
     } catch (error) {
-      this.logger.error('Error reordering watchlist:', error);
+      this.logger.error("Error reordering watchlist:", error);
       throw error;
     }
   }
 
-  async getWatchlistByTags(userId: string, tags: string[]): Promise<WatchlistWithMarketData[]> {
+  async getWatchlistByTags(
+    userId: string,
+    tags: string[],
+  ): Promise<WatchlistWithMarketData[]> {
     try {
       const query = this.watchlistRepository
-        .createQueryBuilder('watchlist')
-        .where('watchlist.userId = :userId', { userId })
-        .andWhere('watchlist.isActive = :isActive', { isActive: true });
+        .createQueryBuilder("watchlist")
+        .where("watchlist.userId = :userId", { userId })
+        .andWhere("watchlist.isActive = :isActive", { isActive: true });
 
       if (tags.length > 0) {
-        query.andWhere('watchlist.tags && :tags', { tags });
+        query.andWhere("watchlist.tags && :tags", { tags });
       }
 
       const watchlistItems = await query
-        .orderBy('watchlist.sortOrder', 'ASC')
+        .orderBy("watchlist.sortOrder", "ASC")
         .getMany();
 
       // Fetch market data for all symbols
-      const symbols = watchlistItems.map(item => item.symbol);
-      const marketDataList = await this.marketDataService.getMultipleRealtimeData(symbols);
-      
+      const symbols = watchlistItems.map((item) => item.symbol);
+      const marketDataList =
+        await this.marketDataService.getMultipleRealtimeData(symbols);
+
       const marketDataMap = new Map();
-      marketDataList.forEach(data => {
+      marketDataList.forEach((data) => {
         marketDataMap.set(data.symbol, data);
       });
 
-      return watchlistItems.map(item => {
+      return watchlistItems.map((item) => {
         const marketData = marketDataMap.get(item.symbol);
-        
+
         return {
           ...item,
           currentPrice: marketData?.price,
@@ -291,7 +297,7 @@ export class WatchlistService {
         };
       });
     } catch (error) {
-      this.logger.error('Error getting watchlist by tags:', error);
+      this.logger.error("Error getting watchlist by tags:", error);
       throw error;
     }
   }
@@ -300,12 +306,12 @@ export class WatchlistService {
     try {
       const watchlistItems = await this.watchlistRepository.find({
         where: { userId, isActive: true },
-        select: ['symbol'],
+        select: ["symbol"],
       });
 
-      return watchlistItems.map(item => item.symbol);
+      return watchlistItems.map((item) => item.symbol);
     } catch (error) {
-      this.logger.error('Error getting user watchlist symbols:', error);
+      this.logger.error("Error getting user watchlist symbols:", error);
       return [];
     }
   }
@@ -321,26 +327,31 @@ export class WatchlistService {
     try {
       const watchlistItems = await this.getUserWatchlist(userId);
 
-      const activeSymbols = watchlistItems.filter(item => item.isActive);
-      const symbolsWithAlerts = watchlistItems.filter(item => item.enableAlerts);
-      
+      const activeSymbols = watchlistItems.filter((item) => item.isActive);
+      const symbolsWithAlerts = watchlistItems.filter(
+        (item) => item.enableAlerts,
+      );
+
       // Count symbols by tags
       const tagCounts = new Map<string, number>();
-      watchlistItems.forEach(item => {
-        item.tags.forEach(tag => {
+      watchlistItems.forEach((item) => {
+        item.tags.forEach((tag) => {
           const count = tagCounts.get(tag) || 0;
           tagCounts.set(tag, count + 1);
         });
       });
 
-      const symbolsByTags = Array.from(tagCounts.entries()).map(([tag, count]) => ({
-        tag,
-        count,
-      }));
+      const symbolsByTags = Array.from(tagCounts.entries()).map(
+        ([tag, count]) => ({
+          tag,
+          count,
+        }),
+      );
 
       // Get top gainers and losers
       const itemsWithPrice = watchlistItems.filter(
-        item => item.changePercent !== undefined && item.changePercent !== null
+        (item) =>
+          item.changePercent !== undefined && item.changePercent !== null,
       );
 
       const topGainers = itemsWithPrice
@@ -360,7 +371,7 @@ export class WatchlistService {
         topLosers,
       };
     } catch (error) {
-      this.logger.error('Error getting watchlist statistics:', error);
+      this.logger.error("Error getting watchlist statistics:", error);
       throw error;
     }
   }
@@ -368,25 +379,25 @@ export class WatchlistService {
   private async getNextSortOrder(userId: string): Promise<number> {
     try {
       const result = await this.watchlistRepository
-        .createQueryBuilder('watchlist')
-        .select('MAX(watchlist.sortOrder)', 'maxOrder')
-        .where('watchlist.userId = :userId', { userId })
+        .createQueryBuilder("watchlist")
+        .select("MAX(watchlist.sortOrder)", "maxOrder")
+        .where("watchlist.userId = :userId", { userId })
         .getRawOne();
 
       return (result?.maxOrder || 0) + 1;
     } catch (error) {
-      this.logger.error('Error getting next sort order:', error);
+      this.logger.error("Error getting next sort order:", error);
       return 1;
     }
   }
 
   async bulkAddToWatchlist(
     userId: string,
-    symbols: string[]
+    symbols: string[],
   ): Promise<Watchlist[]> {
     try {
       const results: Watchlist[] = [];
-      
+
       for (const symbol of symbols) {
         try {
           const item = await this.addToWatchlist({
@@ -395,38 +406,44 @@ export class WatchlistService {
           });
           results.push(item);
         } catch (error) {
-          this.logger.warn(`Failed to add ${symbol} to watchlist:`, error.message);
+          this.logger.warn(
+            `Failed to add ${symbol} to watchlist:`,
+            error.message,
+          );
         }
       }
 
       return results;
     } catch (error) {
-      this.logger.error('Error bulk adding to watchlist:', error);
+      this.logger.error("Error bulk adding to watchlist:", error);
       throw error;
     }
   }
 
   async importWatchlistFromCSV(
     userId: string,
-    csvData: string
-  ): Promise<{ success: Watchlist[]; errors: { symbol: string; error: string }[] }> {
+    csvData: string,
+  ): Promise<{
+    success: Watchlist[];
+    errors: { symbol: string; error: string }[];
+  }> {
     try {
-      const lines = csvData.split('\n').filter(line => line.trim());
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-      
+      const lines = csvData.split("\n").filter((line) => line.trim());
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+
       const success: Watchlist[] = [];
       const errors: { symbol: string; error: string }[] = [];
 
       for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(',').map(v => v.trim());
-        
+        const values = lines[i].split(",").map((v) => v.trim());
+
         if (values.length < 1) continue;
-        
-        const symbolIndex = headers.indexOf('symbol') || 0;
+
+        const symbolIndex = headers.indexOf("symbol") || 0;
         const symbol = values[symbolIndex];
-        
+
         if (!symbol) continue;
-        
+
         try {
           const createDto: CreateWatchlistDto = {
             userId,
@@ -434,19 +451,19 @@ export class WatchlistService {
           };
 
           // Optional fields
-          const displayNameIndex = headers.indexOf('displayname');
+          const displayNameIndex = headers.indexOf("displayname");
           if (displayNameIndex >= 0 && values[displayNameIndex]) {
             createDto.displayName = values[displayNameIndex];
           }
 
-          const notesIndex = headers.indexOf('notes');
+          const notesIndex = headers.indexOf("notes");
           if (notesIndex >= 0 && values[notesIndex]) {
             createDto.notes = values[notesIndex];
           }
 
-          const tagsIndex = headers.indexOf('tags');
+          const tagsIndex = headers.indexOf("tags");
           if (tagsIndex >= 0 && values[tagsIndex]) {
-            createDto.tags = values[tagsIndex].split(';').map(t => t.trim());
+            createDto.tags = values[tagsIndex].split(";").map((t) => t.trim());
           }
 
           const item = await this.addToWatchlist(createDto);
@@ -458,7 +475,7 @@ export class WatchlistService {
 
       return { success, errors };
     } catch (error) {
-      this.logger.error('Error importing watchlist from CSV:', error);
+      this.logger.error("Error importing watchlist from CSV:", error);
       throw error;
     }
   }

@@ -1,11 +1,16 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Injectable, Logger } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { EventEmitter2, OnEvent } from "@nestjs/event-emitter";
+import { Cron, CronExpression } from "@nestjs/schedule";
 
-import { MarketAlert, AlertType, AlertStatus, AlertPriority } from '../entities/market-alert.entity';
-import { MarketData } from '../entities/market-data.entity';
+import {
+  MarketAlert,
+  AlertType,
+  AlertStatus,
+  AlertPriority,
+} from "../entities/market-alert.entity";
+import { MarketData } from "../entities/market-data.entity";
 
 export interface CreateAlertDto {
   userId: string;
@@ -55,37 +60,42 @@ export class AlertService {
         status: AlertStatus.ACTIVE,
         priority: createAlertDto.priority || AlertPriority.MEDIUM,
         triggerCount: 0,
-        notificationMethods: createAlertDto.notificationMethods || ['push'],
+        notificationMethods: createAlertDto.notificationMethods || ["push"],
       });
 
       const savedAlert = await this.alertRepository.save(alert);
-      
-      this.logger.log(`Created alert ${savedAlert.id} for ${savedAlert.symbol}`);
-      
+
+      this.logger.log(
+        `Created alert ${savedAlert.id} for ${savedAlert.symbol}`,
+      );
+
       return savedAlert;
     } catch (error) {
-      this.logger.error('Error creating alert:', error);
+      this.logger.error("Error creating alert:", error);
       throw error;
     }
   }
 
-  async updateAlert(id: string, updateAlertDto: UpdateAlertDto): Promise<MarketAlert> {
+  async updateAlert(
+    id: string,
+    updateAlertDto: UpdateAlertDto,
+  ): Promise<MarketAlert> {
     try {
       const alert = await this.alertRepository.findOne({ where: { id } });
-      
+
       if (!alert) {
-        throw new Error('Alert not found');
+        throw new Error("Alert not found");
       }
 
       Object.assign(alert, updateAlertDto);
-      
+
       const updatedAlert = await this.alertRepository.save(alert);
-      
+
       this.logger.log(`Updated alert ${id}`);
-      
+
       return updatedAlert;
     } catch (error) {
-      this.logger.error('Error updating alert:', error);
+      this.logger.error("Error updating alert:", error);
       throw error;
     }
   }
@@ -93,59 +103,68 @@ export class AlertService {
   async deleteAlert(id: string): Promise<void> {
     try {
       const result = await this.alertRepository.delete(id);
-      
+
       if (result.affected === 0) {
-        throw new Error('Alert not found');
+        throw new Error("Alert not found");
       }
-      
+
       this.logger.log(`Deleted alert ${id}`);
     } catch (error) {
-      this.logger.error('Error deleting alert:', error);
+      this.logger.error("Error deleting alert:", error);
       throw error;
     }
   }
 
-  async getUserAlerts(userId: string, status?: AlertStatus): Promise<MarketAlert[]> {
+  async getUserAlerts(
+    userId: string,
+    status?: AlertStatus,
+  ): Promise<MarketAlert[]> {
     try {
       const whereConditions: any = { userId };
-      
+
       if (status) {
         whereConditions.status = status;
       }
 
       return await this.alertRepository.find({
         where: whereConditions,
-        order: { createdAt: 'DESC' },
+        order: { createdAt: "DESC" },
       });
     } catch (error) {
-      this.logger.error('Error getting user alerts:', error);
+      this.logger.error("Error getting user alerts:", error);
       throw error;
     }
   }
 
-  async getAlertsBySymbol(symbol: string, status?: AlertStatus): Promise<MarketAlert[]> {
+  async getAlertsBySymbol(
+    symbol: string,
+    status?: AlertStatus,
+  ): Promise<MarketAlert[]> {
     try {
       const whereConditions: any = { symbol: symbol.toUpperCase() };
-      
+
       if (status) {
         whereConditions.status = status;
       }
 
       return await this.alertRepository.find({
         where: whereConditions,
-        order: { createdAt: 'DESC' },
+        order: { createdAt: "DESC" },
       });
     } catch (error) {
-      this.logger.error('Error getting alerts by symbol:', error);
+      this.logger.error("Error getting alerts by symbol:", error);
       throw error;
     }
   }
 
-  @OnEvent('market.data.updated')
-  async handleMarketDataUpdate(payload: { symbol: string; data: MarketData }): Promise<void> {
+  @OnEvent("market.data.updated")
+  async handleMarketDataUpdate(payload: {
+    symbol: string;
+    data: MarketData;
+  }): Promise<void> {
     try {
       const { symbol, data } = payload;
-      
+
       // Get all active alerts for this symbol
       const alerts = await this.alertRepository.find({
         where: {
@@ -158,44 +177,57 @@ export class AlertService {
         await this.checkAlert(alert, data);
       }
     } catch (error) {
-      this.logger.error('Error handling market data update for alerts:', error);
+      this.logger.error("Error handling market data update for alerts:", error);
     }
   }
 
-  private async checkAlert(alert: MarketAlert, marketData: MarketData): Promise<void> {
+  private async checkAlert(
+    alert: MarketAlert,
+    marketData: MarketData,
+  ): Promise<void> {
     try {
       let isTriggered = false;
       const currentPrice = marketData.price;
-      
+
       switch (alert.alertType) {
         case AlertType.PRICE_ABOVE:
-          isTriggered = alert.targetPrice !== null && currentPrice > alert.targetPrice;
+          isTriggered =
+            alert.targetPrice !== null && currentPrice > alert.targetPrice;
           break;
-          
+
         case AlertType.PRICE_BELOW:
-          isTriggered = alert.targetPrice !== null && currentPrice < alert.targetPrice;
+          isTriggered =
+            alert.targetPrice !== null && currentPrice < alert.targetPrice;
           break;
-          
+
         case AlertType.PRICE_CHANGE:
-          if (alert.percentageThreshold !== null && marketData.changePercent !== null) {
-            isTriggered = Math.abs(marketData.changePercent) >= Math.abs(alert.percentageThreshold);
+          if (
+            alert.percentageThreshold !== null &&
+            marketData.changePercent !== null
+          ) {
+            isTriggered =
+              Math.abs(marketData.changePercent) >=
+              Math.abs(alert.percentageThreshold);
           }
           break;
-          
+
         case AlertType.VOLUME_SPIKE:
           if (alert.volumeThreshold !== null && marketData.volume) {
             isTriggered = marketData.volume >= alert.volumeThreshold;
           }
           break;
-          
+
         case AlertType.TECHNICAL_INDICATOR:
           // Implement technical indicator checks based on conditions
-          isTriggered = await this.checkTechnicalIndicatorConditions(alert, marketData);
+          isTriggered = await this.checkTechnicalIndicatorConditions(
+            alert,
+            marketData,
+          );
           break;
-          
+
         case AlertType.NEWS_SENTIMENT:
           // Implement news sentiment checks based on conditions
-          isTriggered = await this.checkNewsSentimentConditions(alert, marketData);
+          isTriggered = await this.checkNewsSentimentConditions(alert);
           break;
       }
 
@@ -207,20 +239,25 @@ export class AlertService {
     }
   }
 
-  private async triggerAlert(alert: MarketAlert, marketData: MarketData): Promise<void> {
+  private async triggerAlert(
+    alert: MarketAlert,
+    marketData: MarketData,
+  ): Promise<void> {
     try {
       // Check if we should avoid duplicate notifications
-      const timeSinceLastNotification = alert.lastNotificationAt 
+      const timeSinceLastNotification = alert.lastNotificationAt
         ? Date.now() - alert.lastNotificationAt.getTime()
         : Infinity;
-      
+
       // Don't send notification if last one was less than 5 minutes ago
       if (timeSinceLastNotification < 5 * 60 * 1000) {
         return;
       }
 
       // Update alert
-      alert.status = alert.isRecurring ? AlertStatus.ACTIVE : AlertStatus.TRIGGERED;
+      alert.status = alert.isRecurring
+        ? AlertStatus.ACTIVE
+        : AlertStatus.TRIGGERED;
       alert.triggeredAt = new Date();
       alert.triggeredPrice = marketData.price;
       alert.triggerCount += 1;
@@ -229,7 +266,7 @@ export class AlertService {
       await this.alertRepository.save(alert);
 
       // Emit alert triggered event
-      this.eventEmitter.emit('alert.triggered', {
+      this.eventEmitter.emit("alert.triggered", {
         alert,
         marketData,
         triggerDetails: {
@@ -240,7 +277,7 @@ export class AlertService {
       });
 
       this.logger.log(
-        `Alert triggered: ${alert.title} for ${alert.symbol} at price ${marketData.price}`
+        `Alert triggered: ${alert.title} for ${alert.symbol} at price ${marketData.price}`,
       );
     } catch (error) {
       this.logger.error(`Error triggering alert ${alert.id}:`, error);
@@ -249,48 +286,53 @@ export class AlertService {
 
   private async checkTechnicalIndicatorConditions(
     alert: MarketAlert,
-    marketData: MarketData
+    marketData: MarketData,
   ): Promise<boolean> {
     try {
       // Implement technical indicator checks based on alert.conditions
       // This could include RSI, MACD, Bollinger Bands, etc.
       const conditions = alert.conditions;
-      
-      if (conditions.indicator === 'rsi') {
+
+      if (conditions.indicator === "rsi") {
         // Example: RSI conditions
         return conditions.value > 70 || conditions.value < 30;
       }
-      
-      if (conditions.indicator === 'bollinger_bands') {
+
+      if (conditions.indicator === "bollinger_bands") {
         // Example: Bollinger Bands conditions
-        return marketData.price > conditions.upperBand || marketData.price < conditions.lowerBand;
+        return (
+          marketData.price > conditions.upperBand ||
+          marketData.price < conditions.lowerBand
+        );
       }
-      
+
       return false;
     } catch (error) {
-      this.logger.error('Error checking technical indicator conditions:', error);
+      this.logger.error(
+        "Error checking technical indicator conditions:",
+        error,
+      );
       return false;
     }
   }
 
   private async checkNewsSentimentConditions(
     alert: MarketAlert,
-    marketData: MarketData
   ): Promise<boolean> {
     try {
       // Implement news sentiment checks
       // This would integrate with news APIs and sentiment analysis
       const conditions = alert.conditions;
-      
+
       if (conditions.sentimentThreshold) {
         // Check if sentiment score meets threshold
         // This is a placeholder - implement based on your news service
         return false;
       }
-      
+
       return false;
     } catch (error) {
-      this.logger.error('Error checking news sentiment conditions:', error);
+      this.logger.error("Error checking news sentiment conditions:", error);
       return false;
     }
   }
@@ -299,20 +341,20 @@ export class AlertService {
   async cleanupExpiredAlerts(): Promise<void> {
     try {
       const now = new Date();
-      
+
       const result = await this.alertRepository
         .createQueryBuilder()
         .update(MarketAlert)
         .set({ status: AlertStatus.EXPIRED })
-        .where('expiresAt < :now', { now })
-        .andWhere('status = :status', { status: AlertStatus.ACTIVE })
+        .where("expiresAt < :now", { now })
+        .andWhere("status = :status", { status: AlertStatus.ACTIVE })
         .execute();
 
       if (result.affected > 0) {
         this.logger.log(`Expired ${result.affected} alerts`);
       }
     } catch (error) {
-      this.logger.error('Error cleaning up expired alerts:', error);
+      this.logger.error("Error cleaning up expired alerts:", error);
     }
   }
 
@@ -331,27 +373,30 @@ export class AlertService {
 
       const stats = {
         total: alerts.length,
-        active: alerts.filter(a => a.status === AlertStatus.ACTIVE).length,
-        triggered: alerts.filter(a => a.status === AlertStatus.TRIGGERED).length,
-        expired: alerts.filter(a => a.status === AlertStatus.EXPIRED).length,
+        active: alerts.filter((a) => a.status === AlertStatus.ACTIVE).length,
+        triggered: alerts.filter((a) => a.status === AlertStatus.TRIGGERED)
+          .length,
+        expired: alerts.filter((a) => a.status === AlertStatus.EXPIRED).length,
         bySymbol: [] as { symbol: string; count: number }[],
         byType: [] as { type: AlertType; count: number }[],
       };
 
       // Group by symbol
       const symbolGroups = new Map<string, number>();
-      alerts.forEach(alert => {
+      alerts.forEach((alert) => {
         const count = symbolGroups.get(alert.symbol) || 0;
         symbolGroups.set(alert.symbol, count + 1);
       });
-      stats.bySymbol = Array.from(symbolGroups.entries()).map(([symbol, count]) => ({
-        symbol,
-        count,
-      }));
+      stats.bySymbol = Array.from(symbolGroups.entries()).map(
+        ([symbol, count]) => ({
+          symbol,
+          count,
+        }),
+      );
 
       // Group by type
       const typeGroups = new Map<AlertType, number>();
-      alerts.forEach(alert => {
+      alerts.forEach((alert) => {
         const count = typeGroups.get(alert.alertType) || 0;
         typeGroups.set(alert.alertType, count + 1);
       });
@@ -362,7 +407,7 @@ export class AlertService {
 
       return stats;
     } catch (error) {
-      this.logger.error('Error getting alert statistics:', error);
+      this.logger.error("Error getting alert statistics:", error);
       throw error;
     }
   }

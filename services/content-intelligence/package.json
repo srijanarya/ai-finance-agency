@@ -63,7 +63,7 @@
     "cheerio": "^1.0.0",
     "sharp": "^0.33.5",
     "pdf-lib": "^1.17.1",
-    "handlebars": "^4.7.8",
+    "handlebars": "^4.7.8"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",

@@ -40,4 +40,32 @@ describe('ContentIntelligenceController (e2e)', () => {
         expect(res.body).toHaveProperty('status', 'active');
       });
   });
+
+  describe('API Security', () => {
+    it('/api/v1/content/generate (POST) - should require authentication', () => {
+      return request(app.getHttpServer())
+        .post('/api/v1/content/generate')
+        .send({
+          contentType: 'post',
+          title: 'Test Content',
+          prompt: 'Generate test financial content',
+        })
+        .expect(401);
+    });
+
+    it('/api/v1/content (GET) - should require authentication', () => {
+      return request(app.getHttpServer())
+        .get('/api/v1/content')
+        .expect(401);
+    });
+  });
+
+  describe('API Documentation', () => {
+    it('/api (GET) - should serve Swagger documentation', () => {
+      return request(app.getHttpServer())
+        .get('/api')
+        .expect(200)
+        .expect('Content-Type', /html/);
+    });
+  });
 });

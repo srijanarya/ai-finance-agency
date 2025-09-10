@@ -1,0 +1,263 @@
+syntax = "proto3";
+
+package treum.education;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service EducationService {
+  rpc CreateCourse(CreateCourseRequest) returns (CourseResponse);
+  rpc GetCourse(GetCourseRequest) returns (CourseResponse);
+  rpc ListCourses(ListCoursesRequest) returns (ListCoursesResponse);
+  rpc UpdateCourse(UpdateCourseRequest) returns (CourseResponse);
+  rpc DeleteCourse(DeleteCourseRequest) returns (google.protobuf.Empty);
+  rpc CreateLesson(CreateLessonRequest) returns (LessonResponse);
+  rpc GetLesson(GetLessonRequest) returns (LessonResponse);
+  rpc ListLessons(ListLessonsRequest) returns (ListLessonsResponse);
+  rpc UpdateLesson(UpdateLessonRequest) returns (LessonResponse);
+  rpc DeleteLesson(DeleteLessonRequest) returns (google.protobuf.Empty);
+  rpc EnrollInCourse(EnrollInCourseRequest) returns (UserProgressResponse);
+  rpc GetUserProgress(GetUserProgressRequest) returns (UserProgressResponse);
+  rpc UpdateUserProgress(UpdateUserProgressRequest) returns (UserProgressResponse);
+  rpc CompleteCourse(CompleteCourseRequest) returns (UserProgressResponse);
+  rpc GetCertificate(GetCertificateRequest) returns (CertificateResponse);
+  rpc ListUserCourses(ListUserCoursesRequest) returns (ListUserCoursesResponse);
+}
+
+// Messages
+message CreateCourseRequest {
+  string title = 1;
+  string description = 2;
+  CourseLevel level = 3;
+  string category = 4;
+  int32 duration = 5;
+  double price = 6;
+  string currency = 7;
+  string thumbnail_url = 8;
+  repeated string tags = 9;
+  repeated string prerequisite_courses = 10;
+  repeated string learning_outcomes = 11;
+  string instructor_id = 12;
+}
+
+message UpdateCourseRequest {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  CourseLevel level = 4;
+  string category = 5;
+  int32 duration = 6;
+  double price = 7;
+  string currency = 8;
+  string thumbnail_url = 9;
+  repeated string tags = 10;
+  repeated string prerequisite_courses = 11;
+  repeated string learning_outcomes = 12;
+  bool is_active = 13;
+}
+
+message GetCourseRequest {
+  string id = 1;
+}
+
+message DeleteCourseRequest {
+  string id = 1;
+}
+
+message ListCoursesRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  CourseLevel level_filter = 3;
+  string category_filter = 4;
+  bool is_active_filter = 5;
+  string instructor_id_filter = 6;
+  repeated string tags = 7;
+  double max_price = 8;
+  string search_query = 9;
+}
+
+message ListCoursesResponse {
+  repeated CourseResponse courses = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+}
+
+message CourseResponse {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  CourseLevel level = 4;
+  string category = 5;
+  int32 duration = 6;
+  double price = 7;
+  string currency = 8;
+  bool is_active = 9;
+  string thumbnail_url = 10;
+  repeated string tags = 11;
+  repeated string prerequisite_courses = 12;
+  repeated string learning_outcomes = 13;
+  string instructor_id = 14;
+  int32 enrolled_count = 15;
+  double rating = 16;
+  int32 lesson_count = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+}
+
+message CreateLessonRequest {
+  string course_id = 1;
+  string title = 2;
+  string description = 3;
+  int32 order = 4;
+  int32 duration = 5;
+  LessonType type = 6;
+  string content_url = 7;
+  bool is_free = 8;
+}
+
+message UpdateLessonRequest {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  int32 order = 4;
+  int32 duration = 5;
+  LessonType type = 6;
+  string content_url = 7;
+  bool is_active = 8;
+  bool is_free = 9;
+}
+
+message GetLessonRequest {
+  string id = 1;
+}
+
+message DeleteLessonRequest {
+  string id = 1;
+}
+
+message ListLessonsRequest {
+  string course_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  LessonType type_filter = 4;
+  bool is_active_filter = 5;
+  bool is_free_filter = 6;
+}
+
+message ListLessonsResponse {
+  repeated LessonResponse lessons = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+}
+
+message LessonResponse {
+  string id = 1;
+  string course_id = 2;
+  string title = 3;
+  string description = 4;
+  int32 order = 5;
+  int32 duration = 6;
+  LessonType type = 7;
+  string content_url = 8;
+  bool is_active = 9;
+  bool is_free = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message EnrollInCourseRequest {
+  string user_id = 1;
+  string course_id = 2;
+}
+
+message GetUserProgressRequest {
+  string user_id = 1;
+  string course_id = 2;
+}
+
+message UpdateUserProgressRequest {
+  string user_id = 1;
+  string course_id = 2;
+  string current_lesson_id = 3;
+  repeated string completed_lessons = 4;
+  int32 completion_percentage = 5;
+}
+
+message CompleteCourseRequest {
+  string user_id = 1;
+  string course_id = 2;
+  bool issue_certificate = 3;
+}
+
+message UserProgressResponse {
+  string id = 1;
+  string user_id = 2;
+  string course_id = 3;
+  repeated string completed_lessons = 4;
+  string current_lesson = 5;
+  int32 completion_percentage = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+  bool certificate_issued = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+}
+
+message GetCertificateRequest {
+  string user_id = 1;
+  string course_id = 2;
+}
+
+message CertificateResponse {
+  string id = 1;
+  string user_id = 2;
+  string course_id = 3;
+  string course_title = 4;
+  string user_name = 5;
+  google.protobuf.Timestamp issued_at = 6;
+  string certificate_url = 7;
+  string verification_code = 8;
+}
+
+message ListUserCoursesRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  bool completed_only = 4;
+  bool in_progress_only = 5;
+}
+
+message ListUserCoursesResponse {
+  repeated UserCourseInfo courses = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+}
+
+message UserCourseInfo {
+  CourseResponse course = 1;
+  UserProgressResponse progress = 2;
+  google.protobuf.Timestamp enrolled_at = 3;
+  bool is_favorite = 4;
+}
+
+// Enums
+enum CourseLevel {
+  COURSE_LEVEL_UNSPECIFIED = 0;
+  COURSE_LEVEL_BEGINNER = 1;
+  COURSE_LEVEL_INTERMEDIATE = 2;
+  COURSE_LEVEL_ADVANCED = 3;
+}
+
+enum LessonType {
+  LESSON_TYPE_UNSPECIFIED = 0;
+  LESSON_TYPE_VIDEO = 1;
+  LESSON_TYPE_TEXT = 2;
+  LESSON_TYPE_QUIZ = 3;
+  LESSON_TYPE_ASSIGNMENT = 4;
+}

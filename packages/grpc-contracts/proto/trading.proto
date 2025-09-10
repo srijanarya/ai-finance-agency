@@ -1,0 +1,202 @@
+syntax = "proto3";
+
+package treum.trading;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+service TradingService {
+  rpc CreateTrade(CreateTradeRequest) returns (TradeResponse);
+  rpc GetTrade(GetTradeRequest) returns (TradeResponse);
+  rpc ListTrades(ListTradesRequest) returns (ListTradesResponse);
+  rpc CancelTrade(CancelTradeRequest) returns (TradeResponse);
+  rpc GetTradingAccount(GetTradingAccountRequest) returns (TradingAccountResponse);
+  rpc CreateTradingAccount(CreateTradingAccountRequest) returns (TradingAccountResponse);
+  rpc GetPortfolio(GetPortfolioRequest) returns (PortfolioResponse);
+  rpc GetTradeHistory(GetTradeHistoryRequest) returns (TradeHistoryResponse);
+}
+
+// Messages
+message CreateTradeRequest {
+  string user_id = 1;
+  string account_id = 2;
+  string symbol = 3;
+  AssetType asset_type = 4;
+  string signal_id = 5;
+  TradeType type = 6;
+  TradeSide side = 7;
+  double quantity = 8;
+  double price = 9;
+  double stop_loss = 10;
+  double take_profit = 11;
+}
+
+message GetTradeRequest {
+  string id = 1;
+}
+
+message CancelTradeRequest {
+  string id = 1;
+  string reason = 2;
+}
+
+message ListTradesRequest {
+  string user_id = 1;
+  string account_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  TradeStatus status_filter = 5;
+  AssetType asset_type_filter = 6;
+  google.protobuf.Timestamp from_date = 7;
+  google.protobuf.Timestamp to_date = 8;
+}
+
+message ListTradesResponse {
+  repeated TradeResponse trades = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  int32 total_pages = 5;
+}
+
+message TradeResponse {
+  string id = 1;
+  string user_id = 2;
+  string account_id = 3;
+  string symbol = 4;
+  AssetType asset_type = 5;
+  string signal_id = 6;
+  TradeType type = 7;
+  TradeSide side = 8;
+  double quantity = 9;
+  double price = 10;
+  double stop_loss = 11;
+  double take_profit = 12;
+  TradeStatus status = 13;
+  double fill_price = 14;
+  double commission = 15;
+  double pnl = 16;
+  google.protobuf.Timestamp executed_at = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+}
+
+message CreateTradingAccountRequest {
+  string user_id = 1;
+  AccountType account_type = 2;
+  string broker = 3;
+  double balance = 4;
+  string currency = 5;
+  double leverage = 6;
+  string api_key = 7;
+  string api_secret = 8;
+}
+
+message GetTradingAccountRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+message TradingAccountResponse {
+  string id = 1;
+  string user_id = 2;
+  AccountType account_type = 3;
+  string broker = 4;
+  double balance = 5;
+  string currency = 6;
+  double leverage = 7;
+  bool is_active = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message GetPortfolioRequest {
+  string user_id = 1;
+  string account_id = 2;
+}
+
+message PortfolioResponse {
+  string user_id = 1;
+  string account_id = 2;
+  double total_value = 3;
+  double available_balance = 4;
+  double used_margin = 5;
+  double unrealized_pnl = 6;
+  double realized_pnl = 7;
+  repeated Position positions = 8;
+  google.protobuf.Timestamp last_updated = 9;
+}
+
+message Position {
+  string symbol = 1;
+  AssetType asset_type = 2;
+  double quantity = 3;
+  double average_price = 4;
+  double current_price = 5;
+  double market_value = 6;
+  double unrealized_pnl = 7;
+  double unrealized_pnl_percent = 8;
+  TradeSide side = 9;
+  google.protobuf.Timestamp opened_at = 10;
+}
+
+message GetTradeHistoryRequest {
+  string user_id = 1;
+  string account_id = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  google.protobuf.Timestamp from_date = 5;
+  google.protobuf.Timestamp to_date = 6;
+}
+
+message TradeHistoryResponse {
+  repeated TradeResponse trades = 1;
+  int32 total = 2;
+  int32 page = 3;
+  int32 limit = 4;
+  double total_pnl = 5;
+  double total_commission = 6;
+  int32 winning_trades = 7;
+  int32 losing_trades = 8;
+  double win_rate = 9;
+}
+
+// Enums
+enum AssetType {
+  ASSET_TYPE_UNSPECIFIED = 0;
+  ASSET_TYPE_STOCK = 1;
+  ASSET_TYPE_CRYPTO = 2;
+  ASSET_TYPE_FOREX = 3;
+  ASSET_TYPE_COMMODITY = 4;
+  ASSET_TYPE_INDEX = 5;
+  ASSET_TYPE_BOND = 6;
+}
+
+enum TradeType {
+  TRADE_TYPE_UNSPECIFIED = 0;
+  TRADE_TYPE_MARKET = 1;
+  TRADE_TYPE_LIMIT = 2;
+  TRADE_TYPE_STOP = 3;
+  TRADE_TYPE_STOP_LIMIT = 4;
+}
+
+enum TradeSide {
+  TRADE_SIDE_UNSPECIFIED = 0;
+  TRADE_SIDE_BUY = 1;
+  TRADE_SIDE_SELL = 2;
+}
+
+enum TradeStatus {
+  TRADE_STATUS_UNSPECIFIED = 0;
+  TRADE_STATUS_PENDING = 1;
+  TRADE_STATUS_FILLED = 2;
+  TRADE_STATUS_PARTIALLY_FILLED = 3;
+  TRADE_STATUS_CANCELLED = 4;
+  TRADE_STATUS_REJECTED = 5;
+}
+
+enum AccountType {
+  ACCOUNT_TYPE_UNSPECIFIED = 0;
+  ACCOUNT_TYPE_DEMO = 1;
+  ACCOUNT_TYPE_LIVE = 2;
+}

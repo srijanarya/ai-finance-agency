@@ -1,28 +1,28 @@
 {
   "last_content_types": [
-    "lesson_learned",
-    "poll_question",
-    "trader_psychology",
-    "earnings_preview",
     "policy_update",
-    "success_story",
-    "risk_management",
+    "market_quiz",
     "poll_question",
+    "myth_buster",
     "economic_indicator",
-    "market_quiz"
+    "market_overview",
+    "lesson_learned",
+    "trading_strategy",
+    "market_quiz",
+    "myth_buster"
   ],
   "last_stocks_mentioned": [],
   "last_themes": [],
   "last_formats": [
-    "news_digest",
-    "{emoji} {fact}\n\nDid you know? {explanation}\n\n{hashtags}",
+    "trading_setup",
+    "Question: {question}\n\nA) {option_a}\nB) {option_b}\n\nReply with your answer! {hashtags}",
     "thought_leadership",
-    "analysis_report",
+    "quick_alert",
     "\ud83d\udcca {index_update}\n\n{key_point}\n\n{hashtags}",
     "professional_analysis",
-    "news_digest",
-    "\ud83c\udfaf {stock_focus}\n{analysis}\n\n\ud83d\udca1 {tip}\n\n{hashtags}",
-    "market_commentary",
-    "analysis_report"
+    "trading_setup",
+    "Breaking: {news}\n\nImpact: {impact}\n\n{hashtags}",
+    "success_story",
+    "news_digest"
   ]
 }

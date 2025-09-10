@@ -145,4 +145,91 @@ export class AuthController {
       },
     };
   }
+
+  // MFA Endpoints
+  @Post('mfa/setup')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async setupMfa(@GetUser() user: User) {
+    return this.authService.setupMfa(user.id);
+  }
+
+  @Post('mfa/enable')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async enableMfa(
+    @GetUser() user: User,
+    @Body('token') token: string,
+    @Req() req: Request,
+  ) {
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    return this.authService.enableMfa(user.id, token, ipAddress);
+  }
+
+  @Post('mfa/disable')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async disableMfa(
+    @GetUser() user: User,
+    @Body('token') token: string,
+    @Req() req: Request,
+  ) {
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    return this.authService.disableMfa(user.id, token, ipAddress);
+  }
+
+  @Post('mfa/complete')
+  @HttpCode(HttpStatus.OK)
+  async completeMfaLogin(
+    @Body('mfaToken') mfaToken: string,
+    @Body('totpToken') totpToken: string,
+    @Req() req: Request,
+  ) {
+    const deviceInfo = {
+      deviceId: req.get('X-Device-ID') || 'unknown',
+      deviceName: req.get('X-Device-Name'),
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('User-Agent'),
+    };
+    return this.authService.completeMfaLogin(mfaToken, totpToken, deviceInfo);
+  }
+
+  // Session Management Endpoints
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  async getUserSessions(@GetUser() user: User) {
+    return this.authService.getAllUserSessions(user.id);
+  }
+
+  @Post('sessions/terminate')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async terminateSession(
+    @GetUser() user: User,
+    @Body('sessionId') sessionId: string,
+    @Req() req: Request,
+  ) {
+    const currentSessionId = (req as any).sessionId;
+    return this.authService.terminateSession(user.id, sessionId, currentSessionId);
+  }
+
+  @Post('sessions/terminate-all')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async terminateAllOtherSessions(
+    @GetUser() user: User,
+    @Req() req: Request,
+  ) {
+    const currentSessionId = (req as any).sessionId;
+    return this.authService.terminateAllOtherSessions(user.id, currentSessionId);
+  }
+
+  @Post('logout-enhanced')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async enhancedLogout(@GetUser() user: User, @Req() req: Request) {
+    const sessionId = (req as any).sessionId;
+    const token = req.get('Authorization')?.replace('Bearer ', '') || '';
+    return this.authService.enhancedLogout(user.id, sessionId, token);
+  }
 }

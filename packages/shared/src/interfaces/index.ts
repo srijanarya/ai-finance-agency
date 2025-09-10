@@ -221,20 +221,7 @@ export interface EventMessage<T = any> extends ServiceMessage<T> {
   version: number;
 }
 
-// Health Check Interfaces
-export interface HealthCheckResult {
-  status: 'up' | 'down' | 'degraded';
-  checks: {
-    [key: string]: {
-      status: 'up' | 'down';
-      message?: string;
-      responseTime?: number;
-    };
-  };
-  info?: Record<string, any>;
-  error?: Record<string, any>;
-  details?: Record<string, any>;
-}
+// Health Check Interfaces - HealthCheckResult is defined in types/index.ts
 
 // Circuit Breaker Interfaces
 export interface CircuitBreakerConfig {

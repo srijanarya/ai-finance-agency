@@ -2,7 +2,7 @@
  * Common utility functions used across TREUM microservices
  */
 
-import { ApiResponse, PaginatedResponse } from '../types';
+import { ApiResponse, PaginatedApiResponse } from '../types';
 
 export function createApiResponse<T>(
   data?: T,
@@ -12,8 +12,11 @@ export function createApiResponse<T>(
   return {
     success,
     data,
-    message,
-    timestamp: new Date().toISOString()
+    metadata: {
+      timestamp: new Date().toISOString(),
+      requestId: generateUUID(),
+      version: '1.0.0'
+    }
   };
 }
 
@@ -23,9 +26,15 @@ export function createErrorResponse(
 ): ApiResponse {
   return {
     success: false,
-    error,
-    message,
-    timestamp: new Date().toISOString()
+    error: {
+      code: error,
+      message: message || 'An error occurred'
+    },
+    metadata: {
+      timestamp: new Date().toISOString(),
+      requestId: generateUUID(),
+      version: '1.0.0'
+    }
   };
 }
 
@@ -34,16 +43,25 @@ export function createPaginatedResponse<T>(
   total: number,
   page: number,
   limit: number
-): PaginatedResponse<T> {
+): PaginatedApiResponse<T> {
   const totalPages = Math.ceil(total / limit);
   
   return {
+    success: true,
     data,
-    total,
-    page,
-    limit,
-    hasNext: page < totalPages,
-    hasPrev: page > 1
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrevious: page > 1
+    },
+    metadata: {
+      timestamp: new Date().toISOString(),
+      requestId: generateUUID(),
+      version: '1.0.0'
+    }
   };
 }
 

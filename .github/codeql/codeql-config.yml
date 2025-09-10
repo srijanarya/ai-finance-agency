@@ -1,0 +1,36 @@
+name: "TREUM CodeQL Config"
+
+# CodeQL configuration for security analysis
+queries:
+  - uses: security-and-quality
+  - uses: security-extended
+
+paths-ignore:
+  - "node_modules"
+  - "dist"
+  - "build"
+  - "coverage"
+  - "*.min.js"
+  - "*.d.ts"
+  - "test/**"
+  - "tests/**"
+  - "__tests__"
+  - "*.test.ts"
+  - "*.spec.ts"
+  - "jest.config.js"
+  - "webpack.config.js"
+
+paths:
+  - "services"
+  - "packages"
+  - "apps"
+
+# Disable built-in queries that might be too noisy
+disable-default-queries: false
+
+# Enable additional security queries
+query-filters:
+  - include:
+      kind: problem
+  - include:
+      kind: path-problem

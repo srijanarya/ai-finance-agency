@@ -13,5 +13,8 @@ export * from './events';
 // Export all types
 export * from './types';
 
+// Export all utilities
+export * from './utils';
+
 // Version information
 export const SHARED_LIBRARY_VERSION = '1.0.0';

@@ -1,5 +1,5 @@
 import { EventType, ServiceType } from '../enums';
-import { IsString, IsNotEmpty, IsOptional, IsDate, IsNumber, IsEnum, IsUUID } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsDate, IsNumber, IsEnum, IsUUID, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // Base Event Class

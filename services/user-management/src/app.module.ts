@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
@@ -21,7 +21,15 @@ import { UserService } from './services/user.service';
 import { RoleService } from './services/role.service';
 import { EmailService } from './services/email.service';
 import { AuditService } from './services/audit.service';
-// import { HealthModule } from './modules/health.module';
+import { DeviceTrackingService } from './services/device-tracking.service';
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
+import { GitHubStrategy } from './strategies/github.strategy';
+import { OAuthController } from './controllers/oauth.controller';
+import { RolesGuard } from './guards/roles.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
+import { SecurityMiddleware } from './middleware/security.middleware';
+import { HealthModule } from './modules/health.module';
 
 @Module({
   imports: [
@@ -86,10 +94,10 @@ import { AuditService } from './services/audit.service';
       inject: [ConfigService],
     }),
 
-    // HealthModule,
+    HealthModule,
   ],
 
-  controllers: [AppController, AuthController, UserController, RoleController],
+  controllers: [AppController, AuthController, UserController, RoleController, OAuthController],
 
   providers: [
     AppService,
@@ -98,10 +106,23 @@ import { AuditService } from './services/audit.service';
     RoleService,
     EmailService,
     AuditService,
+    DeviceTrackingService,
+    JwtStrategy,
+    GoogleStrategy,
+    GitHubStrategy,
+    RolesGuard,
+    PermissionsGuard,
+    SecurityMiddleware,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(SecurityMiddleware)
+      .forRoutes('*');
+  }
+}

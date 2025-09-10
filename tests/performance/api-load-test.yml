@@ -1,0 +1,145 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    - duration: 60
+      arrivalRate: 1
+      name: "Warm up"
+    - duration: 120
+      arrivalRate: 5
+      rampTo: 50
+      name: "Ramp up load"
+    - duration: 600
+      arrivalRate: 50
+      name: "Sustained load"
+    - duration: 120
+      arrivalRate: 50
+      rampTo: 5
+      name: "Ramp down"
+  payload:
+    path: "./test-data/users.csv"
+    fields:
+      - "email"
+      - "password"
+  environments:
+    development:
+      target: 'http://localhost:3000'
+    staging:
+      target: 'https://staging-api.treum.ai'
+    production:
+      target: 'https://api.treum.ai'
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+  defaults:
+    headers:
+      Accept: 'application/json'
+      Content-Type: 'application/json'
+
+scenarios:
+  - name: "Authentication Flow"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/v1/auth/login"
+          name: "POST /auth/login"
+          json:
+            email: "{{ email }}"
+            password: "{{ password }}"
+          capture:
+            - json: "$.access_token"
+              as: "token"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/v1/auth/profile"
+          name: "GET /auth/profile"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Trading Signals"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/v1/auth/login"
+          json:
+            email: "test@treum.ai"
+            password: "test123"
+          capture:
+            - json: "$.access_token"
+              as: "token"
+      - get:
+          url: "/api/v1/signals"
+          name: "GET /signals"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/v1/signals/active"
+          name: "GET /signals/active"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "User Management"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/v1/users/register"
+          name: "POST /users/register"
+          json:
+            email: "user{{ $randomString() }}@test.com"
+            password: "password123"
+            firstName: "Test"
+            lastName: "User"
+          expect:
+            - statusCode: 201
+
+  - name: "Education Content"
+    weight: 15
+    flow:
+      - get:
+          url: "/api/v1/education/courses"
+          name: "GET /education/courses"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/v1/education/articles"
+          name: "GET /education/articles"
+          expect:
+            - statusCode: 200
+
+  - name: "Trading Operations"
+    weight: 10
+    flow:
+      - post:
+          url: "/api/v1/auth/login"
+          json:
+            email: "trader@treum.ai"
+            password: "trader123"
+          capture:
+            - json: "$.access_token"
+              as: "token"
+      - get:
+          url: "/api/v1/trading/portfolio"
+          name: "GET /trading/portfolio"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+      - get:
+          url: "/api/v1/trading/positions"
+          name: "GET /trading/positions"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+# Performance thresholds
+ensure:
+  p95: 500  # 95th percentile response time under 500ms
+  p99: 1000 # 99th percentile response time under 1s
+  maxErrorRate: 1  # Error rate under 1%

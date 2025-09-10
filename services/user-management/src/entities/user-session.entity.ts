@@ -99,8 +99,20 @@ export class UserSession {
   @Column({ name: 'last_accessed_at', type: 'timestamp', nullable: true })
   lastAccessedAt?: Date;
 
+  @Column({ name: 'last_activity_at', type: 'timestamp', nullable: true })
+  lastActivityAt?: Date;
+
   @Column({ name: 'access_count', default: 0 })
   accessCount: number;
+
+  @Column({
+    name: 'risk_score',
+    type: 'decimal',
+    precision: 5,
+    scale: 2,
+    nullable: true,
+  })
+  riskScore?: number;
 
   @Column({ name: 'login_method', nullable: true })
   loginMethod?: string; // password, 2fa, sso, api_key, etc.

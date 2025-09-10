@@ -44,6 +44,11 @@ export enum AuditAction {
   TWO_FACTOR_FAILED = 'two_factor_failed',
   BACKUP_CODES_GENERATED = 'backup_codes_generated',
   BACKUP_CODE_USED = 'backup_code_used',
+  MFA_ENABLED = 'mfa_enabled',
+  MFA_DISABLED = 'mfa_disabled',
+  MFA_REQUIRED = 'mfa_required',
+  MFA_LOGIN_SUCCESS = 'mfa_login_success',
+  MFA_LOGIN_FAILED = 'mfa_login_failed',
 
   // Account Security
   ACCOUNT_LOCKED = 'account_locked',
@@ -56,6 +61,9 @@ export enum AuditAction {
   SESSION_REFRESHED = 'session_refreshed',
   SESSION_REVOKED = 'session_revoked',
   SESSION_EXPIRED = 'session_expired',
+  SESSION_TERMINATED = 'session_terminated',
+  SESSIONS_LIMITED = 'sessions_limited',
+  ALL_OTHER_SESSIONS_TERMINATED = 'all_other_sessions_terminated',
 
   // Role & Permission Management
   ROLE_ASSIGNED = 'role_assigned',
@@ -121,6 +129,11 @@ export enum AuditAction {
   SUBSCRIPTION_CANCELLED = 'subscription_cancelled',
   PAYMENT_PROCESSED = 'payment_processed',
   PAYMENT_FAILED = 'payment_failed',
+
+  // OAuth Actions
+  OAUTH_LOGIN = 'oauth_login',
+  OAUTH_USER_CREATED = 'oauth_user_created',
+  OAUTH_ACCOUNT_LINKED = 'oauth_account_linked',
 
   // General Actions
   DATA_EXPORT_REQUESTED = 'data_export_requested',

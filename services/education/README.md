@@ -1,60 +1,123 @@
+# Education Microservice
+
 <p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+  🎓 A comprehensive education microservice for the AI Finance Agency platform
 </p>
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
+<p align="center">
+  Providing course management, progress tracking, assessments, and certificates for financial education.
 </p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+A production-ready NestJS microservice built for managing educational content focused on trading and finance. Features include course management, lesson delivery, user progress tracking, automated assessments, and certificate generation.
+
+## Features
+
+### Core Features
+- **Course Management**: Complete CRUD operations for financial courses with rich metadata
+- **Lesson Management**: Video lessons, documents, quizzes, and interactive content
+- **User Progress Tracking**: Real-time tracking with bookmarks, notes, and completion analytics
+- **Assessments & Quizzes**: Interactive assessments with automatic grading and multiple attempts
+- **Certificates**: Automated certificate generation with verification codes
+- **Categories**: Hierarchical organization of educational content
+
+### Educational Content Types
+- Trading fundamentals and strategies
+- Investment analysis and portfolio management
+- Risk management and hedging
+- Market analysis and technical indicators
+- Financial planning and wealth management
+- Cryptocurrency and DeFi education
+
+## Architecture
+
+### Database Entities
+- **Category**: Hierarchical course categorization
+- **Course**: Rich course metadata with pricing and publishing
+- **Lesson**: Individual lessons with multiple content types
+- **UserProgress**: Detailed progress tracking per user/course/lesson
+- **Assessment**: Quiz and test management
+- **AssessmentAttempt**: Individual quiz attempts with scoring
+- **Certificate**: Generated certificates with verification
+
+### API Endpoints
+```
+# Course Management
+GET    /api/v1/courses                 # List courses with filters
+POST   /api/v1/courses                 # Create new course
+GET    /api/v1/courses/:id             # Get course details
+PATCH  /api/v1/courses/:id             # Update course
+POST   /api/v1/courses/:id/publish     # Publish course
+POST   /api/v1/courses/enroll          # Enroll in course
+
+# Progress Tracking
+GET    /api/v1/progress/stats          # User learning statistics
+GET    /api/v1/progress/course/:id     # Course progress
+PATCH  /api/v1/progress/lesson/:id     # Update lesson progress
+POST   /api/v1/progress/lesson/:id/quiz # Submit quiz answers
+
+# Health & Monitoring
+GET    /health                         # Service health check
+```
 
 ## Project setup
 
+### Prerequisites
+- Node.js 18+
+- PostgreSQL 14+
+- Redis (optional, for caching)
+
+### Installation
 ```bash
 $ npm install
 ```
 
-## Compile and run the project
+### Environment Configuration
+```bash
+# Copy example environment file
+$ cp .env.example .env
+
+# Edit configuration
+$ nano .env
+```
+
+### Database Setup
+```bash
+# The service will auto-create tables using TypeORM synchronization
+# Make sure PostgreSQL is running and database exists
+```
+
+## Development
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
+# Start in watch mode
 $ npm run start:dev
 
-# production mode
+# The service will be available at http://localhost:3003
+# Swagger docs at http://localhost:3003/api/docs
+```
+
+## Production Deployment
+
+```bash
+# Build the application
+$ npm run build
+
+# Start production server
 $ npm run start:prod
 ```
 
-## Run tests
+## Testing
 
 ```bash
-# unit tests
+# Unit tests
 $ npm run test
 
-# e2e tests
+# End-to-end tests
 $ npm run test:e2e
 
-# test coverage
+# Test coverage report
 $ npm run test:cov
 ```
 

@@ -10,7 +10,6 @@ import { ApiProperty } from "@nestjs/swagger";
 
 @Entity("watchlists")
 @Index(["userId", "symbol"], { unique: true })
-@Index(["userId"])
 export class Watchlist {
   @ApiProperty({ description: "Unique identifier" })
   @PrimaryGeneratedColumn("uuid")

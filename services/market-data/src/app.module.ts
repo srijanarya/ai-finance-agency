@@ -55,6 +55,7 @@ import { HealthController } from "./controllers/health.controller";
           configService.get("NODE_ENV") === "production"
             ? { rejectUnauthorized: false }
             : false,
+        retryAttempts: 0, // Skip database connection in development
       }),
       inject: [ConfigService],
     }),

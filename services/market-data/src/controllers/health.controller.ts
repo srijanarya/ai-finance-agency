@@ -9,8 +9,6 @@ import {
 } from "@nestjs/terminus";
 import { InjectConnection } from "@nestjs/typeorm";
 import { Connection } from "typeorm";
-import { MonitoringService } from "../services/monitoring.service";
-import { MarketDataGateway } from "../gateways/market-data.gateway";
 
 @ApiTags("Health")
 @Controller("health")
@@ -20,8 +18,6 @@ export class HealthController {
     private db: TypeOrmHealthIndicator,
     private memory: MemoryHealthIndicator,
     private disk: DiskHealthIndicator,
-    private monitoringService: MonitoringService,
-    private marketDataGateway: MarketDataGateway,
     @InjectConnection() private connection: Connection,
   ) {}
 
@@ -78,8 +74,12 @@ export class HealthController {
       // CPU usage (simplified)
       cpu: process.cpuUsage(),
 
-      // WebSocket connections from the gateway
-      websocket: this.marketDataGateway.getConnectionStats(),
+      // WebSocket connections
+      websocket: {
+        totalConnections: 0,
+        authenticatedConnections: 0,
+        totalSymbolSubscriptions: 0,
+      },
 
       // External service dependencies status
       external_services: {
@@ -143,134 +143,29 @@ export class HealthController {
     };
   }
 
-  @Get("monitoring")
-  @ApiOperation({ summary: "Get comprehensive monitoring dashboard data" })
-  @ApiResponse({ status: 200, description: "Monitoring dashboard data" })
-  async getMonitoringDashboard() {
-    try {
-      const [systemMetrics, healthStatus, dashboardData] = await Promise.all([
-        this.monitoringService.getSystemMetrics(),
-        this.monitoringService.getHealthStatus(),
-        this.monitoringService.getDashboardData(),
-      ]);
-
-      const websocketStats = this.marketDataGateway.getConnectionStats();
-
-      return {
-        status: "success",
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        service: {
-          name: "market-data-service",
-          version: "1.0.0",
-          environment: process.env.NODE_ENV || "development",
-        },
-        health: healthStatus,
-        metrics: {
-          system: systemMetrics,
-          websocket: websocketStats,
-          database: {
-            connected: this.connection.isConnected,
-            driver: this.connection.driver.options.type,
-          },
-        },
-        dashboard: dashboardData,
-        alerts: {
-          active: dashboardData.activeAlerts.length,
-          recent: dashboardData.activeAlerts.slice(0, 5),
-        },
-      };
-    } catch (error) {
-      return {
-        status: "error",
-        timestamp: new Date().toISOString(),
-        error: error.message,
-      };
-    }
-  }
-
   @Get("metrics")
-  @ApiOperation({ summary: "Get system metrics for Prometheus/Grafana" })
+  @ApiOperation({ summary: "Get basic system metrics" })
   @ApiResponse({ status: 200, description: "System metrics in JSON format" })
   async getMetrics() {
-    try {
-      const systemMetrics = await this.monitoringService.getSystemMetrics();
-      const websocketStats = this.marketDataGateway.getConnectionStats();
+    const memUsage = process.memoryUsage();
+    const cpuUsage = process.cpuUsage();
 
-      // Format metrics in a structure suitable for time-series databases
-      return {
-        timestamp: new Date().toISOString(),
-        metrics: {
-          // System metrics
-          cpu_usage: systemMetrics.cpu.usage,
-          cpu_load_1m: systemMetrics.cpu.loadAverage[0],
-          cpu_load_5m: systemMetrics.cpu.loadAverage[1],
-          cpu_load_15m: systemMetrics.cpu.loadAverage[2],
+    return {
+      timestamp: new Date().toISOString(),
+      metrics: {
+        // Database metrics
+        database_connected: this.connection.isConnected ? 1 : 0,
 
-          // Memory metrics
-          memory_used_bytes: systemMetrics.memory.used,
-          memory_total_bytes: systemMetrics.memory.total,
-          memory_usage_percent: systemMetrics.memory.percentage,
+        // Process metrics
+        process_uptime_seconds: process.uptime(),
+        process_heap_used_bytes: memUsage.heapUsed,
+        process_heap_total_bytes: memUsage.heapTotal,
+        process_rss_bytes: memUsage.rss,
 
-          // Connection metrics
-          websocket_connections_total: websocketStats.totalConnections,
-          websocket_authenticated_connections:
-            websocketStats.authenticatedConnections,
-          websocket_symbol_subscriptions:
-            websocketStats.totalSymbolSubscriptions,
-
-          // Request metrics
-          http_requests_total: systemMetrics.requests.total,
-          http_requests_successful: systemMetrics.requests.successful,
-          http_requests_failed: systemMetrics.requests.failed,
-          http_response_time_avg_ms: systemMetrics.requests.averageResponseTime,
-
-          // Database metrics
-          database_connected: this.connection.isConnected ? 1 : 0,
-
-          // Process metrics
-          process_uptime_seconds: process.uptime(),
-          process_heap_used_bytes: process.memoryUsage().heapUsed,
-          process_heap_total_bytes: process.memoryUsage().heapTotal,
-        },
-      };
-    } catch (error) {
-      return {
-        timestamp: new Date().toISOString(),
-        error: error.message,
-        metrics: {},
-      };
-    }
-  }
-
-  @Get("alerts")
-  @ApiOperation({ summary: "Get active monitoring alerts" })
-  @ApiResponse({ status: 200, description: "Active alerts" })
-  async getAlerts() {
-    try {
-      const activeAlerts = this.monitoringService.getActiveAlerts();
-
-      return {
-        status: "success",
-        timestamp: new Date().toISOString(),
-        total: activeAlerts.length,
-        alerts: activeAlerts.map((alert) => ({
-          id: alert.id,
-          type: alert.type,
-          category: alert.category,
-          title: alert.title,
-          message: alert.message,
-          timestamp: alert.timestamp,
-          metadata: alert.metadata,
-        })),
-      };
-    } catch (error) {
-      return {
-        status: "error",
-        timestamp: new Date().toISOString(),
-        error: error.message,
-        alerts: [],
-      };
-    }
+        // CPU metrics
+        cpu_user_microseconds: cpuUsage.user,
+        cpu_system_microseconds: cpuUsage.system,
+      },
+    };
   }
 }

@@ -302,7 +302,7 @@ class PaymentMethod(Base):
     fingerprint = Column(String(255), nullable=True)  # Unique identifier
     
     # Metadata
-    metadata = Column(JSONB, default=dict)
+    payment_metadata = Column(JSONB, default=dict)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
@@ -417,7 +417,7 @@ class Transaction(Base):
     # Description and metadata
     description = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
-    metadata = Column(JSONB, default=dict)
+    payment_metadata = Column(JSONB, default=dict)
     
     # Reference information
     reference_id = Column(String(255), nullable=True)  # Order ID, subscription ID, etc.

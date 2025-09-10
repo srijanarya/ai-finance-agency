@@ -1,15 +1,25 @@
 # Multi-stage build for Content Intelligence Engine
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
+
+# Install security updates and required packages
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+    dumb-init \
+    ca-certificates \
+    python3 \
+    make \
+    g++
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files for better caching
 COPY package*.json ./
 COPY tsconfig*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install ALL dependencies (including dev for build)
+RUN npm ci --silent && \
+    npm cache clean --force
 
 # Copy source code
 COPY src ./src
@@ -17,8 +27,18 @@ COPY src ./src
 # Build the application
 RUN npm run build
 
+# Remove dev dependencies
+RUN npm prune --production
+
 # Production stage
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
+
+# Install security updates and dumb-init for proper signal handling
+RUN apk update && apk upgrade && \
+    apk add --no-cache \
+    dumb-init \
+    ca-certificates && \
+    rm -rf /var/cache/apk/*
 
 # Create app user
 RUN addgroup -g 1001 -S nodejs && \
@@ -26,9 +46,6 @@ RUN addgroup -g 1001 -S nodejs && \
 
 # Set working directory
 WORKDIR /app
-
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
 
 # Copy built application and dependencies
 COPY --from=builder --chown=contentai:nodejs /app/node_modules ./node_modules

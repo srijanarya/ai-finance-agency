@@ -1,0 +1,105 @@
+{
+  "timestamp": "2025-09-10T19:59:23.813Z",
+  "duration": 4509,
+  "summary": {
+    "total": 10,
+    "passed": 8,
+    "failed": 2,
+    "successRate": 80
+  },
+  "availableServices": {
+    "postgres": {
+      "name": "postgres",
+      "containerName": "ai_finance_postgres",
+      "status": "Up 2 minutes (healthy)",
+      "healthy": true
+    },
+    "rabbitmq": {
+      "name": "rabbitmq",
+      "containerName": "ai_finance_rabbitmq",
+      "status": "Restarting (1) 1 second ago",
+      "healthy": false
+    },
+    "redis": {
+      "name": "redis",
+      "containerName": "ai_finance_redis",
+      "status": "Restarting (1) 31 seconds ago",
+      "healthy": false
+    },
+    "consul": {
+      "name": "consul",
+      "containerName": "ai_finance_consul",
+      "status": "Up 2 minutes (healthy)",
+      "healthy": true
+    },
+    "mongodb": {
+      "name": "mongodb",
+      "containerName": "ai_finance_mongodb",
+      "status": "Up 31 seconds (healthy)",
+      "healthy": true
+    },
+    "api-gateway": {
+      "name": "api-gateway",
+      "port": 3000,
+      "status": "HTTP 404",
+      "healthy": true,
+      "data": {
+        "message": "Cannot GET /health",
+        "error": "Not Found",
+        "statusCode": 404
+      }
+    }
+  },
+  "testResults": [
+    {
+      "test": "Docker daemon connectivity",
+      "status": "passed",
+      "duration": 2529
+    },
+    {
+      "test": "Container network connectivity",
+      "status": "passed",
+      "duration": 95
+    },
+    {
+      "test": "PostgreSQL container health",
+      "status": "passed",
+      "duration": 532
+    },
+    {
+      "test": "Redis container connectivity",
+      "status": "failed",
+      "error": "Redis container not running"
+    },
+    {
+      "test": "api-gateway API health endpoint",
+      "status": "failed",
+      "error": "API returned status 404"
+    },
+    {
+      "test": "API Gateway routing capabilities",
+      "status": "passed",
+      "duration": 32
+    },
+    {
+      "test": "PostgreSQL connection and basic operations",
+      "status": "passed",
+      "duration": 301
+    },
+    {
+      "test": "Service discovery functionality",
+      "status": "passed",
+      "duration": 24
+    },
+    {
+      "test": "Service resilience to invalid requests",
+      "status": "passed",
+      "duration": 2
+    },
+    {
+      "test": "Network timeout handling",
+      "status": "passed",
+      "duration": 3
+    }
+  ]
+}

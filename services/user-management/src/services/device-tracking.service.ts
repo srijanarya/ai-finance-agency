@@ -66,11 +66,11 @@ export class DeviceTrackingService {
     const deviceInfo = parser.getDevice();
 
     // Get geolocation data
-    const geo = geoip.lookup(ipAddress) || {};
+    const geo = geoip.lookup(ipAddress);
     const location = {
-      country: geo.country || 'Unknown',
-      region: geo.region || 'Unknown',
-      city: geo.city || 'Unknown',
+      country: geo?.country || 'Unknown',
+      region: geo?.region || 'Unknown',
+      city: geo?.city || 'Unknown',
     };
 
     const fingerprint: DeviceFingerprint = {

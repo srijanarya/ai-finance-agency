@@ -1,86 +1,97 @@
 {
-  "name": "treum-algotech",
+  "name": "ai-finance-agency",
   "version": "1.0.0",
-  "description": "TREUM ALGOTECH - AI-Powered Fintech Platform for Trading Education and Signals",
+  "description": "AI-Powered Finance Agency Platform - Comprehensive Microservices Architecture",
   "private": true,
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "test": "turbo run test",
-    "test:unit": "turbo run test:unit",
-    "test:integration": "turbo run test:integration",
-    "test:e2e": "turbo run test:e2e",
-    "test:critical": "jest tests/critical-path --testTimeout=30000",
-    "test:coverage": "turbo run test -- --coverage",
-    "typecheck": "turbo run typecheck",
-    "clean": "turbo run clean",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,md}\"",
-    "docker:build": "turbo run docker:build",
-    "docker:push": "turbo run docker:push",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "db:migrate": "turbo run db:migrate",
-    "db:seed": "turbo run db:seed",
-    "db:reset": "turbo run db:reset",
-    "ci:build": "npm run typecheck && npm run lint && npm run test:unit && npm run build",
-    "ci:test": "npm run test:unit && npm run test:integration",
-    "ci:deploy-staging": "./scripts/deploy-staging.sh",
-    "ci:deploy-production": "./scripts/deploy-production.sh",
-    "performance:test": "artillery run tests/performance/api-load-test.yml",
-    "security:audit": "npm audit --audit-level=moderate",
-    "security:snyk": "snyk test",
-    "start:prod": "turbo run start:prod"
-  },
-  "workspaces": [
-    "apps/*",
-    "services/*",
-    "packages/*"
-  ],
-  "devDependencies": {
-    "@commitlint/cli": "^17.7.2",
-    "@commitlint/config-conventional": "^17.7.0",
-    "@types/node": "^22.11.0",
-    "eslint": "^8.57.1",
-    "husky": "^8.0.3",
-    "lint-staged": "^15.2.10",
-    "prettier": "^3.3.3",
-    "turbo": "^2.1.3",
-    "typescript": "^5.6.3"
-  },
-  "packageManager": "npm@10.9.0",
-  "engines": {
-    "node": "22.11.0",
-    "npm": ">=10.0.0"
-  },
-  "commitlint": {
-    "extends": [
-      "@commitlint/config-conventional"
-    ]
+    "test": "node test-all.js",
+    "test:unit": "node test-all.js --unit-only",
+    "test:integration": "node test-all.js --integration-only", 
+    "test:e2e": "node test-all.js --e2e-only",
+    "test:coverage": "node test-all.js --with-coverage",
+    "test:watch": "node test-all.js --watch",
+    "test:services": "node test-all.js --services",
+    "test:quick": "node test-all.js --quick",
+    "test:integration-full": "node scripts/integration-test.js",
+    "test:integration-available": "node scripts/integration-test-available.js",
+    "check:service-status": "node scripts/check-service-status.js",
+    "install:all": "npm run install:shared && npm run install:services",
+    "install:shared": "cd shared && npm install",
+    "install:services": "for service in services/*/; do if [ -f \"$service/package.json\" ]; then echo \"Installing $service\" && cd \"$service\" && npm install && cd ../..; fi; done",
+    "build:all": "npm run build:services",
+    "build:services": "for service in services/*/; do if [ -f \"$service/package.json\" ]; then echo \"Building $service\" && cd \"$service\" && npm run build && cd ../..; fi; done",
+    "lint:all": "npm run lint:services",
+    "lint:services": "for service in services/*/; do if [ -f \"$service/package.json\" ]; then echo \"Linting $service\" && cd \"$service\" && npm run lint && cd ../..; fi; done",
+    "docker:test:up": "docker-compose -f docker-compose.test.yml up -d",
+    "docker:test:down": "docker-compose -f docker-compose.test.yml down -v",
+    "docker:test:logs": "docker-compose -f docker-compose.test.yml logs -f",
+    "start:dev": "docker-compose up -d",
+    "start:prod": "docker-compose -f docker-compose.prod.yml up -d",
+    "stop": "docker-compose down",
+    "logs": "docker-compose logs -f",
+    "clean": "npm run clean:coverage && npm run clean:node-modules",
+    "clean:coverage": "find . -name coverage -type d -exec rm -rf {} + 2>/dev/null || true",
+    "clean:node-modules": "find . -name node_modules -type d -exec rm -rf {} + 2>/dev/null || true",
+    "db:migrate": "for service in services/*/; do if [ -f \"$service/package.json\" ] && grep -q db:migrate \"$service/package.json\"; then echo \"Migrating $service\" && cd \"$service\" && npm run db:migrate && cd ../..; fi; done",
+    "db:seed": "for service in services/*/; do if [ -f \"$service/package.json\" ] && grep -q db:seed \"$service/package.json\"; then echo \"Seeding $service\" && cd \"$service\" && npm run db:seed && cd ../..; fi; done",
+    "security:audit": "for service in services/*/; do if [ -f \"$service/package.json\" ]; then echo \"Auditing $service\" && cd \"$service\" && npm audit --audit-level=high && cd ../..; fi; done",
+    "check:health": "npm run check:service-status",
+    "integration:quick": "npm run check:service-status && npm run test:integration-available",
+    "integration:summary": "node scripts/integration-summary.js",
+    "docs:serve": "npx http-server docs -p 8080",
+    "pre-commit": "npm run lint:all && npm run test:unit",
+    "prepare": "chmod +x test-all.js"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
+    "*.{js,ts,tsx}": [
       "eslint --fix",
-      "prettier --write"
+      "git add"
     ],
-    "*.{json,css,md}": [
-      "prettier --write"
+    "*.{json,md}": [
+      "prettier --write",
+      "git add"
     ]
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/treum-algotech/platform.git"
+  "dependencies": {
+    "axios": "^1.7.7",
+    "ws": "^8.18.0",
+    "amqplib": "^0.10.4",
+    "ioredis": "^5.4.1",
+    "pg": "^8.13.0",
+    "mongodb": "^6.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.3.1",
+    "@types/ws": "^8.5.12",
+    "@types/amqplib": "^0.10.5",
+    "@types/pg": "^8.11.10",
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   },
   "keywords": [
-    "fintech",
+    "finance",
     "trading",
-    "education",
-    "signals",
-    "crypto",
-    "AI",
-    "platform"
+    "ai",
+    "microservices",
+    "nestjs",
+    "nodejs",
+    "typescript",
+    "docker",
+    "postgresql",
+    "redis",
+    "websocket"
   ],
-  "author": "TREUM ALGOTECH",
-  "license": "PROPRIETARY"
+  "author": "AI Finance Agency Team",
+  "license": "PROPRIETARY",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/ai-finance-agency.git"
+  },
+  "workspaces": [
+    "shared",
+    "services/*"
+  ]
 }

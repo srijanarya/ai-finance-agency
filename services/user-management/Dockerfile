@@ -1,12 +1,12 @@
 # TREUM AI Finance Platform - User Management Service
 # Multi-stage Dockerfile for optimal production builds
 
-ARG NODE_VERSION=22.11.0
+ARG NODE_VERSION=20-alpine
 
 # ============================================
 # Base stage - Common dependencies
 # ============================================
-FROM node:${NODE_VERSION}-alpine AS base
+FROM node:${NODE_VERSION} AS base
 
 # Set working directory
 WORKDIR /usr/src/app
@@ -68,7 +68,7 @@ RUN npm ci --prefer-offline --no-audit --omit=dev
 # ============================================
 # Runtime stage - Final production image
 # ============================================
-FROM node:${NODE_VERSION}-alpine AS runtime
+FROM node:${NODE_VERSION} AS runtime
 
 # Security and performance optimizations
 RUN apk add --no-cache dumb-init curl && \

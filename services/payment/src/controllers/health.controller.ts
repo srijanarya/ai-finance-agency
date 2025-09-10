@@ -1,1 +1,87 @@
-import { Controller, Get, HttpStatus } from '@nestjs/common';\nimport {\n  ApiTags,\n  ApiOperation,\n  ApiResponse,\n  ApiExcludeEndpoint,\n} from '@nestjs/swagger';\nimport { ConfigService } from '@nestjs/config';\nimport { InjectRepository } from '@nestjs/typeorm';\nimport { Repository } from 'typeorm';\nimport { Payment } from '../entities/payment.entity';\n\n@ApiTags('Health')\n@Controller('health')\nexport class HealthController {\n  constructor(\n    private readonly configService: ConfigService,\n    @InjectRepository(Payment)\n    private paymentRepository: Repository<Payment>,\n  ) {}\n\n  @Get()\n  @ApiOperation({ summary: 'Health check endpoint' })\n  @ApiResponse({\n    status: HttpStatus.OK,\n    description: 'Service is healthy',\n    schema: {\n      type: 'object',\n      properties: {\n        status: { type: 'string', example: 'ok' },\n        timestamp: { type: 'string', example: '2024-01-01T00:00:00.000Z' },\n        uptime: { type: 'number', example: 12345.678 },\n        environment: { type: 'string', example: 'development' },\n        version: { type: 'string', example: '1.0.0' },\n      },\n    },\n  })\n  async healthCheck(): Promise<{\n    status: string;\n    timestamp: string;\n    uptime: number;\n    environment: string;\n    version: string;\n  }> {\n    return {\n      status: 'ok',\n      timestamp: new Date().toISOString(),\n      uptime: process.uptime(),\n      environment: process.env.NODE_ENV || 'development',\n      version: process.env.npm_package_version || '1.0.0',\n    };\n  }\n\n  @Get('ready')\n  @ApiOperation({ summary: 'Readiness check endpoint' })\n  @ApiResponse({\n    status: HttpStatus.OK,\n    description: 'Service is ready to accept requests',\n  })\n  @ApiResponse({\n    status: HttpStatus.SERVICE_UNAVAILABLE,\n    description: 'Service is not ready',\n  })\n  async readinessCheck(): Promise<{\n    status: string;\n    checks: Record<string, { status: string; message?: string }>;\n  }> {\n    const checks: Record<string, { status: string; message?: string }> = {};\n\n    // Database connectivity check\n    try {\n      await this.paymentRepository.count();\n      checks.database = { status: 'ok' };\n    } catch (error) {\n      checks.database = {\n        status: 'error',\n        message: 'Database connection failed',\n      };\n    }\n\n    // Stripe configuration check\n    const stripeSecretKey = this.configService.get('payment.stripe.secretKey');\n    checks.stripe = {\n      status: stripeSecretKey ? 'ok' : 'warning',\n      message: stripeSecretKey ? undefined : 'Stripe not configured',\n    };\n\n    // Overall status\n    const hasErrors = Object.values(checks).some(check => check.status === 'error');\n    const status = hasErrors ? 'error' : 'ok';\n\n    return {\n      status,\n      checks,\n    };\n  }\n\n  @Get('live')\n  @ApiExcludeEndpoint()\n  async livenessCheck(): Promise<{ status: string }> {\n    return { status: 'ok' };\n  }\n}
+import { Controller, Get } from '@nestjs/common';
+import { InjectConnection } from '@nestjs/typeorm';
+import { Connection } from 'typeorm';
+
+interface HealthCheck {
+    service: string;
+    status: 'healthy' | 'unhealthy';
+    timestamp: string;
+    uptime: number;
+    version: string;
+    checks: {
+        database?: {
+            status: 'healthy' | 'unhealthy';
+            responseTime?: number;
+            error?: string;
+        };
+        redis?: {
+            status: 'healthy' | 'unhealthy';
+            responseTime?: number;
+            error?: string;
+        };
+        external_apis?: {
+            stripe?: {
+                status: 'healthy' | 'unhealthy';
+                responseTime?: number;
+                error?: string;
+            };
+            paypal?: {
+                status: 'healthy' | 'unhealthy';
+                responseTime?: number;
+                error?: string;
+            };
+        };
+    };
+}
+
+@Controller()
+export class HealthController {
+    constructor(
+        @InjectConnection() private readonly connection: Connection,
+    ) {}
+
+    @Get('health')
+    async getHealth(): Promise<HealthCheck> {
+        const healthCheck: HealthCheck = {
+            service: process.env.SERVICE_NAME || 'payment-service',
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            version: process.env.VERSION || '1.0.0',
+            checks: {},
+        };
+
+        // Database health check
+        try {
+            const start = Date.now();
+            await this.connection.query('SELECT 1');
+            healthCheck.checks.database = {
+                status: 'healthy',
+                responseTime: Date.now() - start,
+            };
+        } catch (error) {
+            healthCheck.checks.database = {
+                status: 'unhealthy',
+                error: error.message,
+            };
+            healthCheck.status = 'unhealthy';
+        }
+
+        return healthCheck;
+    }
+
+    @Get('health/ready')
+    async getReadiness(): Promise<{ status: string; ready: boolean }> {
+        try {
+            await this.connection.query('SELECT 1');
+            return { status: 'ready', ready: true };
+        } catch (error) {
+            return { status: 'not ready', ready: false };
+        }
+    }
+
+    @Get('health/live')
+    async getLiveness(): Promise<{ status: string; alive: boolean }> {
+        return { status: 'alive', alive: true };
+    }
+}

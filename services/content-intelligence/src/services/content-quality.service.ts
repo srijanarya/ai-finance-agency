@@ -1,6 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import * as natural from 'natural';
+import * as sentiment from 'sentiment';
+import { ContentQualityHelpersService } from './content-quality-helpers.service';
 
 export interface QualityFactors {
   clarity: number;
@@ -23,69 +27,345 @@ export interface QualityAssessment {
   gradeLevel: string;
   wordCount: number;
   readingTime: number; // in minutes
+  agentScores: {
+    grammarAgent: number;
+    factualAgent: number;
+    engagementAgent: number;
+    clarityAgent: number;
+    complianceAgent: number;
+  };
+  confidenceScore: number;
+  detailedAnalysis: {
+    keywordDensity: Record<string, number>;
+    entityRecognition: string[];
+    topicRelevance: number;
+    financialAccuracy: number;
+  };
 }
 
 @Injectable()
 export class ContentQualityService {
   private readonly logger = new Logger(ContentQualityService.name);
   private readonly openai: OpenAI;
+  private readonly anthropic: Anthropic;
+  private readonly sentimentAnalyzer: any;
 
-  constructor(private readonly configService: ConfigService) {
+  // Quality assessment agents
+  private readonly agents = {
+    grammar: 'Grammar and Language Agent',
+    factual: 'Factual Accuracy Agent', 
+    engagement: 'Engagement and Style Agent',
+    clarity: 'Clarity and Structure Agent',
+    compliance: 'Financial Compliance Agent',
+  };
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly helpersService: ContentQualityHelpersService,
+  ) {
     this.openai = new OpenAI({
       apiKey: this.configService.get<string>('ai.openai.apiKey'),
     });
+
+    this.anthropic = new Anthropic({
+      apiKey: this.configService.get<string>('ai.anthropic.apiKey'),
+    });
+
+    this.sentimentAnalyzer = new sentiment();
   }
 
   async assessQuality(content: string, contentType: string): Promise<QualityAssessment> {
     try {
-      this.logger.debug('Starting quality assessment', {
+      this.logger.debug('Starting multi-agent quality assessment', {
         contentType,
         contentLength: content.length,
       });
 
-      // Perform parallel assessments
+      // Perform parallel multi-agent assessments
       const [
-        aiAssessment,
+        agentScores,
         readabilityScore,
         sentimentScore,
         basicMetrics,
+        detailedAnalysis,
       ] = await Promise.all([
-        this.performAIQualityAssessment(content, contentType),
+        this.performMultiAgentAssessment(content, contentType),
         this.calculateReadabilityScore(content),
-        this.analyzeSentiment(content),
+        this.analyzeSentimentAdvanced(content),
         this.calculateBasicMetrics(content),
+        this.helpersService.performDetailedAnalysis(content, contentType),
       ]);
 
-      const factors = this.parseQualityFactors(aiAssessment);
-      const overallScore = this.calculateOverallScore(factors);
+      // Combine all agent assessments into quality factors
+      const factors = this.helpersService.combineAgentResults(agentScores);
+      const overallScore = this.helpersService.calculateWeightedOverallScore(factors, agentScores);
+      const confidenceScore = this.helpersService.calculateConfidenceScore(agentScores);
 
       const assessment: QualityAssessment = {
         overallScore,
         factors,
         readabilityScore,
         sentimentScore,
-        improvements: this.extractImprovements(aiAssessment),
-        strengths: this.extractStrengths(aiAssessment),
+        improvements: await this.helpersService.generateImprovementsFromAgents(agentScores, content),
+        strengths: await this.helpersService.generateStrengthsFromAgents(agentScores, content),
         gradeLevel: this.calculateGradeLevel(readabilityScore),
         wordCount: basicMetrics.wordCount,
         readingTime: basicMetrics.readingTime,
+        agentScores,
+        confidenceScore,
+        detailedAnalysis,
       };
 
-      this.logger.debug('Quality assessment completed', {
+      this.logger.debug('Multi-agent quality assessment completed', {
         overallScore: assessment.overallScore,
-        readabilityScore: assessment.readabilityScore,
+        confidenceScore: assessment.confidenceScore,
+        agentScores: Object.keys(agentScores).length,
         wordCount: assessment.wordCount,
       });
 
       return assessment;
     } catch (error) {
-      this.logger.error('Quality assessment failed', {
+      this.logger.error('Multi-agent quality assessment failed', {
         error: error.message,
         contentType,
       });
 
-      // Return default assessment
-      return this.getDefaultAssessment(content);
+      // Return enhanced default assessment
+      return this.helpersService.getEnhancedDefaultAssessment(content);
+    }
+  }
+
+  /**
+   * Perform multi-agent quality assessment using specialized AI agents
+   */
+  private async performMultiAgentAssessment(
+    content: string,
+    contentType: string,
+  ): Promise<QualityAssessment['agentScores']> {
+    try {
+      // Run all agents in parallel for efficiency
+      const [
+        grammarScore,
+        factualScore,
+        engagementScore,
+        clarityScore,
+        complianceScore,
+      ] = await Promise.all([
+        this.runGrammarAgent(content),
+        this.runFactualAccuracyAgent(content, contentType),
+        this.runEngagementAgent(content, contentType),
+        this.runClarityAgent(content),
+        this.runComplianceAgent(content, contentType),
+      ]);
+
+      return {
+        grammarAgent: grammarScore,
+        factualAgent: factualScore,
+        engagementAgent: engagementScore,
+        clarityAgent: clarityScore,
+        complianceAgent: complianceScore,
+      };
+    } catch (error) {
+      this.logger.warn('Some agents failed during assessment', { error: error.message });
+      
+      // Return fallback scores
+      return {
+        grammarAgent: 5.0,
+        factualAgent: 5.0,
+        engagementAgent: 5.0,
+        clarityAgent: 5.0,
+        complianceAgent: 5.0,
+      };
+    }
+  }
+
+  /**
+   * Grammar and Language Quality Agent
+   */
+  private async runGrammarAgent(content: string): Promise<number> {
+    try {
+      const prompt = `You are a Grammar and Language Quality Agent. Analyze the following content for:
+1. Grammar and syntax correctness
+2. Spelling and word usage
+3. Sentence structure and flow
+4. Professional language standards
+5. Consistency in style and tone
+
+Content to analyze:
+${content}
+
+Provide a score from 1-10 where:
+- 1-3: Poor grammar with many errors
+- 4-6: Acceptable with some issues
+- 7-8: Good grammar with minor issues
+- 9-10: Excellent grammar and language
+
+Return only a single number score.`;
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 10,
+        temperature: 0.1,
+      });
+
+      const score = parseFloat(response.choices[0]?.message?.content?.trim() || '5');
+      return Math.max(1, Math.min(10, score));
+    } catch (error) {
+      this.logger.warn('Grammar agent failed', { error: error.message });
+      return 5.0;
+    }
+  }
+
+  /**
+   * Factual Accuracy Agent
+   */
+  private async runFactualAccuracyAgent(content: string, contentType: string): Promise<number> {
+    try {
+      const prompt = `You are a Factual Accuracy Agent specializing in financial content. Analyze the following ${contentType} for:
+1. Factual accuracy of financial information
+2. Proper use of financial terminology
+3. Logical consistency of statements
+4. Currency, dates, and numerical accuracy
+5. Industry standard compliance
+
+Content to analyze:
+${content}
+
+Provide a score from 1-10 where:
+- 1-3: Contains significant factual errors
+- 4-6: Generally accurate with some concerns
+- 7-8: Factually sound with minor issues
+- 9-10: Highly accurate and well-researched
+
+Return only a single number score.`;
+
+      const response = await this.anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const content_text = response.content[0]?.type === 'text' ? response.content[0].text : '5';
+      const score = parseFloat(content_text.trim());
+      return Math.max(1, Math.min(10, score));
+    } catch (error) {
+      this.logger.warn('Factual accuracy agent failed', { error: error.message });
+      return 5.0;
+    }
+  }
+
+  /**
+   * Engagement and Style Agent
+   */
+  private async runEngagementAgent(content: string, contentType: string): Promise<number> {
+    try {
+      const prompt = `You are an Engagement and Style Agent. Analyze the following ${contentType} for:
+1. Reader engagement and interest level
+2. Appropriate tone for the content type
+3. Use of compelling language and examples
+4. Call-to-action effectiveness (if applicable)
+5. Overall persuasiveness and impact
+
+Content to analyze:
+${content}
+
+Provide a score from 1-10 where:
+- 1-3: Dry, unengaging content
+- 4-6: Moderately engaging
+- 7-8: Engaging and interesting
+- 9-10: Highly compelling and engaging
+
+Return only a single number score.`;
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 10,
+        temperature: 0.1,
+      });
+
+      const score = parseFloat(response.choices[0]?.message?.content?.trim() || '5');
+      return Math.max(1, Math.min(10, score));
+    } catch (error) {
+      this.logger.warn('Engagement agent failed', { error: error.message });
+      return 5.0;
+    }
+  }
+
+  /**
+   * Clarity and Structure Agent
+   */
+  private async runClarityAgent(content: string): Promise<number> {
+    try {
+      const prompt = `You are a Clarity and Structure Agent. Analyze the following content for:
+1. Clear organization and logical flow
+2. Proper use of headings and structure
+3. Paragraph organization and transitions
+4. Ease of understanding and comprehension
+5. Information hierarchy and presentation
+
+Content to analyze:
+${content}
+
+Provide a score from 1-10 where:
+- 1-3: Confusing structure and poor clarity
+- 4-6: Acceptable structure with some clarity issues
+- 7-8: Well-structured and clear
+- 9-10: Exceptionally clear and well-organized
+
+Return only a single number score.`;
+
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 10,
+        temperature: 0.1,
+      });
+
+      const score = parseFloat(response.choices[0]?.message?.content?.trim() || '5');
+      return Math.max(1, Math.min(10, score));
+    } catch (error) {
+      this.logger.warn('Clarity agent failed', { error: error.message });
+      return 5.0;
+    }
+  }
+
+  /**
+   * Financial Compliance Agent
+   */
+  private async runComplianceAgent(content: string, contentType: string): Promise<number> {
+    try {
+      const prompt = `You are a Financial Compliance Agent. Analyze the following ${contentType} for:
+1. Appropriate disclaimers and risk warnings
+2. Compliance with financial content regulations
+3. Proper handling of investment advice language
+4. Risk disclosure adequacy
+5. Regulatory compliance indicators
+
+Content to analyze:
+${content}
+
+Provide a score from 1-10 where:
+- 1-3: Significant compliance concerns
+- 4-6: Some compliance issues present
+- 7-8: Generally compliant with minor concerns
+- 9-10: Fully compliant and well-disclosed
+
+Return only a single number score.`;
+
+      const response = await this.anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: prompt }],
+      });
+
+      const content_text = response.content[0]?.type === 'text' ? response.content[0].text : '5';
+      const score = parseFloat(content_text.trim());
+      return Math.max(1, Math.min(10, score));
+    } catch (error) {
+      this.logger.warn('Compliance agent failed', { error: error.message });
+      return 5.0;
     }
   }
 
@@ -183,11 +463,48 @@ Focus on financial content best practices and consider the target audience of fi
     }, 0);
   }
 
-  private async analyzeSentiment(content: string): Promise<number> {
+  /**
+   * Advanced sentiment analysis using multiple approaches
+   */
+  private async analyzeSentimentAdvanced(content: string): Promise<number> {
     try {
-      const prompt = `Analyze the sentiment of this financial content. Return only a number between -1 (very negative) and +1 (very positive), where 0 is neutral.
+      // Use both rule-based and AI-based sentiment analysis
+      const [ruleBasedSentiment, aiSentiment] = await Promise.all([
+        this.analyzeRuleBasedSentiment(content),
+        this.analyzeAISentiment(content),
+      ]);
 
-Content: ${content.substring(0, 1000)}...`;
+      // Combine results with weighted average
+      const combinedSentiment = (ruleBasedSentiment * 0.4) + (aiSentiment * 0.6);
+      
+      return Math.max(-1, Math.min(1, combinedSentiment));
+    } catch (error) {
+      this.logger.warn('Advanced sentiment analysis failed', { error: error.message });
+      return 0;
+    }
+  }
+
+  private async analyzeRuleBasedSentiment(content: string): Promise<number> {
+    try {
+      const result = this.sentimentAnalyzer.analyze(content);
+      // Normalize score to -1 to 1 range
+      return Math.max(-1, Math.min(1, result.score / Math.max(1, Math.abs(result.score) * 5)));
+    } catch (error) {
+      return 0;
+    }
+  }
+
+  private async analyzeAISentiment(content: string): Promise<number> {
+    try {
+      const prompt = `Analyze the sentiment of this financial content. Consider:
+1. Overall tone (positive, negative, neutral)
+2. Market outlook implications
+3. Emotional impact on readers
+4. Professional confidence level
+
+Content: ${content.substring(0, 1000)}...
+
+Return only a number between -1 (very negative) and +1 (very positive), where 0 is neutral.`;
 
       const response = await this.openai.chat.completions.create({
         model: 'gpt-3.5-turbo',
@@ -201,8 +518,8 @@ Content: ${content.substring(0, 1000)}...`;
       
       return isNaN(sentiment) ? 0 : Math.max(-1, Math.min(1, sentiment));
     } catch (error) {
-      this.logger.warn('Sentiment analysis failed', { error: error.message });
-      return 0; // Neutral sentiment as fallback
+      this.logger.warn('AI sentiment analysis failed', { error: error.message });
+      return 0;
     }
   }
 
@@ -418,5 +735,258 @@ Content: ${content.substring(0, 1000)}...`;
     };
 
     return suggestions[factor] || `Improve ${factor} to enhance overall quality`;
+  }
+
+  /**
+   * Real-time quality monitoring for live content editing
+   */
+  async monitorQualityRealTime(
+    content: string,
+    contentType: string,
+    checkInterval: number = 5000,
+  ): Promise<{
+    currentScore: number;
+    trendDirection: 'improving' | 'declining' | 'stable';
+    suggestions: string[];
+    keyIssues: string[];
+  }> {
+    try {
+      // Perform lightweight quality check for real-time monitoring
+      const quickAssessment = await this.performQuickQualityCheck(content, contentType);
+      
+      // Store historical scores for trend analysis (in production, use Redis/database)
+      const trendDirection = this.calculateQualityTrend(quickAssessment.score);
+      
+      return {
+        currentScore: quickAssessment.score,
+        trendDirection,
+        suggestions: quickAssessment.suggestions,
+        keyIssues: quickAssessment.issues,
+      };
+    } catch (error) {
+      this.logger.error('Real-time quality monitoring failed', { error: error.message });
+      return {
+        currentScore: 5.0,
+        trendDirection: 'stable',
+        suggestions: ['Unable to monitor quality in real-time'],
+        keyIssues: ['Quality monitoring service unavailable'],
+      };
+    }
+  }
+
+  private async performQuickQualityCheck(content: string, contentType: string): Promise<{
+    score: number;
+    suggestions: string[];
+    issues: string[];
+  }> {
+    const issues: string[] = [];
+    const suggestions: string[] = [];
+    let score = 7.0; // Start with good baseline
+
+    // Quick rule-based checks
+    const wordCount = content.trim().split(/\s+/).length;
+    if (wordCount < 50) {
+      issues.push('Content too short');
+      suggestions.push('Expand content to at least 50 words');
+      score -= 1.0;
+    }
+
+    // Check for basic financial disclaimers
+    if (contentType === 'analysis' || contentType === 'report') {
+      if (!/disclaimer|not investment advice|risk/i.test(content)) {
+        issues.push('Missing financial disclaimers');
+        suggestions.push('Add appropriate disclaimers and risk warnings');
+        score -= 0.5;
+      }
+    }
+
+    // Check readability
+    const avgSentenceLength = content.split(/[.!?]+/).length > 0 ? 
+      wordCount / content.split(/[.!?]+/).length : 0;
+    if (avgSentenceLength > 25) {
+      issues.push('Sentences too long');
+      suggestions.push('Break up long sentences for better readability');
+      score -= 0.3;
+    }
+
+    // Check for engagement elements
+    const hasQuestions = /\?/.test(content);
+    const hasActionWords = /\b(discover|learn|find|explore|consider)\b/i.test(content);
+    if (!hasQuestions && !hasActionWords && contentType === 'post') {
+      suggestions.push('Add engaging questions or action words');
+      score -= 0.2;
+    }
+
+    return {
+      score: Math.max(1, Math.min(10, score)),
+      suggestions,
+      issues,
+    };
+  }
+
+  private calculateQualityTrend(currentScore: number): 'improving' | 'declining' | 'stable' {
+    // Simplified trend calculation - in production, this would compare with historical data
+    // For now, return stable as we don't have historical context
+    return 'stable';
+  }
+
+  /**
+   * Batch quality assessment for multiple content pieces
+   */
+  async assessQualityBatch(
+    contentItems: Array<{ content: string; contentType: string; id: string }>,
+  ): Promise<Array<{
+    id: string;
+    assessment: QualityAssessment;
+    processingTime: number;
+  }>> {
+    try {
+      this.logger.log(`Starting batch quality assessment for ${contentItems.length} items`);
+      
+      const results = await Promise.allSettled(
+        contentItems.map(async (item) => {
+          const startTime = Date.now();
+          const assessment = await this.assessQuality(item.content, item.contentType);
+          const processingTime = Date.now() - startTime;
+          
+          return {
+            id: item.id,
+            assessment,
+            processingTime,
+          };
+        })
+      );
+
+      const successfulResults = results
+        .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+        .map(result => result.value);
+
+      this.logger.log(`Batch assessment completed: ${successfulResults.length}/${contentItems.length} successful`);
+      
+      return successfulResults;
+    } catch (error) {
+      this.logger.error('Batch quality assessment failed', { error: error.message });
+      return [];
+    }
+  }
+
+  /**
+   * Get quality analytics and insights
+   */
+  async getQualityAnalytics(
+    assessments: QualityAssessment[],
+  ): Promise<{
+    averageScore: number;
+    scoreDistribution: Record<string, number>;
+    commonIssues: string[];
+    topStrengths: string[];
+    agentPerformance: Record<string, number>;
+    recommendations: string[];
+  }> {
+    try {
+      if (assessments.length === 0) {
+        return {
+          averageScore: 0,
+          scoreDistribution: {},
+          commonIssues: [],
+          topStrengths: [],
+          agentPerformance: {},
+          recommendations: [],
+        };
+      }
+
+      const averageScore = assessments.reduce((sum, a) => sum + a.overallScore, 0) / assessments.length;
+      
+      // Score distribution
+      const scoreDistribution: Record<string, number> = {};
+      assessments.forEach(assessment => {
+        const range = this.getScoreRange(assessment.overallScore);
+        scoreDistribution[range] = (scoreDistribution[range] || 0) + 1;
+      });
+
+      // Common issues and strengths
+      const allImprovements = assessments.flatMap(a => a.improvements);
+      const allStrengths = assessments.flatMap(a => a.strengths);
+      
+      const commonIssues = this.getMostCommon(allImprovements, 5);
+      const topStrengths = this.getMostCommon(allStrengths, 5);
+
+      // Agent performance
+      const agentPerformance: Record<string, number> = {};
+      Object.keys(assessments[0].agentScores).forEach(agent => {
+        agentPerformance[agent] = assessments.reduce((sum, a) => 
+          sum + a.agentScores[agent as keyof typeof a.agentScores], 0
+        ) / assessments.length;
+      });
+
+      // Generate recommendations
+      const recommendations = this.generateAnalyticsRecommendations(
+        averageScore,
+        commonIssues,
+        agentPerformance,
+      );
+
+      return {
+        averageScore,
+        scoreDistribution,
+        commonIssues,
+        topStrengths,
+        agentPerformance,
+        recommendations,
+      };
+    } catch (error) {
+      this.logger.error('Quality analytics generation failed', { error: error.message });
+      throw error;
+    }
+  }
+
+  private getScoreRange(score: number): string {
+    if (score >= 9) return 'Excellent (9-10)';
+    if (score >= 7) return 'Good (7-8.9)';
+    if (score >= 5) return 'Fair (5-6.9)';
+    return 'Poor (1-4.9)';
+  }
+
+  private getMostCommon(items: string[], limit: number): string[] {
+    const frequency: Record<string, number> = {};
+    items.forEach(item => {
+      frequency[item] = (frequency[item] || 0) + 1;
+    });
+    
+    return Object.entries(frequency)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, limit)
+      .map(([item]) => item);
+  }
+
+  private generateAnalyticsRecommendations(
+    averageScore: number,
+    commonIssues: string[],
+    agentPerformance: Record<string, number>,
+  ): string[] {
+    const recommendations: string[] = [];
+
+    if (averageScore < 6) {
+      recommendations.push('Focus on improving overall content quality across all dimensions');
+    }
+
+    // Agent-specific recommendations
+    Object.entries(agentPerformance).forEach(([agent, score]) => {
+      if (score < 6) {
+        const agentName = agent.replace('Agent', '');
+        recommendations.push(`Improve ${agentName} quality through targeted training`);
+      }
+    });
+
+    // Issue-specific recommendations
+    if (commonIssues.includes('Improve grammar and sentence structure')) {
+      recommendations.push('Implement grammar checking tools and writer training');
+    }
+
+    if (commonIssues.includes('Add appropriate disclaimers and risk warnings')) {
+      recommendations.push('Create standard disclaimer templates for financial content');
+    }
+
+    return recommendations.slice(0, 10); // Limit to top 10 recommendations
   }
 }

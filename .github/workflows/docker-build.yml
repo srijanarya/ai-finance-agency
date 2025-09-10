@@ -1,0 +1,221 @@
+name: Docker Build and Push to GHCR
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild without cache'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_PREFIX: ${{ github.repository_owner }}/ai-finance-agency
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Build matrix strategy for all microservices
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set-matrix.outputs.services }}
+      should_push: ${{ steps.check-push.outputs.should_push }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up service matrix
+        id: set-matrix
+        run: |
+          SERVICES=$(ls services/ | jq -R -s -c 'split("\n")[:-1]')
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+          echo "Services to build: $SERVICES"
+
+      - name: Check if should push
+        id: check-push
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "should_push=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_push=true" >> $GITHUB_OUTPUT
+          fi
+
+  # Build and push Docker images
+  build-and-push:
+    needs: prepare-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.prepare-matrix.outputs.services) }}
+    
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Log in to GitHub Container Registry
+        if: needs.prepare-matrix.outputs.should_push == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate semantic version
+        id: semver
+        run: |
+          chmod +x ./scripts/docker-tag.sh
+          ./scripts/docker-tag.sh
+        env:
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=${{ steps.semver.outputs.version }}
+            type=raw,value=latest,enable={{is_default_branch}}
+          labels: |
+            org.opencontainers.image.title=${{ matrix.service }}
+            org.opencontainers.image.description=AI Finance Agency - ${{ matrix.service }} service
+            org.opencontainers.image.vendor=AI Finance Agency
+            org.opencontainers.image.version=${{ steps.semver.outputs.version }}
+
+      - name: Check if service has Dockerfile
+        id: dockerfile-check
+        run: |
+          if [[ -f "services/${{ matrix.service }}/Dockerfile" ]]; then
+            echo "dockerfile_exists=true" >> $GITHUB_OUTPUT
+            echo "dockerfile_path=services/${{ matrix.service }}/Dockerfile" >> $GITHUB_OUTPUT
+            echo "context=services/${{ matrix.service }}" >> $GITHUB_OUTPUT
+          elif [[ -f "Dockerfile" ]]; then
+            echo "dockerfile_exists=true" >> $GITHUB_OUTPUT
+            echo "dockerfile_path=Dockerfile" >> $GITHUB_OUTPUT
+            echo "context=." >> $GITHUB_OUTPUT
+          else
+            echo "dockerfile_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and push Docker image
+        if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ steps.dockerfile-check.outputs.context }}
+          file: ${{ steps.dockerfile-check.outputs.dockerfile_path }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ needs.prepare-matrix.outputs.should_push }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          build-args: |
+            SERVICE_NAME=${{ matrix.service }}
+            BUILD_VERSION=${{ steps.semver.outputs.version }}
+            BUILD_TIMESTAMP=${{ steps.semver.outputs.timestamp }}
+            GIT_COMMIT=${{ github.sha }}
+            GIT_BRANCH=${{ github.ref_name }}
+
+      - name: Generate SBOM
+        if: steps.dockerfile-check.outputs.dockerfile_exists == 'true' && needs.prepare-matrix.outputs.should_push == 'true'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}/${{ matrix.service }}:${{ steps.semver.outputs.version }}
+          format: spdx-json
+          output-file: ${{ matrix.service }}-sbom.spdx.json
+
+      - name: Upload SBOM as artifact
+        if: steps.dockerfile-check.outputs.dockerfile_exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-sbom
+          path: ${{ matrix.service }}-sbom.spdx.json
+          retention-days: 30
+
+  # Verify all builds completed successfully
+  build-summary:
+    needs: [prepare-matrix, build-and-push]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check build results
+        run: |
+          echo "Build Summary:"
+          echo "=============="
+          echo "Services built: ${{ needs.prepare-matrix.outputs.services }}"
+          echo "Should push: ${{ needs.prepare-matrix.outputs.should_push }}"
+          echo "Build status: ${{ needs.build-and-push.result }}"
+          
+          if [[ "${{ needs.build-and-push.result }}" != "success" ]]; then
+            echo "❌ Some builds failed"
+            exit 1
+          else
+            echo "✅ All builds completed successfully"
+          fi
+
+      - name: Create deployment manifest
+        if: needs.prepare-matrix.outputs.should_push == 'true' && needs.build-and-push.result == 'success'
+        run: |
+          echo "# Deployment Manifest" > deployment-manifest.md
+          echo "Generated: $(date -u)" >> deployment-manifest.md
+          echo "" >> deployment-manifest.md
+          echo "## Images Built" >> deployment-manifest.md
+          
+          SERVICES='${{ needs.prepare-matrix.outputs.services }}'
+          for SERVICE in $(echo $SERVICES | jq -r '.[]'); do
+            echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}/${SERVICE}:${GITHUB_SHA:0:8}\`" >> deployment-manifest.md
+          done
+
+      - name: Upload deployment manifest
+        if: needs.prepare-matrix.outputs.should_push == 'true' && needs.build-and-push.result == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-manifest
+          path: deployment-manifest.md
+          retention-days: 90
+
+  # Cleanup old packages (keep last 5 versions per service)
+  cleanup-packages:
+    needs: [build-and-push]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Delete old package versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-type: container
+          package-name: ${{ env.IMAGE_NAME_PREFIX }}/*
+          min-versions-to-keep: 5
+          delete-only-untagged-versions: true

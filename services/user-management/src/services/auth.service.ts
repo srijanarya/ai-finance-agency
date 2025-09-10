@@ -343,7 +343,7 @@ export class AuthService {
     });
 
     // Send reset email
-    await this.emailService.sendPasswordResetEmail(email, resetToken);
+    await this.emailService.sendPasswordResetEmail(email, user.firstName, resetToken, resetExpires);
 
     // Log the request
     await this.auditService.log({

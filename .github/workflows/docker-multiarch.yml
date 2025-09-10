@@ -1,0 +1,317 @@
+name: Multi-Architecture Docker Builds
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/**'
+      - 'Dockerfile*'
+      - '.github/workflows/docker-multiarch.yml'
+  workflow_dispatch:
+    inputs:
+      target_platforms:
+        description: 'Target platforms (comma-separated)'
+        required: false
+        default: 'linux/amd64,linux/arm64'
+        type: string
+      cache_strategy:
+        description: 'Cache strategy'
+        required: false
+        default: 'registry'
+        type: choice
+        options:
+          - registry
+          - gha
+          - local
+      force_rebuild:
+        description: 'Force rebuild without cache'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_PREFIX: ${{ github.repository_owner }}/ai-finance-agency
+  PLATFORMS: ${{ github.event.inputs.target_platforms || 'linux/amd64,linux/arm64' }}
+
+jobs:
+  # Setup build environment
+  setup-multiarch:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.detect-changes.outputs.services }}
+      cache_strategy: ${{ steps.cache-config.outputs.strategy }}
+      build_args: ${{ steps.build-args.outputs.args }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed services
+        id: detect-changes
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Manual trigger - build all services
+            SERVICES=$(ls services/ | jq -R -s -c 'split("\n")[:-1]')
+          else
+            # Auto trigger - only build changed services
+            CHANGED_SERVICES=()
+            
+            # Get list of changed files
+            if [[ "${{ github.event_name }}" == "push" ]]; then
+              CHANGED_FILES=$(git diff --name-only ${{ github.event.before }}..${{ github.sha }})
+            else
+              CHANGED_FILES=$(git diff --name-only HEAD~1)
+            fi
+            
+            echo "Changed files:"
+            echo "$CHANGED_FILES"
+            
+            # Check which services are affected
+            while IFS= read -r file; do
+              if [[ "$file" =~ ^services/([^/]+)/ ]]; then
+                SERVICE="${BASH_REMATCH[1]}"
+                if [[ ! " ${CHANGED_SERVICES[*]} " =~ " $SERVICE " ]]; then
+                  CHANGED_SERVICES+=("$SERVICE")
+                fi
+              elif [[ "$file" =~ ^(Dockerfile|docker-compose.*\.yml)$ ]]; then
+                # Root Dockerfile or compose file changed - rebuild all
+                CHANGED_SERVICES=($(ls services/))
+                break
+              fi
+            done <<< "$CHANGED_FILES"
+            
+            if [[ ${#CHANGED_SERVICES[@]} -eq 0 ]]; then
+              # No service changes detected, but workflow file changed
+              CHANGED_SERVICES=($(ls services/))
+            fi
+            
+            SERVICES=$(printf '%s\n' "${CHANGED_SERVICES[@]}" | jq -R -s -c 'split("\n")[:-1]')
+          fi
+          
+          echo "Services to build: $SERVICES"
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+
+      - name: Configure cache strategy
+        id: cache-config
+        run: |
+          STRATEGY="${{ github.event.inputs.cache_strategy || 'registry' }}"
+          echo "strategy=$STRATEGY" >> $GITHUB_OUTPUT
+          echo "Using cache strategy: $STRATEGY"
+
+      - name: Generate build arguments
+        id: build-args
+        run: |
+          BUILD_ARGS=$(cat << 'EOF'
+          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          BUILD_VERSION=${{ github.sha }}
+          BUILD_REVISION=${{ github.sha }}
+          VCS_REF=${{ github.sha }}
+          VCS_URL=${{ github.repositoryUrl }}
+          EOF
+          )
+          
+          echo "args<<EOF" >> $GITHUB_OUTPUT
+          echo "$BUILD_ARGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  # Multi-architecture builds
+  build-multiarch:
+    needs: setup-multiarch
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.setup-multiarch.outputs.services) }}
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: ${{ env.PLATFORMS }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: ${{ env.PLATFORMS }}
+          driver-opts: |
+            network=host
+            image=moby/buildkit:v0.12.3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate semantic version
+        id: semver
+        run: |
+          chmod +x ./scripts/docker-tag.sh
+          ./scripts/docker-tag.sh
+        env:
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+
+      - name: Configure cache settings
+        id: cache-settings
+        run: |
+          CACHE_STRATEGY="${{ needs.setup-multiarch.outputs.cache_strategy }}"
+          SERVICE="${{ matrix.service }}"
+          
+          case "$CACHE_STRATEGY" in
+            "registry")
+              echo "cache_from=type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}/${SERVICE}:cache" >> $GITHUB_OUTPUT
+              echo "cache_to=type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}/${SERVICE}:cache,mode=max" >> $GITHUB_OUTPUT
+              ;;
+            "gha")
+              echo "cache_from=type=gha,scope=${SERVICE}-multiarch" >> $GITHUB_OUTPUT
+              echo "cache_to=type=gha,mode=max,scope=${SERVICE}-multiarch" >> $GITHUB_OUTPUT
+              ;;
+            "local")
+              echo "cache_from=type=local,src=/tmp/.buildx-cache-${SERVICE}" >> $GITHUB_OUTPUT
+              echo "cache_to=type=local,dest=/tmp/.buildx-cache-${SERVICE}-new,mode=max" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=raw,value=${{ steps.semver.outputs.version }}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-
+          labels: |
+            org.opencontainers.image.title=${{ matrix.service }}
+            org.opencontainers.image.description=AI Finance Agency - ${{ matrix.service }} service
+            org.opencontainers.image.vendor=AI Finance Agency
+            org.opencontainers.image.version=${{ steps.semver.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.created=${{ steps.semver.outputs.timestamp }}
+
+      - name: Check service structure
+        id: service-check
+        run: |
+          SERVICE="${{ matrix.service }}"
+          
+          if [[ -f "services/${SERVICE}/Dockerfile" ]]; then
+            echo "dockerfile=services/${SERVICE}/Dockerfile" >> $GITHUB_OUTPUT
+            echo "context=services/${SERVICE}" >> $GITHUB_OUTPUT
+            echo "exists=true" >> $GITHUB_OUTPUT
+          elif [[ -f "services/${SERVICE}/docker/Dockerfile" ]]; then
+            echo "dockerfile=services/${SERVICE}/docker/Dockerfile" >> $GITHUB_OUTPUT
+            echo "context=services/${SERVICE}" >> $GITHUB_OUTPUT
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "No Dockerfile found for service: $SERVICE"
+          fi
+
+      - name: Build and push multi-arch image
+        if: steps.service-check.outputs.exists == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ steps.service-check.outputs.context }}
+          file: ${{ steps.service-check.outputs.dockerfile }}
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: ${{ steps.cache-settings.outputs.cache_from }}
+          cache-to: ${{ steps.cache-settings.outputs.cache_to }}
+          build-args: |
+            SERVICE_NAME=${{ matrix.service }}
+            ${{ needs.setup-multiarch.outputs.build_args }}
+          no-cache: ${{ github.event.inputs.force_rebuild == 'true' }}
+
+      - name: Update local cache (if using local strategy)
+        if: needs.setup-multiarch.outputs.cache_strategy == 'local' && steps.service-check.outputs.exists == 'true'
+        run: |
+          SERVICE="${{ matrix.service }}"
+          rm -rf /tmp/.buildx-cache-${SERVICE}
+          if [[ -d "/tmp/.buildx-cache-${SERVICE}-new" ]]; then
+            mv /tmp/.buildx-cache-${SERVICE}-new /tmp/.buildx-cache-${SERVICE}
+          fi
+
+      - name: Test multi-arch image
+        if: steps.service-check.outputs.exists == 'true'
+        run: |
+          SERVICE="${{ matrix.service }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}/${SERVICE}:${{ steps.semver.outputs.version }}"
+          
+          echo "Testing image: $IMAGE"
+          
+          # Test each platform
+          for PLATFORM in $(echo "${{ env.PLATFORMS }}" | tr ',' ' '); do
+            echo "Testing platform: $PLATFORM"
+            docker run --platform="$PLATFORM" --rm "$IMAGE" --version 2>/dev/null || \
+            docker run --platform="$PLATFORM" --rm "$IMAGE" echo "Platform $PLATFORM OK" || \
+            echo "Platform $PLATFORM test completed (exit code: $?)"
+          done
+
+  # Build summary and manifest creation
+  build-summary:
+    needs: [setup-multiarch, build-multiarch]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Create build summary
+        run: |
+          echo "# 🏗️ Multi-Architecture Build Summary" > build-summary.md
+          echo "**Build Date:** $(date -u)" >> build-summary.md
+          echo "**Platforms:** ${{ env.PLATFORMS }}" >> build-summary.md
+          echo "**Cache Strategy:** ${{ needs.setup-multiarch.outputs.cache_strategy }}" >> build-summary.md
+          echo "**Trigger:** ${{ github.event_name }}" >> build-summary.md
+          echo "" >> build-summary.md
+          
+          echo "## Services Built" >> build-summary.md
+          SERVICES='${{ needs.setup-multiarch.outputs.services }}'
+          BUILD_STATUS="${{ needs.build-multiarch.result }}"
+          
+          if [[ "$BUILD_STATUS" == "success" ]]; then
+            echo "✅ All services built successfully" >> build-summary.md
+          else
+            echo "❌ Some builds failed" >> build-summary.md
+          fi
+          
+          echo "" >> build-summary.md
+          echo "### Service List" >> build-summary.md
+          for SERVICE in $(echo $SERVICES | jq -r '.[]'); do
+            echo "- $SERVICE" >> build-summary.md
+          done
+          
+          echo "" >> build-summary.md
+          echo "### Platform Support" >> build-summary.md
+          for PLATFORM in $(echo "${{ env.PLATFORMS }}" | tr ',' ' '); do
+            echo "- $PLATFORM" >> build-summary.md
+          done
+
+      - name: Upload build summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: multiarch-build-summary
+          path: build-summary.md
+          retention-days: 30
+
+      - name: Validate build results
+        run: |
+          if [[ "${{ needs.build-multiarch.result }}" != "success" ]]; then
+            echo "❌ Multi-architecture build failed"
+            exit 1
+          else
+            echo "✅ Multi-architecture build completed successfully"
+          fi

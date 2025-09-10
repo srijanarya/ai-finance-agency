@@ -1,0 +1,218 @@
+# AI Finance Agency - Comprehensive Prometheus Configuration
+# Production-ready monitoring for 10 microservices architecture
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ai-finance'
+    environment: 'production'
+
+# Rule files for alerting
+rule_files:
+  - "rules/*.yml"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # =======================================================================
+  # MICROSERVICES METRICS
+  # =======================================================================
+  
+  # API Gateway - Entry point metrics
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    params:
+      format: ['prometheus']
+
+  # User Management Service
+  - job_name: 'user-management'
+    static_configs:
+      - targets: ['user-management:3002']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # Payment Service - Critical for revenue tracking
+  - job_name: 'payment'
+    static_configs:
+      - targets: ['payment:3001']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    params:
+      format: ['prometheus']
+
+  # Signals Service - Core business logic
+  - job_name: 'signals'
+    static_configs:
+      - targets: ['signals:3003']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # Trading Service - High frequency metrics
+  - job_name: 'trading'
+    static_configs:
+      - targets: ['trading:3004']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 4s
+
+  # Education Service
+  - job_name: 'education'
+    static_configs:
+      - targets: ['education:3005']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Notification Service
+  - job_name: 'notification'
+    static_configs:
+      - targets: ['notification:3006']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Risk Management Service - Critical monitoring
+  - job_name: 'risk-management'
+    static_configs:
+      - targets: ['risk-management:3007']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # Market Data Service - Real-time data source
+  - job_name: 'market-data'
+    static_configs:
+      - targets: ['market-data:3008']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 4s
+
+  # Content Intelligence Service
+  - job_name: 'content-intelligence'
+    static_configs:
+      - targets: ['content-intelligence:3009']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # =======================================================================
+  # INFRASTRUCTURE METRICS
+  # =======================================================================
+
+  # PostgreSQL Database
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 15s
+
+  # Redis Cache
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 15s
+
+  # RabbitMQ Message Broker
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq:15692']
+    scrape_interval: 15s
+
+  # MongoDB
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: ['mongodb-exporter:9216']
+    scrape_interval: 15s
+
+  # Nginx Load Balancer
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:9113']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # =======================================================================
+  # SYSTEM METRICS
+  # =======================================================================
+
+  # Node Exporter - System metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 15s
+
+  # cAdvisor - Container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 15s
+    metrics_path: '/metrics'
+
+  # =======================================================================
+  # SELF-MONITORING
+  # =======================================================================
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+
+  # Grafana monitoring
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # Alertmanager monitoring
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+    scrape_interval: 30s
+
+  # =======================================================================
+  # BUSINESS METRICS
+  # =======================================================================
+
+  # Custom business metrics aggregation
+  - job_name: 'business-metrics'
+    static_configs:
+      - targets: 
+        - 'payment:3001'
+        - 'trading:3004'
+        - 'signals:3003'
+    metrics_path: '/metrics/business'
+    scrape_interval: 30s
+    params:
+      format: ['prometheus']
+
+  # Revenue tracking metrics
+  - job_name: 'revenue-metrics'
+    static_configs:
+      - targets: ['payment:3001']
+    metrics_path: '/metrics/revenue'
+    scrape_interval: 60s
+
+# Remote write configuration for long-term storage (optional)
+# remote_write:
+#   - url: "https://prometheus-prod.grafana.net/api/prom/push"
+#     basic_auth:
+#       username: "${GRAFANA_CLOUD_USERNAME}"
+#       password: "${GRAFANA_CLOUD_API_KEY}"
+
+# Storage configuration
+storage:
+  tsdb:
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true

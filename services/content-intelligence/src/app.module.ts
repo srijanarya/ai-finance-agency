@@ -12,6 +12,7 @@ import { databaseConfig } from './config/database.config';
 import { aiConfig } from './config/ai.config';
 import { redisConfig } from './config/redis.config';
 import { publishingConfig } from './config/publishing.config';
+import contentIntelligenceConfig from './config/content-intelligence.config';
 
 // Modules
 import { ContentGenerationModule } from './modules/content-generation.module';
@@ -22,6 +23,10 @@ import { ComplianceModule } from './modules/compliance.module';
 import { WorkflowModule } from './modules/workflow.module';
 import { HealthModule } from './modules/health.module';
 import { AuthModule } from './modules/auth.module';
+import { NlpModule } from './modules/nlp.module';
+import { MarketDataModule } from './modules/market-data/market-data.module';
+import { QualityScoringModule } from './modules/quality-scoring/quality-scoring.module';
+import { AIContentModule } from './modules/ai-content/ai-content.module';
 
 // Controllers
 import { AppController } from './app.controller';
@@ -37,13 +42,18 @@ import { ContentAnalytics } from './entities/content-analytics.entity';
 import { ComplianceRule } from './entities/compliance-rule.entity';
 import { ContentApprovalWorkflow } from './entities/content-approval-workflow.entity';
 import { ContentApprovalInstance } from './entities/content-approval-instance.entity';
+import { MarketQuote } from './entities/market-data/market-quote.entity';
+import { HistoricalMarketData } from './entities/market-data/historical-data.entity';
+import { AIGeneratedContent } from './entities/ai-content/generated-content.entity';
+import { ContentTemplate as AIContentTemplate } from './entities/ai-content/content-template.entity';
+import { QualityAssessment } from './entities/quality-scoring/quality-assessment.entity';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, aiConfig, redisConfig, publishingConfig],
+      load: [databaseConfig, aiConfig, redisConfig, publishingConfig, contentIntelligenceConfig],
       envFilePath: ['.env.local', '.env.development', '.env'],
     }),
 
@@ -65,6 +75,11 @@ import { ContentApprovalInstance } from './entities/content-approval-instance.en
           ComplianceRule,
           ContentApprovalWorkflow,
           ContentApprovalInstance,
+          MarketQuote,
+          HistoricalMarketData,
+          AIGeneratedContent,
+          AIContentTemplate,
+          QualityAssessment,
         ],
         synchronize: configService.get<string>('NODE_ENV') === 'development',
         logging: configService.get<string>('NODE_ENV') === 'development',
@@ -122,6 +137,10 @@ import { ContentApprovalInstance } from './entities/content-approval-instance.en
     ComplianceModule,
     WorkflowModule,
     HealthModule,
+    NlpModule,
+    MarketDataModule,
+    AIContentModule,
+    QualityScoringModule,
   ],
   controllers: [AppController],
   providers: [AppService],

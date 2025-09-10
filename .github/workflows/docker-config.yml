@@ -1,0 +1,61 @@
+# Docker Configuration for GHCR Workflows
+# This file contains shared configuration values used across Docker workflows
+
+name: Docker Configuration
+
+on:
+  workflow_call:
+    outputs:
+      registry:
+        description: "Container registry URL"
+        value: ghcr.io
+      image-prefix:
+        description: "Image name prefix"
+        value: ${{ github.repository_owner }}/ai-finance-agency
+      platforms:
+        description: "Target platforms for multi-arch builds"
+        value: linux/amd64,linux/arm64
+      cache-strategy:
+        description: "Default cache strategy"
+        value: gha
+      security-threshold:
+        description: "Default security scan threshold"
+        value: MEDIUM
+
+# Global environment variables for reuse
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_PREFIX: ${{ github.repository_owner }}/ai-finance-agency
+  DEFAULT_PLATFORMS: linux/amd64,linux/arm64
+  DEFAULT_CACHE_STRATEGY: gha
+  DEFAULT_SECURITY_THRESHOLD: MEDIUM
+  
+  # Build optimization settings
+  BUILDKIT_PROGRESS: plain
+  DOCKER_BUILDKIT: 1
+  BUILDX_NO_DEFAULT_ATTESTATIONS: 1
+  
+  # Security settings
+  COSIGN_EXPERIMENTAL: 1
+  TRIVY_CACHE_DIR: /tmp/.trivy
+  
+  # Service configuration
+  SERVICES_DIR: services
+  DOCKERFILE_PATTERNS: "Dockerfile*"
+  
+  # Cleanup settings
+  MAX_VERSIONS_PER_SERVICE: 10
+  DEFAULT_CLEANUP_DAYS: 30
+  
+  # Notification settings (customize as needed)
+  SLACK_WEBHOOK_URL: "" # Set in repository secrets
+  DISCORD_WEBHOOK_URL: "" # Set in repository secrets
+
+jobs:
+  # This is a configuration-only workflow
+  config-placeholder:
+    runs-on: ubuntu-latest
+    if: false # Never actually run
+    steps:
+      - name: Configuration placeholder
+        run: echo "This workflow provides shared configuration"

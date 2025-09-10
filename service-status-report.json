@@ -1,0 +1,74 @@
+{
+  "timestamp": "2025-09-10T19:57:48.662Z",
+  "results": {
+    "infrastructure": {
+      "postgres": {
+        "status": "running",
+        "details": "Up 48 seconds (healthy)"
+      },
+      "redis": {
+        "status": "running",
+        "details": "Restarting (1) 4 seconds ago"
+      },
+      "rabbitmq": {
+        "status": "running",
+        "details": "Restarting (1) Less than a second ago"
+      },
+      "mongodb": {
+        "status": "running",
+        "details": "Up 50 seconds (health: starting)"
+      }
+    },
+    "microservices": {
+      "api-gateway": {
+        "status": "unhealthy",
+        "responseTime": 350,
+        "port": 3000,
+        "httpStatus": 404
+      },
+      "user-management": {
+        "status": "stopped",
+        "port": 3002
+      },
+      "payment": {
+        "status": "stopped",
+        "port": 3001
+      },
+      "trading": {
+        "status": "stopped",
+        "port": 3004
+      },
+      "signals": {
+        "status": "stopped",
+        "port": 3003
+      },
+      "market-data": {
+        "status": "stopped",
+        "port": 3008
+      },
+      "risk-management": {
+        "status": "stopped",
+        "port": 3007
+      },
+      "education": {
+        "status": "stopped",
+        "port": 3005
+      },
+      "notification": {
+        "status": "stopped",
+        "port": 3006
+      },
+      "content-intelligence": {
+        "status": "stopped",
+        "port": 3009
+      }
+    },
+    "summary": {
+      "total": 14,
+      "running": 4,
+      "stopped": 9,
+      "error": 1
+    }
+  },
+  "integrationTestReady": false
+}

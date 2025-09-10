@@ -1,0 +1,132 @@
+version: '3.8'
+
+services:
+  # Test Postgres Database
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: postgres-test
+    environment:
+      POSTGRES_DB: test_ai_finance_agency
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test_user -d test_ai_finance_agency"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test Redis
+  redis-test:
+    image: redis:7-alpine
+    container_name: redis-test
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_test_data:/data
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Test RabbitMQ
+  rabbitmq-test:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq-test
+    environment:
+      RABBITMQ_DEFAULT_USER: test_user
+      RABBITMQ_DEFAULT_PASS: test_password
+      RABBITMQ_DEFAULT_VHOST: test_vhost
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - rabbitmq_test_data:/var/lib/rabbitmq
+    networks:
+      - test-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  # Test MongoDB for content intelligence
+  mongodb-test:
+    image: mongo:6
+    container_name: mongodb-test
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: test_user
+      MONGO_INITDB_ROOT_PASSWORD: test_password
+      MONGO_INITDB_DATABASE: test_content_intelligence
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongodb_test_data:/data/db
+    networks:
+      - test-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  # Test Stripe CLI for webhook testing
+  stripe-cli-test:
+    image: stripe/stripe-cli:latest
+    container_name: stripe-cli-test
+    command: listen --forward-to host.docker.internal:3001/webhooks/stripe
+    environment:
+      STRIPE_API_KEY: rk_test_51234567890
+      STRIPE_WEBHOOK_SECRET: whsec_test_123456
+    networks:
+      - test-network
+    depends_on:
+      - postgres-test
+
+  # Test environment setup container
+  test-setup:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: test-setup
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    networks:
+      - test-network
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      rabbitmq-test:
+        condition: service_healthy
+      mongodb-test:
+        condition: service_healthy
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://test_user:test_password@postgres-test:5432/test_ai_finance_agency
+      REDIS_URL: redis://redis-test:6379
+      RABBITMQ_URL: amqp://test_user:test_password@rabbitmq-test:5672/test_vhost
+      MONGODB_URL: mongodb://test_user:test_password@mongodb-test:27017/test_content_intelligence
+    command: tail -f /dev/null
+
+volumes:
+  postgres_test_data:
+  redis_test_data:
+  rabbitmq_test_data:
+  mongodb_test_data:
+
+networks:
+  test-network:
+    driver: bridge

@@ -1,0 +1,23 @@
+{
+  "name": "@ai-finance-agency/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities and configurations for AI Finance Agency",
+  "private": true,
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@nestjs/testing": "^10.0.0",
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/config": "^3.2.3",
+    "@faker-js/faker": "^8.4.1",
+    "typeorm": "^0.3.26",
+    "supertest": "^7.0.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "reflect-metadata": "^0.2.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.2",
+    "@types/supertest": "^6.0.0",
+    "typescript": "^5.1.3"
+  }
+}

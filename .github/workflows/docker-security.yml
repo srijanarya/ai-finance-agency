@@ -1,0 +1,265 @@
+name: Docker Security Scanning
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      severity_threshold:
+        description: 'Minimum severity level to report (UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL)'
+        required: false
+        default: 'MEDIUM'
+        type: choice
+        options:
+          - UNKNOWN
+          - LOW
+          - MEDIUM
+          - HIGH
+          - CRITICAL
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME_PREFIX: ${{ github.repository_owner }}/ai-finance-agency
+
+jobs:
+  # Prepare scanning matrix
+  prepare-scan-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set-matrix.outputs.services }}
+      scan_latest: ${{ steps.check-scan-type.outputs.scan_latest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up service matrix
+        id: set-matrix
+        run: |
+          SERVICES=$(ls services/ | jq -R -s -c 'split("\n")[:-1]')
+          echo "services=$SERVICES" >> $GITHUB_OUTPUT
+
+      - name: Check scan type
+        id: check-scan-type
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "scan_latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "scan_latest=false" >> $GITHUB_OUTPUT
+          fi
+
+  # Security scanning with Trivy
+  trivy-scan:
+    needs: prepare-scan-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.prepare-scan-matrix.outputs.services) }}
+    
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine image to scan
+        id: image-tag
+        run: |
+          if [[ "${{ needs.prepare-scan-matrix.outputs.scan_latest }}" == "true" ]]; then
+            IMAGE_TAG="latest"
+          else
+            IMAGE_TAG="${{ github.sha }}"
+          fi
+          
+          FULL_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}/${{ matrix.service }}:${IMAGE_TAG}"
+          echo "image=$FULL_IMAGE" >> $GITHUB_OUTPUT
+          echo "Scanning image: $FULL_IMAGE"
+
+      - name: Check if image exists
+        id: image-check
+        run: |
+          if docker manifest inspect "${{ steps.image-tag.outputs.image }}" > /dev/null 2>&1; then
+            echo "image_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "image_exists=false" >> $GITHUB_OUTPUT
+            echo "Image ${{ steps.image-tag.outputs.image }} does not exist, skipping scan"
+          fi
+
+      - name: Run Trivy vulnerability scanner
+        if: steps.image-check.outputs.image_exists == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.image-tag.outputs.image }}
+          format: 'sarif'
+          output: 'trivy-${{ matrix.service }}-results.sarif'
+          severity: ${{ github.event.inputs.severity_threshold || 'MEDIUM' }}
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        if: steps.image-check.outputs.image_exists == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-${{ matrix.service }}-results.sarif'
+          category: 'trivy-${{ matrix.service }}'
+
+      - name: Run Trivy config scanner
+        if: steps.image-check.outputs.image_exists == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'services/${{ matrix.service }}'
+          format: 'sarif'
+          output: 'trivy-config-${{ matrix.service }}-results.sarif'
+
+      - name: Upload Trivy config scan results
+        if: steps.image-check.outputs.image_exists == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-config-${{ matrix.service }}-results.sarif'
+          category: 'trivy-config-${{ matrix.service }}'
+
+      - name: Generate detailed security report
+        if: steps.image-check.outputs.image_exists == 'true'
+        run: |
+          echo "# Security Scan Report for ${{ matrix.service }}" > security-report-${{ matrix.service }}.md
+          echo "**Scan Date:** $(date -u)" >> security-report-${{ matrix.service }}.md
+          echo "**Image:** ${{ steps.image-tag.outputs.image }}" >> security-report-${{ matrix.service }}.md
+          echo "**Severity Threshold:** ${{ github.event.inputs.severity_threshold || 'MEDIUM' }}" >> security-report-${{ matrix.service }}.md
+          echo "" >> security-report-${{ matrix.service }}.md
+          
+          # Run Trivy with table output for human-readable report
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v $PWD:/workspace \
+            aquasec/trivy:latest image \
+            --format table \
+            --severity ${{ github.event.inputs.severity_threshold || 'MEDIUM' }} \
+            "${{ steps.image-tag.outputs.image }}" >> security-report-${{ matrix.service }}.md || true
+          
+          echo "" >> security-report-${{ matrix.service }}.md
+          echo "## Dockerfile Security Check" >> security-report-${{ matrix.service }}.md
+          
+          docker run --rm -v $PWD:/workspace \
+            aquasec/trivy:latest config \
+            --format table \
+            /workspace/services/${{ matrix.service }} >> security-report-${{ matrix.service }}.md || true
+
+      - name: Upload security report
+        if: steps.image-check.outputs.image_exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report-${{ matrix.service }}
+          path: security-report-${{ matrix.service }}.md
+          retention-days: 30
+
+  # Image signing with cosign
+  sign-images:
+    needs: [prepare-scan-matrix, trivy-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.prepare-scan-matrix.outputs.services) }}
+    
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sign container image
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME_PREFIX }}/${{ matrix.service }}:${{ github.sha }}"
+          
+          # Check if image exists before signing
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "Signing image: $IMAGE"
+            cosign sign --yes "$IMAGE"
+          else
+            echo "Image $IMAGE does not exist, skipping signing"
+          fi
+
+  # Security summary and notifications
+  security-summary:
+    needs: [prepare-scan-matrix, trivy-scan]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download all security reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: security-report-*
+          merge-multiple: true
+
+      - name: Create security summary
+        run: |
+          echo "# 🔒 Security Scan Summary" > security-summary.md
+          echo "**Scan Date:** $(date -u)" >> security-summary.md
+          echo "**Trigger:** ${{ github.event_name }}" >> security-summary.md
+          echo "**Commit:** ${{ github.sha }}" >> security-summary.md
+          echo "" >> security-summary.md
+          
+          echo "## Services Scanned" >> security-summary.md
+          SERVICES='${{ needs.prepare-scan-matrix.outputs.services }}'
+          for SERVICE in $(echo $SERVICES | jq -r '.[]'); do
+            if [[ -f "security-report-${SERVICE}.md" ]]; then
+              echo "✅ $SERVICE" >> security-summary.md
+            else
+              echo "❌ $SERVICE (scan failed or image not found)" >> security-summary.md
+            fi
+          done
+          
+          echo "" >> security-summary.md
+          echo "## Scan Results" >> security-summary.md
+          echo "Detailed reports are available in the artifacts section." >> security-summary.md
+
+      - name: Upload security summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-summary
+          path: security-summary.md
+          retention-days: 90
+
+      - name: Check for critical vulnerabilities
+        run: |
+          CRITICAL_FOUND=false
+          
+          for report in security-report-*.md; do
+            if [[ -f "$report" ]] && grep -i "CRITICAL" "$report" > /dev/null; then
+              CRITICAL_FOUND=true
+              echo "❌ Critical vulnerabilities found in $report"
+            fi
+          done
+          
+          if [[ "$CRITICAL_FOUND" == "true" ]] && [[ "${{ github.event_name }}" != "schedule" ]]; then
+            echo "⚠️  Critical vulnerabilities detected! Please review security reports."
+            exit 1
+          fi

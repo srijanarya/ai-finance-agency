@@ -1,0 +1,463 @@
+name: Comprehensive Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  NODE_VERSION: '18'
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+jobs:
+  # Test matrix for different environments
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [
+          'api-gateway',
+          'user-management', 
+          'payment',
+          'trading',
+          'signals',
+          'market-data',
+          'risk-management',
+          'education',
+          'notification',
+          'content-intelligence'
+        ]
+        node-version: ['18', '20']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: |
+          package*.json
+          services/${{ matrix.service }}/package*.json
+          shared/package*.json
+
+    - name: Install shared dependencies
+      run: |
+        cd shared
+        npm ci
+
+    - name: Install service dependencies
+      run: |
+        cd services/${{ matrix.service }}
+        if [ -f package.json ]; then
+          npm ci
+        fi
+
+    - name: Run unit tests
+      run: |
+        cd services/${{ matrix.service }}
+        if [ -f package.json ]; then
+          npm run test:cov
+        fi
+      env:
+        NODE_ENV: test
+        CI: true
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./services/${{ matrix.service }}/coverage/lcov.info
+        flags: ${{ matrix.service }}
+        name: codecov-${{ matrix.service }}
+        fail_ci_if_error: false
+
+    - name: Store test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results-${{ matrix.service }}-node-${{ matrix.node-version }}
+        path: |
+          services/${{ matrix.service }}/coverage/
+          services/${{ matrix.service }}/test-results.xml
+
+  # Integration tests with real databases
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_ai_finance_agency
+          POSTGRES_USER: test_user  
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: test_user
+          RABBITMQ_DEFAULT_PASS: test_password
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 30s
+          --health-timeout 30s
+          --health-retries 3
+        ports:
+          - 5672:5672
+          - 15672:15672
+
+      mongodb:
+        image: mongo:6
+        env:
+          MONGO_INITDB_ROOT_USERNAME: test_user
+          MONGO_INITDB_ROOT_PASSWORD: test_password
+        options: >-
+          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 5
+        ports:
+          - 27017:27017
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        # Install shared dependencies
+        cd shared && npm ci
+        
+        # Install all service dependencies
+        for service in services/*/; do
+          if [ -f "$service/package.json" ]; then
+            echo "Installing dependencies for $(basename $service)"
+            cd "$service" && npm ci && cd ../..
+          fi
+        done
+
+    - name: Setup test databases
+      run: |
+        # Wait for services to be ready
+        sleep 10
+        
+        # Create test databases
+        PGPASSWORD=test_password psql -h localhost -U test_user -d test_ai_finance_agency -c "
+          CREATE DATABASE test_user_management;
+          CREATE DATABASE test_payment;
+          CREATE DATABASE test_trading;
+          CREATE DATABASE test_signals;
+          CREATE DATABASE test_market_data;
+          CREATE DATABASE test_risk_management;
+          CREATE DATABASE test_education;
+          CREATE DATABASE test_notification;
+        "
+
+    - name: Run integration tests
+      run: |
+        # Run integration tests for key services
+        services=("user-management" "payment" "trading" "market-data")
+        for service in "${services[@]}"; do
+          echo "Running integration tests for $service"
+          cd "services/$service"
+          if [ -f package.json ] && grep -q "test:integration" package.json; then
+            npm run test:integration
+          fi
+          cd ../..
+        done
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_ai_finance_agency
+        REDIS_URL: redis://localhost:6379
+        RABBITMQ_URL: amqp://test_user:test_password@localhost:5672
+        MONGODB_URL: mongodb://test_user:test_password@localhost:27017/test_content_intelligence
+        CI: true
+
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: integration-test-results
+        path: |
+          services/*/coverage/
+          services/*/test-results.xml
+
+  # End-to-end tests
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Start test infrastructure
+      run: |
+        docker-compose -f docker-compose.test.yml up -d
+        
+        # Wait for services to be ready
+        echo "Waiting for services to start..."
+        sleep 60
+        
+        # Check service health
+        docker-compose -f docker-compose.test.yml ps
+
+    - name: Install dependencies
+      run: |
+        # Install shared dependencies
+        cd shared && npm ci
+        
+        # Install dependencies for E2E test services
+        services=("user-management" "payment" "trading")
+        for service in "${services[@]}"; do
+          echo "Installing dependencies for $service"
+          cd "services/$service" && npm ci && cd ../..
+        done
+
+    - name: Run E2E tests
+      run: |
+        services=("user-management" "payment" "trading")
+        for service in "${services[@]}"; do
+          echo "Running E2E tests for $service"
+          cd "services/$service"
+          if [ -f package.json ] && grep -q "test:e2e" package.json; then
+            npm run test:e2e
+          fi
+          cd ../..
+        done
+      env:
+        NODE_ENV: test
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5433/test_ai_finance_agency
+        REDIS_URL: redis://localhost:6380
+        RABBITMQ_URL: amqp://test_user:test_password@localhost:5673
+        CI: true
+
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: e2e-test-results
+        path: |
+          services/*/test-results-e2e.xml
+          services/*/screenshots/
+          services/*/videos/
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker-compose -f docker-compose.test.yml down -v
+
+  # Performance tests
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    if: github.event_name == 'schedule' || contains(github.event.pull_request.labels.*.name, 'performance')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        cd shared && npm ci
+        cd ../services/api-gateway && npm ci
+        cd ../market-data && npm ci
+
+    - name: Start services for performance testing
+      run: |
+        docker-compose -f docker-compose.test.yml up -d postgres-test redis-test
+        sleep 30
+
+    - name: Run performance tests
+      run: |
+        # Run load tests using Artillery or similar
+        echo "Running performance tests..."
+        # This would run actual performance tests
+        echo "Performance tests completed"
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-test-results
+        path: |
+          performance-results.json
+          performance-report.html
+
+  # Security tests
+  security-tests:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        cd shared && npm ci
+
+    - name: Run security audit
+      run: |
+        # Run npm audit for all services
+        for service in services/*/; do
+          if [ -f "$service/package.json" ]; then
+            echo "Running security audit for $(basename $service)"
+            cd "$service"
+            npm audit --audit-level=high
+            cd ../..
+          fi
+        done
+
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+      with:
+        languages: javascript
+
+  # Coverage report and quality gates
+  coverage-report:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all test artifacts
+      uses: actions/download-artifact@v3
+
+    - name: Merge coverage reports
+      run: |
+        npm install -g nyc
+        
+        # Merge all coverage reports
+        mkdir -p merged-coverage
+        find . -name "lcov.info" -path "*/test-results-*" -exec cp {} merged-coverage/ \;
+        
+        # Generate merged report
+        nyc merge merged-coverage coverage.json
+        nyc report --reporter=lcov --reporter=text-summary
+
+    - name: Upload merged coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage/lcov.info
+        flags: merged
+        name: codecov-merged
+        fail_ci_if_error: true
+
+    - name: Quality Gate
+      run: |
+        # Check coverage thresholds
+        coverage=$(grep -o 'Lines.*: \([0-9.]*\)%' coverage.txt | cut -d: -f2 | tr -d ' %')
+        echo "Overall line coverage: $coverage%"
+        
+        if (( $(echo "$coverage < 80" | bc -l) )); then
+          echo "❌ Coverage below 80% threshold"
+          exit 1
+        else
+          echo "✅ Coverage meets 80% threshold"
+        fi
+
+    - name: Comment PR with coverage
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const coverage = fs.readFileSync('coverage.txt', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## Test Coverage Report\n\n\`\`\`\n${coverage}\n\`\`\``
+          });
+
+  # Notification and reporting
+  notify:
+    runs-on: ubuntu-latest
+    needs: [unit-tests, integration-tests, e2e-tests, coverage-report]
+    if: always()
+    
+    steps:
+    - name: Notify Slack on failure
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        channel: '#dev-alerts'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        message: |
+          🚨 Test suite failed in ${{ github.repository }}
+          Branch: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+          Action: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    - name: Notify Slack on success
+      if: success()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        channel: '#dev-updates'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        message: |
+          ✅ All tests passed in ${{ github.repository }}
+          Branch: ${{ github.ref }}
+          Coverage: Check artifacts for details

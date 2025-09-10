@@ -16,11 +16,19 @@ import { AuditLog } from './entities/audit-log.entity';
 import { AuthController } from './controllers/auth.controller';
 import { UserController } from './controllers/user.controller';
 import { RoleController } from './controllers/role.controller';
+import { ProfileController } from './controllers/profile.controller';
+import { SessionController } from './controllers/session.controller';
+import { PasswordRecoveryController } from './controllers/password-recovery.controller';
 import { AuthService } from './services/auth.service';
 import { UserService } from './services/user.service';
 import { RoleService } from './services/role.service';
+import { ProfileService } from './services/profile.service';
+import { SessionService } from './services/session.service';
+import { PasswordRecoveryService } from './services/password-recovery.service';
+import { RbacService } from './services/rbac.service';
 import { EmailService } from './services/email.service';
 import { AuditService } from './services/audit.service';
+import { NotificationService } from './services/notification.service';
 import { DeviceTrackingService } from './services/device-tracking.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
@@ -28,6 +36,7 @@ import { GitHubStrategy } from './strategies/github.strategy';
 import { OAuthController } from './controllers/oauth.controller';
 import { RolesGuard } from './guards/roles.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { HierarchicalRolesGuard } from './guards/hierarchical-roles.guard';
 import { SecurityMiddleware } from './middleware/security.middleware';
 import { HealthModule } from './modules/health.module';
 
@@ -97,21 +106,36 @@ import { HealthModule } from './modules/health.module';
     HealthModule,
   ],
 
-  controllers: [AppController, AuthController, UserController, RoleController, OAuthController],
+  controllers: [
+    AppController,
+    AuthController,
+    UserController,
+    RoleController,
+    ProfileController,
+    SessionController,
+    PasswordRecoveryController,
+    OAuthController,
+  ],
 
   providers: [
     AppService,
     AuthService,
     UserService,
     RoleService,
+    ProfileService,
+    SessionService,
+    PasswordRecoveryService,
+    RbacService,
     EmailService,
     AuditService,
+    NotificationService,
     DeviceTrackingService,
     JwtStrategy,
     GoogleStrategy,
     GitHubStrategy,
     RolesGuard,
     PermissionsGuard,
+    HierarchicalRolesGuard,
     SecurityMiddleware,
     {
       provide: APP_GUARD,

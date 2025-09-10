@@ -1,0 +1,46 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    git \
+    curl
+
+# Copy package files
+COPY package*.json ./
+COPY shared/package*.json ./shared/
+COPY services/*/package*.json ./services/*/
+
+# Install root dependencies
+RUN npm install
+
+# Install shared dependencies
+WORKDIR /app/shared
+RUN npm install
+
+# Install service dependencies
+WORKDIR /app
+RUN for service in services/*/; do \
+        if [ -f "$service/package.json" ]; then \
+            cd "$service" && npm install && cd /app; \
+        fi; \
+    done
+
+# Copy source code
+COPY . .
+
+# Set permissions
+RUN chown -R node:node /app
+USER node
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+EXPOSE 3000
+
+CMD ["npm", "run", "test"]

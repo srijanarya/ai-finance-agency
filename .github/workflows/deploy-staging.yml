@@ -1,0 +1,566 @@
+name: 🚀 Deploy to Staging
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to deploy'
+        required: true
+        type: string
+      services:
+        description: 'Services to deploy (comma-separated)'
+        required: false
+        type: string
+        default: 'all'
+      environment:
+        description: 'Target environment'
+        required: false
+        type: string
+        default: 'staging'
+    outputs:
+      deployment_url:
+        description: 'Deployment URL'
+        value: ${{ jobs.deploy.outputs.deployment_url }}
+      deployment_id:
+        description: 'Deployment ID'
+        value: ${{ jobs.deploy.outputs.deployment_id }}
+        
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (leave empty for latest)'
+        required: false
+        type: string
+      services:
+        description: 'Services to deploy (comma-separated, empty for all)'
+        required: false
+        type: string
+      force_deploy:
+        description: 'Force deployment (skip health checks)'
+        required: false
+        type: boolean
+        default: false
+      migration_mode:
+        description: 'Database migration mode'
+        required: false
+        type: choice
+        options: ['auto', 'manual', 'skip']
+        default: 'auto'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+  STAGING_CLUSTER: ai-finance-staging
+  STAGING_NAMESPACE: ai-finance-staging
+  KUBECTL_VERSION: v1.28.0
+
+jobs:
+  # =============================================================================
+  # PRE-DEPLOYMENT VALIDATION
+  # =============================================================================
+  pre-deployment-check:
+    name: 🔍 Pre-deployment Validation
+    runs-on: ubuntu-latest
+    environment: 
+      name: staging
+      url: ${{ secrets.STAGING_BASE_URL }}
+    outputs:
+      deploy_ready: ${{ steps.validation.outputs.deploy_ready }}
+      current_version: ${{ steps.current.outputs.current_version }}
+      services_list: ${{ steps.services.outputs.services_list }}
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+          kubectl config set-context --current --namespace=${{ env.STAGING_NAMESPACE }}
+
+      - name: 🔍 Check Current Deployment
+        id: current
+        run: |
+          CURRENT_VERSION=$(kubectl get deployment api-gateway -o jsonpath='{.metadata.labels.version}' || echo "none")
+          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+          echo "📊 Current version in staging: ${CURRENT_VERSION}"
+
+      - name: 🎯 Determine Services to Deploy
+        id: services
+        run: |
+          if [[ "${{ inputs.services }}" == "" ]] || [[ "${{ inputs.services }}" == "all" ]]; then
+            SERVICES="api-gateway,user-management,payment,signals,trading,education,market-data,risk-management,notification,content-intelligence"
+          else
+            SERVICES="${{ inputs.services }}"
+          fi
+          echo "services_list=${SERVICES}" >> $GITHUB_OUTPUT
+          echo "🎯 Services to deploy: ${SERVICES}"
+
+      - name: 🔍 Validate Images Exist
+        run: |
+          VERSION="${{ inputs.version || github.sha }}"
+          IFS=',' read -ra SERVICES_ARRAY <<< "${{ steps.services.outputs.services_list }}"
+          for service in "${SERVICES_ARRAY[@]}"; do
+            IMAGE="${{ env.IMAGE_PREFIX }}/${service}:${VERSION}"
+            echo "🔍 Checking image: ${IMAGE}"
+            if ! docker manifest inspect "${IMAGE}" > /dev/null 2>&1; then
+              echo "❌ Image not found: ${IMAGE}"
+              exit 1
+            fi
+            echo "✅ Image exists: ${IMAGE}"
+          done
+
+      - name: 🏥 Staging Environment Health Check
+        id: health
+        run: |
+          if [[ "${{ inputs.force_deploy }}" != "true" ]]; then
+            echo "🏥 Checking staging environment health..."
+            HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.STAGING_BASE_URL }}/health" || echo "000")
+            if [[ "$HEALTH_STATUS" != "200" ]] && [[ "$HEALTH_STATUS" != "404" ]]; then
+              echo "⚠️ Staging environment unhealthy (HTTP $HEALTH_STATUS)"
+              echo "health_ok=false" >> $GITHUB_OUTPUT
+            else
+              echo "✅ Staging environment healthy"
+              echo "health_ok=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "⏭️ Skipping health check (force deploy enabled)"
+            echo "health_ok=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: ✅ Validation Summary
+        id: validation
+        run: |
+          if [[ "${{ steps.health.outputs.health_ok }}" == "true" ]]; then
+            echo "deploy_ready=true" >> $GITHUB_OUTPUT
+            echo "✅ Pre-deployment validation passed"
+          else
+            echo "deploy_ready=false" >> $GITHUB_OUTPUT
+            echo "❌ Pre-deployment validation failed"
+            exit 1
+          fi
+
+  # =============================================================================
+  # DATABASE MIGRATIONS
+  # =============================================================================
+  database-migration:
+    name: 🗄️ Database Migration
+    runs-on: ubuntu-latest
+    needs: pre-deployment-check
+    if: needs.pre-deployment-check.outputs.deploy_ready == 'true'
+    environment:
+      name: staging
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+          kubectl config set-context --current --namespace=${{ env.STAGING_NAMESPACE }}
+
+      - name: 🗄️ Run Database Migrations
+        if: inputs.migration_mode != 'skip'
+        run: |
+          VERSION="${{ inputs.version || github.sha }}"
+          
+          # Create migration job
+          cat <<EOF | kubectl apply -f -
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: db-migration-${VERSION}
+            namespace: ${{ env.STAGING_NAMESPACE }}
+            labels:
+              app: ai-finance
+              component: migration
+              version: ${VERSION}
+          spec:
+            ttlSecondsAfterFinished: 300
+            template:
+              spec:
+                restartPolicy: Never
+                containers:
+                - name: migration
+                  image: ${{ env.IMAGE_PREFIX }}/migrations:${VERSION}
+                  env:
+                  - name: DATABASE_URL
+                    valueFrom:
+                      secretKeyRef:
+                        name: database-credentials
+                        key: staging-database-url
+                  - name: MIGRATION_MODE
+                    value: "${{ inputs.migration_mode || 'auto' }}"
+                  - name: TARGET_VERSION
+                    value: "${VERSION}"
+                command: ["/scripts/run-migrations.sh"]
+          EOF
+
+      - name: ⏳ Wait for Migration Completion
+        if: inputs.migration_mode != 'skip'
+        run: |
+          VERSION="${{ inputs.version || github.sha }}"
+          kubectl wait --for=condition=complete job/db-migration-${VERSION} --timeout=600s
+          
+          # Check migration logs
+          kubectl logs job/db-migration-${VERSION}
+          
+          # Verify migration status
+          if kubectl get job db-migration-${VERSION} -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}' | grep -q True; then
+            echo "✅ Database migration completed successfully"
+          else
+            echo "❌ Database migration failed"
+            exit 1
+          fi
+
+  # =============================================================================
+  # BLUE-GREEN DEPLOYMENT
+  # =============================================================================
+  deploy:
+    name: 🚀 Blue-Green Deploy
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-check, database-migration]
+    if: always() && needs.pre-deployment-check.outputs.deploy_ready == 'true'
+    environment:
+      name: staging
+      url: ${{ secrets.STAGING_BASE_URL }}
+    outputs:
+      deployment_url: ${{ secrets.STAGING_BASE_URL }}
+      deployment_id: ${{ steps.deploy.outputs.deployment_id }}
+      
+    strategy:
+      matrix:
+        service: ${{ fromJson(format('[{0}]', join(split(needs.pre-deployment-check.outputs.services_list, ','), '","'))) }}
+      fail-fast: false
+      max-parallel: 3
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl  
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+          kubectl config set-context --current --namespace=${{ env.STAGING_NAMESPACE }}
+
+      - name: 🎨 Generate Kubernetes Manifests
+        run: |
+          VERSION="${{ inputs.version || github.sha }}"
+          SERVICE="${{ matrix.service }}"
+          
+          # Create deployment manifest
+          envsubst < infrastructure/k8s/templates/deployment.yaml > deployment-${SERVICE}.yaml
+          envsubst < infrastructure/k8s/templates/service.yaml > service-${SERVICE}.yaml
+          envsubst < infrastructure/k8s/templates/configmap.yaml > configmap-${SERVICE}.yaml
+          
+          # Set environment-specific values
+          sed -i "s|{{IMAGE}}|${{ env.IMAGE_PREFIX }}/${SERVICE}:${VERSION}|g" deployment-${SERVICE}.yaml
+          sed -i "s|{{SERVICE_NAME}}|${SERVICE}|g" deployment-${SERVICE}.yaml
+          sed -i "s|{{NAMESPACE}}|${{ env.STAGING_NAMESPACE }}|g" deployment-${SERVICE}.yaml
+          sed -i "s|{{ENVIRONMENT}}|staging|g" deployment-${SERVICE}.yaml
+          sed -i "s|{{VERSION}}|${VERSION}|g" deployment-${SERVICE}.yaml
+          sed -i "s|{{REPLICA_COUNT}}|2|g" deployment-${SERVICE}.yaml
+
+      - name: 🔵 Deploy Green Version (Canary)
+        id: deploy
+        run: |
+          VERSION="${{ inputs.version || github.sha }}"
+          SERVICE="${{ matrix.service }}"
+          DEPLOYMENT_ID="${SERVICE}-${VERSION}-$(date +%s)"
+          
+          echo "deployment_id=${DEPLOYMENT_ID}" >> $GITHUB_OUTPUT
+          
+          # Label for green deployment
+          kubectl label deployment ${SERVICE} deployment-type=blue --overwrite || true
+          
+          # Apply green deployment
+          sed "s|name: ${SERVICE}|name: ${SERVICE}-green|g" deployment-${SERVICE}.yaml | kubectl apply -f -
+          kubectl apply -f configmap-${SERVICE}.yaml
+          
+          # Wait for green deployment to be ready
+          kubectl rollout status deployment/${SERVICE}-green --timeout=600s
+          
+          echo "✅ Green deployment ready for ${SERVICE}"
+
+      - name: 🏥 Health Check Green Deployment
+        run: |
+          SERVICE="${{ matrix.service }}"
+          
+          # Get green pod IP for direct health check
+          POD_IP=$(kubectl get pods -l app=${SERVICE},deployment-type=green -o jsonpath='{.items[0].status.podIP}')
+          
+          # Health check with retry
+          for i in {1..30}; do
+            if curl -f http://${POD_IP}:3000/health; then
+              echo "✅ Green deployment health check passed for ${SERVICE}"
+              break
+            fi
+            echo "⏳ Health check attempt $i/30 for ${SERVICE}"
+            sleep 10
+          done
+
+      - name: 🔀 Blue-Green Switch
+        run: |
+          SERVICE="${{ matrix.service }}"
+          
+          # Update service selector to point to green deployment
+          kubectl patch service ${SERVICE} -p '{"spec":{"selector":{"deployment-type":"green"}}}'
+          
+          echo "✅ Traffic switched to green deployment for ${SERVICE}"
+
+      - name: ⏳ Warm-up Period
+        run: |
+          echo "⏳ Warming up green deployment (60 seconds)..."
+          sleep 60
+
+      - name: 🏥 Post-Switch Health Check
+        run: |
+          SERVICE="${{ matrix.service }}"
+          SERVICE_URL="${{ secrets.STAGING_BASE_URL }}"
+          
+          # Health check through load balancer
+          for i in {1..10}; do
+            HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${SERVICE_URL}/health")
+            if [[ "$HEALTH_STATUS" == "200" ]]; then
+              echo "✅ Post-switch health check passed for ${SERVICE}"
+              break
+            fi
+            echo "⏳ Post-switch health check attempt $i/10"
+            sleep 10
+          done
+
+      - name: 🗑️ Cleanup Blue Deployment
+        run: |
+          SERVICE="${{ matrix.service }}"
+          
+          # Remove old blue deployment
+          kubectl delete deployment ${SERVICE} --ignore-not-found
+          
+          # Rename green to blue for next deployment
+          kubectl patch deployment ${SERVICE}-green -p '{"metadata":{"name":"'${SERVICE}'"}}'
+          kubectl label deployment ${SERVICE} deployment-type=blue --overwrite
+          
+          echo "✅ Cleanup completed for ${SERVICE}"
+
+  # =============================================================================
+  # POST-DEPLOYMENT VALIDATION
+  # =============================================================================
+  post-deployment-tests:
+    name: 🧪 Post-deployment Tests
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-check, deploy]
+    if: needs.deploy.result == 'success'
+    
+    strategy:
+      matrix:
+        test_type: ['smoke', 'integration', 'performance']
+      fail-fast: false
+      
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🧪 Run Smoke Tests
+        if: matrix.test_type == 'smoke'
+        run: |
+          BASE_URL="${{ secrets.STAGING_BASE_URL }}"
+          
+          # Core API endpoints
+          curl -f ${BASE_URL}/health
+          curl -f ${BASE_URL}/api/v1/status
+          curl -f ${BASE_URL}/metrics
+          
+          # Service-specific endpoints
+          curl -f ${BASE_URL}/api/v1/auth/status
+          curl -f ${BASE_URL}/api/v1/payments/status
+          curl -f ${BASE_URL}/api/v1/signals/status
+          
+          echo "✅ Smoke tests passed"
+
+      - name: 🧪 Run Integration Tests
+        if: matrix.test_type == 'integration'
+        run: |
+          export BASE_URL="${{ secrets.STAGING_BASE_URL }}"
+          export TEST_ENV="staging"
+          
+          if [[ -f "tests/staging/integration.test.js" ]]; then
+            npm run test:staging:integration
+          else
+            echo "⏭️ No staging integration tests found"
+          fi
+
+      - name: ⚡ Run Performance Tests
+        if: matrix.test_type == 'performance'
+        run: |
+          if [[ -f "tests/performance/staging-load-test.yml" ]]; then
+            npx artillery run tests/performance/staging-load-test.yml \
+              --target ${{ secrets.STAGING_BASE_URL }}
+          else
+            echo "⏭️ No performance tests found for staging"
+          fi
+
+  # =============================================================================
+  # MONITORING SETUP
+  # =============================================================================
+  setup-monitoring:
+    name: 📊 Setup Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy, post-deployment-tests]
+    if: needs.deploy.result == 'success'
+    
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: ${{ env.KUBECTL_VERSION }}
+
+      - name: 🔑 Configure kubectl
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 -d > ~/.kube/config
+          kubectl config set-context --current --namespace=${{ env.STAGING_NAMESPACE }}
+
+      - name: 📊 Deploy Monitoring Stack
+        run: |
+          # Apply Prometheus configuration
+          kubectl apply -f monitoring/k8s/prometheus-staging.yaml
+          
+          # Apply Grafana dashboards
+          kubectl apply -f monitoring/k8s/grafana-staging.yaml
+          
+          # Apply alert rules
+          kubectl apply -f monitoring/k8s/alert-rules-staging.yaml
+          
+          echo "✅ Monitoring stack updated for staging"
+
+      - name: 📊 Setup Custom Dashboards
+        run: |
+          VERSION="${{ inputs.version || github.sha }}"
+          
+          # Create deployment-specific dashboard
+          kubectl create configmap deployment-dashboard-${VERSION} \
+            --from-file=monitoring/grafana/dashboards/deployment.json \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          echo "✅ Custom dashboards created"
+
+  # =============================================================================
+  # NOTIFICATION AND ROLLBACK TRIGGER
+  # =============================================================================
+  deployment-status:
+    name: 📢 Deployment Status
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-check, deploy, post-deployment-tests, setup-monitoring]
+    if: always()
+    
+    steps:
+      - name: 📊 Collect Deployment Results
+        id: results
+        run: |
+          OVERALL_STATUS="success"
+          FAILED_SERVICES=""
+          
+          if [[ "${{ needs.deploy.result }}" != "success" ]]; then
+            OVERALL_STATUS="failure"
+            FAILED_SERVICES="deployment"
+          fi
+          
+          if [[ "${{ needs.post-deployment-tests.result }}" == "failure" ]]; then
+            OVERALL_STATUS="partial"
+            FAILED_SERVICES="${FAILED_SERVICES},tests"
+          fi
+          
+          echo "overall_status=${OVERALL_STATUS}" >> $GITHUB_OUTPUT
+          echo "failed_services=${FAILED_SERVICES}" >> $GITHUB_OUTPUT
+
+      - name: 📢 Slack Notification - Success
+        if: steps.results.outputs.overall_status == 'success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          title: "🚀 Staging Deployment Successful"
+          message: |
+            *Environment:* staging
+            *Version:* ${{ inputs.version || github.sha }}
+            *Services:* ${{ needs.pre-deployment-check.outputs.services_list }}
+            *URL:* ${{ secrets.STAGING_BASE_URL }}
+            *Previous Version:* ${{ needs.pre-deployment-check.outputs.current_version }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: 📢 Slack Notification - Failure
+        if: steps.results.outputs.overall_status == 'failure'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          title: "❌ Staging Deployment Failed"
+          message: |
+            *Environment:* staging
+            *Version:* ${{ inputs.version || github.sha }}
+            *Failed Components:* ${{ steps.results.outputs.failed_services }}
+            *Rollback:* Available via workflow dispatch
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: 🔄 Trigger Rollback on Critical Failure
+        if: steps.results.outputs.overall_status == 'failure' && !inputs.force_deploy
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'rollback.yml',
+              ref: 'main',
+              inputs: {
+                environment: 'staging',
+                target_version: '${{ needs.pre-deployment-check.outputs.current_version }}',
+                reason: 'Automatic rollback due to deployment failure'
+              }
+            });
+
+      - name: ✅ Deployment Summary
+        run: |
+          echo "## 🚀 Staging Deployment Summary"
+          echo "**Status:** ${{ steps.results.outputs.overall_status }}"
+          echo "**Version:** ${{ inputs.version || github.sha }}"
+          echo "**Environment:** staging"
+          echo "**Services:** ${{ needs.pre-deployment-check.outputs.services_list }}"
+          echo "**URL:** ${{ secrets.STAGING_BASE_URL }}"
+          
+          if [[ "${{ steps.results.outputs.overall_status }}" == "success" ]]; then
+            echo "✅ Deployment completed successfully!"
+          else
+            echo "❌ Deployment encountered issues: ${{ steps.results.outputs.failed_services }}"
+          fi

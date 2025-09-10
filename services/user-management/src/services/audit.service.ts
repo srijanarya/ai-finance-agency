@@ -1,17 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuditLog, AuditAction } from '../entities/audit-log.entity';
+import { AuditLog, AuditAction, AuditLevel, AuditStatus } from '../entities/audit-log.entity';
 
 export interface LogEntry {
   userId?: string;
   action: AuditAction;
   resource: string;
   resourceId?: string;
+  level?: AuditLevel | string;
+  status?: AuditStatus | string;
+  description?: string;
   details?: Record<string, any>;
+  metadata?: Record<string, any>;
   ipAddress?: string;
   userAgent?: string;
   sessionId?: string;
+  requestId?: string;
+  correlationId?: string;
+  apiEndpoint?: string;
+  httpMethod?: string;
+  httpStatus?: number;
+  responseTime?: number;
+  country?: string;
+  city?: string;
+  deviceType?: string;
+  riskScore?: number;
+  tags?: string[];
 }
 
 @Injectable()
@@ -25,15 +40,42 @@ export class AuditService {
 
   async log(entry: LogEntry): Promise<AuditLog> {
     try {
+      // Convert string level/status to enum if needed
+      let level = entry.level;
+      let status = entry.status;
+      
+      if (typeof level === 'string') {
+        level = level.toUpperCase() as AuditLevel;
+      }
+      
+      if (typeof status === 'string') {
+        status = status.toUpperCase() as AuditStatus;
+      }
+
       const auditLog = this.auditLogRepository.create({
         userId: entry.userId,
         action: entry.action,
         resource: entry.resource,
         resourceId: entry.resourceId,
+        level: level || AuditLevel.MEDIUM,
+        status: status || AuditStatus.SUCCESS,
+        description: entry.description,
         details: entry.details,
+        metadata: entry.metadata,
         ipAddress: entry.ipAddress,
         userAgent: entry.userAgent,
         sessionId: entry.sessionId,
+        requestId: entry.requestId,
+        correlationId: entry.correlationId,
+        apiEndpoint: entry.apiEndpoint,
+        httpMethod: entry.httpMethod,
+        httpStatus: entry.httpStatus,
+        responseTime: entry.responseTime,
+        country: entry.country,
+        city: entry.city,
+        deviceType: entry.deviceType,
+        riskScore: entry.riskScore,
+        tags: entry.tags,
       });
 
       const savedLog = await this.auditLogRepository.save(auditLog);

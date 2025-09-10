@@ -45,8 +45,6 @@ services:
       RABBITMQ_DEFAULT_VHOST: treum_finance
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
-      - ./infrastructure/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
-      - ./infrastructure/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
     ports:
       - "5672:5672"   # AMQP port
       - "15672:15672" # Management UI
@@ -60,7 +58,7 @@ services:
 
   # Service Discovery (Consul)
   consul:
-    image: consul:1.17-alpine
+    image: hashicorp/consul:latest
     container_name: ai_finance_consul
     command: >
       consul agent 
@@ -72,7 +70,7 @@ services:
       -client=0.0.0.0
     volumes:
       - consul_data:/consul/data
-      - ./infrastructure/consul:/consul/config:ro
+      - ./infrastructure/consul:/consul/config
     ports:
       - "8500:8500"   # HTTP API
       - "8600:8600"   # DNS

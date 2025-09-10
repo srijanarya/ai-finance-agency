@@ -1,276 +1,225 @@
-# 🚀 AI Finance Agency
+# TREUM ALGOTECH Platform
 
-An autonomous research agent that scans financial markets, analyzes trends, and generates content ideas for financial publications.
+## 🎯 Overview
 
-## Features
+TREUM ALGOTECH is a comprehensive fintech platform targeting ₹600 Cr annual revenue by providing:
 
-### 🔍 Research Agent
-- **Multi-source data collection**: RSS feeds from Bloomberg, Yahoo Finance, MarketWatch, Reuters, CNBC, WSJ
-- **Real-time market analysis**: Stock prices, indices, sector performance
-- **Intelligent content classification**: News analysis, market analysis, educational content, trading signals
-- **Keyword extraction and trend tracking**: Automatic identification of relevant financial terms
-- **Relevance scoring**: Smart filtering based on keyword importance and content quality
+- **AI-Powered Trading Education** (₹24K to ₹8L courses)
+- **Real-Time Trading Signals** (Subscription-based)
+- **Crypto Trading Integration** (Multi-exchange support)
+- **Broker Referral System** (Revenue sharing model)
 
-### 📊 Web Dashboard
-- **Real-time monitoring**: Live view of research agent activity
-- **Content idea management**: View, filter, and track content ideas
-- **Trending keywords**: Visual display of hot topics
-- **Performance metrics**: Statistics on content generation and relevance scores
-- **Manual scan trigger**: On-demand research scans
+## 🏗️ Architecture
 
-### 🗄️ Data Management
-- **SQLite database**: Structured storage of topics, ideas, and keywords
-- **Automatic deduplication**: Prevents duplicate content ideas
-- **Historical tracking**: Performance metrics and trend analysis
-- **Backup support**: Database backup configuration
+This is a monorepo built with:
 
-## Quick Start
+- **Turborepo** for monorepo management
+- **Next.js 15.5.2** for web applications
+- **React Native 0.75.4** for mobile apps
+- **NestJS 10.4.5** for microservices
+- **Node.js 22.11.0** LTS runtime
 
-### 1. Installation
-
-```bash
-# Clone the repository
-git clone <repository-url>
-cd ai-finance-agency
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create environment file
-cp .env.example .env
-```
-
-### 2. Configuration
-
-Edit `.env` file with your API keys:
-
-```bash
-# Financial Data APIs (optional but recommended)
-ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
-FINNHUB_API_KEY=your_finnhub_key
-NEWS_API_KEY=your_newsapi_key
-
-# Agent Configuration
-RESEARCH_INTERVAL_MINUTES=30
-MIN_RELEVANCE_SCORE=7
-MAX_IDEAS_PER_SCAN=20
-```
-
-### 3. Run the System
-
-```bash
-# Start the research agent (continuous mode)
-python run.py agent
-
-# Run a single research scan
-python run.py scan
-
-# Start the web dashboard
-python run.py dashboard
-```
-
-### 4. Access Dashboard
-
-Open your browser and go to: http://localhost:5000
-
-## Project Structure
+## 📁 Project Structure
 
 ```
-ai-finance-agency/
-├── agents/
-│   └── research_agent.py      # Main research agent
-├── config/
-│   └── config.py             # Configuration management
-├── data/                     # Database and data files
-├── logs/                     # Log files
-├── templates/
-│   └── dashboard.html        # Web dashboard template
-├── dashboard.py              # Flask web application
-├── run.py                   # Main CLI interface
-├── requirements.txt         # Python dependencies
-├── .env.example            # Environment template
-└── README.md               # This file
+treum-algotech/
+├── apps/
+│   ├── web/                     # Next.js web application
+│   ├── mobile/                  # React Native mobile app
+│   └── admin/                   # Admin dashboard
+├── services/
+│   ├── user-management/         # Authentication & KYC
+│   ├── education/               # Course management
+│   ├── signals/                 # Trading signals
+│   ├── payment/                 # Payment processing
+│   └── trading/                 # Exchange integration
+├── packages/
+│   ├── ui/                      # Shared UI components
+│   ├── types/                   # TypeScript types
+│   ├── utils/                   # Shared utilities
+│   └── config/                  # Shared configurations
+├── infrastructure/
+│   ├── docker/                  # Docker configurations
+│   ├── kubernetes/              # K8s manifests
+│   └── terraform/               # Infrastructure as code
+└── docs/                        # Documentation
 ```
 
-## API Endpoints
+## 🚀 Quick Start
 
-The dashboard provides REST API endpoints:
+### Prerequisites
 
-- `GET /api/stats` - Dashboard statistics
-- `GET /api/ideas` - Recent content ideas
-- `GET /api/keywords` - Trending keywords
-- `GET /api/topics` - Research topics
-- `POST /api/scan` - Trigger manual scan
-- `POST /api/idea/<id>/publish` - Mark idea as published
+- Node.js 22.11.0 (LTS)
+- npm >= 10.0.0
+- Docker Desktop
+- PostgreSQL 17.6
+- Redis 7.4.1
 
-## Content Types
+### Installation
 
-The system generates different types of content ideas:
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/treum-algotech/platform.git
+   cd platform
+   ```
 
-- **News Analysis**: Deep dives into breaking financial news
-- **Market Analysis**: Technical and fundamental market movements
-- **Educational**: How-to guides and explanatory content
-- **Trading Signals**: Actionable trading recommendations
-- **Sector Reports**: Industry-specific analysis
-- **Earnings Previews**: Upcoming earnings analysis
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-## Configuration Options
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
 
-### Agent Settings
-- `RESEARCH_INTERVAL_MINUTES`: How often to run scans (default: 30)
-- `MIN_RELEVANCE_SCORE`: Minimum score for content ideas (default: 7)
-- `MAX_IDEAS_PER_SCAN`: Maximum ideas per scan (default: 20)
+4. **Start databases**
+   ```bash
+   npm run docker:up
+   ```
 
-### Database Settings
-- `DATABASE_PATH`: Database file location (default: data/agency.db)
-- `BACKUP_DATABASE_PATH`: Backup directory (default: data/backup/)
+5. **Run migrations**
+   ```bash
+   npm run db:migrate
+   npm run db:seed
+   ```
 
-### Dashboard Settings
-- `FLASK_PORT`: Web server port (default: 5000)
-- `FLASK_DEBUG`: Debug mode (default: false)
-- `SECRET_KEY`: Session security key
+6. **Start development servers**
+   ```bash
+   npm run dev
+   ```
 
-## Advanced Usage
+## 📝 Available Scripts
 
-### Custom Keywords
+### Development
+- `npm run dev` - Start all services in development mode
+- `npm run build` - Build all packages and applications
+- `npm run test` - Run all tests
+- `npm run test:e2e` - Run end-to-end tests
+- `npm run lint` - Lint all code
+- `npm run typecheck` - Type check all TypeScript
 
-Edit the keyword weights in `agents/research_agent.py`:
+### Database
+- `npm run db:migrate` - Run database migrations
+- `npm run db:seed` - Seed database with test data
+- `npm run db:reset` - Reset database (migrate + seed)
 
-```python
-self.keyword_weights = {
-    'earnings': 10,
-    'ipo': 9,
-    'merger': 9,
-    # Add your custom keywords here
-}
-```
+### Docker
+- `npm run docker:build` - Build Docker images
+- `npm run docker:up` - Start Docker services
+- `npm run docker:down` - Stop Docker services
 
-### API Integration
+### Code Quality
+- `npm run format` - Format code with Prettier
+- `npm run format:check` - Check code formatting
 
-The system supports multiple financial data APIs:
+## 🏛️ Technology Stack
 
-- **Alpha Vantage**: Stock data and fundamentals
-- **Finnhub**: Real-time market data
-- **NewsAPI**: News article aggregation
-- **Polygon**: Market data and analytics
+### Frontend
+- **Next.js 15.5.2** - React framework with App Router
+- **React 19.1.1** - UI library
+- **TypeScript 5.6.3** - Type safety
+- **Tailwind CSS 3.4.15** - Styling
+- **Radix UI 1.1.0** - Headless components
 
-### Extending the Agent
+### Backend
+- **NestJS 10.4.5** - Node.js framework
+- **Express.js 4.21.1** - HTTP server
+- **PostgreSQL 17.6** - Primary database
+- **Redis 7.4.1** - Caching and sessions
+- **MongoDB 8.0.1** - Content storage
 
-Create custom analyzers by extending the `ContentAnalyzer` class:
+### Infrastructure
+- **Docker 27.3.1** - Containerization
+- **Kubernetes 1.31.2** - Orchestration
+- **Kong** - API Gateway
+- **Prometheus & Grafana** - Monitoring
 
-```python
-class CustomAnalyzer(ContentAnalyzer):
-    def custom_analysis(self, data):
-        # Your custom analysis logic
-        pass
-```
+## 🔐 Security
 
-## Monitoring and Logging
+- **JWT** with RS256 signing
+- **Multi-Factor Authentication** (TOTP)
+- **KYC Verification** per Indian regulations
+- **PCI DSS** compliance for payments
+- **End-to-end encryption** for sensitive data
 
-### Log Files
-- Research agent logs: `logs/research_agent.log`
-- Dashboard logs: Console output
+## 📊 Development Workflow
 
-### Performance Metrics
-- Content ideas generated per day
-- Average relevance scores
-- Keyword frequency tracking
-- Source performance analysis
+### Git Workflow
+1. Create feature branch: `git checkout -b feature/epic-001-authentication`
+2. Make changes with conventional commits
+3. Run tests: `npm run test`
+4. Create pull request
+5. Code review and merge
 
-### Health Checks
-- Database connectivity
-- API endpoint availability
-- Data freshness monitoring
+### Conventional Commits
+- `feat:` New features
+- `fix:` Bug fixes
+- `docs:` Documentation
+- `style:` Code style changes
+- `refactor:` Code refactoring
+- `test:` Adding tests
+- `chore:` Maintenance tasks
 
-## Troubleshooting
+## 🧪 Testing
 
-### Common Issues
+### Test Structure
+- **Unit Tests**: Jest for business logic
+- **Integration Tests**: Supertest for API endpoints
+- **E2E Tests**: Playwright for user journeys
+- **Performance Tests**: k6 for load testing
 
-1. **Database locked error**
-   - Make sure only one instance is running
-   - Check file permissions on data directory
+### Coverage Requirements
+- Unit tests: >90% coverage
+- Integration tests: Critical paths covered
+- E2E tests: User journeys covered
 
-2. **API rate limits**
-   - Reduce scan frequency in configuration
-   - Use multiple API keys with rotation
+## 📚 Documentation
 
-3. **Memory usage**
-   - Limit concurrent requests in configuration
-   - Increase scan interval for slower systems
+- **Architecture**: `/docs/architecture/`
+- **API Docs**: Auto-generated Swagger UI
+- **User Stories**: `/docs/stories/`
+- **Development Guide**: This README
 
-### Debug Mode
+## 🚀 Deployment
 
-Enable debug logging:
+### Environments
+- **Development**: Local Docker Compose
+- **Staging**: Kubernetes cluster
+- **Production**: Multi-region Kubernetes
 
-```bash
-# Set environment variable
-export LOG_LEVEL=DEBUG
+### CI/CD Pipeline
+- **GitHub Actions** for automated testing
+- **ArgoCD** for GitOps deployment
+- **Automated rollbacks** on failure
 
-# Or run with debug flag
-python agents/research_agent.py --debug
-```
+## 📈 Performance Targets
 
-## Production Deployment
+- **Page Load Time**: <2 seconds
+- **API Response**: <200ms (p99)
+- **Signal Delivery**: <100ms
+- **Concurrent Users**: 1M+
+- **Uptime**: 99.9%
 
-### Using Docker
+## 🤝 Contributing
 
-```dockerfile
-FROM python:3.9-slim
+1. Read the [Contributing Guide](CONTRIBUTING.md)
+2. Follow the [Code of Conduct](CODE_OF_CONDUCT.md)
+3. Check the [Development Setup](#quick-start)
+4. Submit pull requests with tests
 
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+## 📞 Support
 
-COPY . .
-CMD ["python", "run.py", "agent"]
-```
+- **Documentation**: [docs.treum.com](https://docs.treum.com)
+- **Issues**: GitHub Issues
+- **Security**: security@treum.com
+- **General**: support@treum.com
 
-### Using Supervisor
+## 📄 License
 
-```ini
-[program:research-agent]
-command=python run.py agent
-directory=/path/to/ai-finance-agency
-user=finance
-autostart=true
-autorestart=true
-
-[program:dashboard]
-command=python run.py dashboard
-directory=/path/to/ai-finance-agency
-user=finance
-autostart=true
-autorestart=true
-```
-
-### Environment Variables for Production
-
-```bash
-DATABASE_PATH=/var/lib/finance-agency/agency.db
-LOG_FILE=/var/log/finance-agency/agent.log
-SECRET_KEY=your-production-secret-key
-FLASK_DEBUG=False
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License. See LICENSE file for details.
-
-## Support
-
-For support and questions:
-- Create an issue on GitHub
-- Check the troubleshooting section
-- Review the configuration options
+This project is proprietary software. All rights reserved.
 
 ---
 
-**Built with ❤️ for the financial community**
+**Built with ❤️ by the TREUM ALGOTECH Team**

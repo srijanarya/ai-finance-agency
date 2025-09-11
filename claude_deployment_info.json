@@ -1,0 +1,23 @@
+{
+  "timestamp": "2025-09-11T07:22:24.138849",
+  "total_files": 399,
+  "essential_files": 5,
+  "security_issues": 1,
+  "checklist": [
+    "\u2705 .env.claude",
+    "\u2705 setup_claude_env.py",
+    "\u2705 requirements-claude.txt",
+    "\u2705 CLAUDE_CODE_SETUP.md",
+    "\u2705 run.py",
+    "\u2705 agents/research_agent.py",
+    "\u2705 agents/technical_analysis_agent.py",
+    "\u2705 coherent_content_generator.py",
+    "\u2705 platform_styled_poster.py",
+    "\u2705 data/",
+    "\u2705 logs/",
+    "\u2705 templates/",
+    "\u26a0\ufe0f  .env.claude security",
+    "\u2705 setup_claude_env.py security",
+    "\u2705 requirements-claude.txt security"
+  ]
+}

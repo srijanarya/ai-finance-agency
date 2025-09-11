@@ -1,0 +1,22 @@
+{
+  "linkedin_personal": {
+    "status": "failed",
+    "message": "Profile fetch failed: 403",
+    "post_id": null
+  },
+  "linkedin_company": {
+    "status": "failed",
+    "message": "API error: 403 - {\"status\":403,\"serviceErrorCode\":100,\"code\":\"ACCESS_DENIED\",\"message\":\"Field Value validation failed in REQUEST_BODY: Data Processing Exception while processing fields [/author]\"}",
+    "post_id": null
+  },
+  "twitter_personal": {
+    "status": "failed",
+    "message": "Exception: 403 Forbidden\n453 - You currently have access to a subset of X API V2 endpoints and limited v1.1 endpoints (e.g. media post, oauth) only. If you need access to this endpoint, you may need a different access level. You can learn more here: https://developer.x.com/en/portal/product",
+    "post_id": null
+  },
+  "telegram": {
+    "status": "success",
+    "message": "Posted successfully",
+    "post_id": "431"
+  }
+}

@@ -1,0 +1,13 @@
+# AI Finance Agency - Files Safe for Claude Code
+# Generated: 2025-09-11T07:22:24.142907
+
+.env.claude
+setup_claude_env.py
+requirements-claude.txt
+CLAUDE_CODE_SETUP.md
+claude_deployment_checklist.py
+run.py
+agents/research_agent.py
+coherent_content_generator.py
+platform_styled_poster.py
+agency_dashboard.py

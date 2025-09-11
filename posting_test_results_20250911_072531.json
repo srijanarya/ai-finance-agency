@@ -1,0 +1,22 @@
+{
+  "linkedin_personal": {
+    "status": "failed",
+    "message": "Profile fetch failed: 401",
+    "post_id": null
+  },
+  "linkedin_company": {
+    "status": "failed",
+    "message": "API error: 401 - {\"status\":401,\"serviceErrorCode\":65600,\"code\":\"INVALID_ACCESS_TOKEN\",\"message\":\"Invalid access token\"}",
+    "post_id": null
+  },
+  "twitter_personal": {
+    "status": "failed",
+    "message": "Exception: 401 Unauthorized\n89 - Invalid or expired token.",
+    "post_id": null
+  },
+  "telegram": {
+    "status": "failed",
+    "message": "HTTP error: 404",
+    "post_id": null
+  }
+}

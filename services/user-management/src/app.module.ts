@@ -31,8 +31,9 @@ import { AuditService } from './services/audit.service';
 import { NotificationService } from './services/notification.service';
 import { DeviceTrackingService } from './services/device-tracking.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
-import { GoogleStrategy } from './strategies/google.strategy';
-import { GitHubStrategy } from './strategies/github.strategy';
+// OAuth strategies commented out for development - uncomment when OAuth credentials are configured
+// import { GoogleStrategy } from './strategies/google.strategy';
+// import { GitHubStrategy } from './strategies/github.strategy';
 import { OAuthController } from './controllers/oauth.controller';
 import { RolesGuard } from './guards/roles.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
@@ -131,8 +132,9 @@ import { HealthModule } from './modules/health.module';
     NotificationService,
     DeviceTrackingService,
     JwtStrategy,
-    GoogleStrategy,
-    GitHubStrategy,
+    // OAuth strategies commented out for development
+    // GoogleStrategy,
+    // GitHubStrategy,
     RolesGuard,
     PermissionsGuard,
     HierarchicalRolesGuard,

@@ -1,45 +1,87 @@
+# TalkingPhoto MVP - Streamlit Cloud Production Configuration
+# Optimized for cloud deployment and performance
+
 [theme]
-# Primary color for interactive elements
-primaryColor = "#d96833"
-
-# Background color for the main content area
-backgroundColor = "#1b170f"
-
-# Background color for sidebar and most interactive widgets
-secondaryBackgroundColor = "#2c2416"
-
-# Color used for almost all text
-textColor = "#ece7e2"
-
-# Font family for all text (can be a CSS font stack)
-font = "sans serif"
+# Professional brand colors
+primaryColor = "#d96833"  # Orange accent
+backgroundColor = "#1b170f"  # Dark background
+secondaryBackgroundColor = "#2c2416"  # Secondary dark
+textColor = "#ece7e2"  # Light text
+font = "Inter, sans-serif"  # Modern font
 
 [server]
-# Max upload size in MB
-maxUploadSize = 50
-
-# Max message size in MB
-maxMessageSize = 50
-
-# Enable CORS protection
+# Production server settings
+maxUploadSize = 25  # Reduced for cloud deployment
+maxMessageSize = 25  # Optimized for cloud
 enableCORS = true
-
-# Enable XSRF protection
 enableXsrfProtection = true
-
-# Port
 port = 8501
+headless = true  # Required for cloud deployment
+runOnSave = false  # Disabled for production
+enableStaticServing = true
+
+# Performance optimizations
+maxCachedMessageSize = 100
+allowRunOnSave = false
 
 [browser]
-# Gather usage stats
-gatherUsageStats = false
+# Browser configuration
+gatherUsageStats = false  # Privacy compliant
+showErrorDetails = false  # Hide sensitive errors in production
+serverAddress = "0.0.0.0"  # Listen on all interfaces
 
-# Automatically open browser
-serverAddress = "localhost"
+[logger]
+# Production logging
+level = "INFO"
+enableLogging = true
+
+[runner]
+# Execution settings
+magicEnabled = true
+installTracer = false
+fixMatplotlib = true
+postScriptGC = true
+
+[client]
+# Client-side optimizations
+caching = true
+showErrorDetails = false
+toolbarMode = "minimal"
 
 [ui]
-# Hide the hamburger menu
+# UI optimizations
 hideTopBar = false
-
-# Hide the footer
 hideSidebarNav = false
+wideMode = false  # Consistent layout
+sidebarState = "collapsed"  # Start collapsed
+
+[global]
+# Global settings
+developmentMode = false
+suppressConnectionWarning = true
+showWarningOnDirectExecution = false
+
+# Cache settings
+[cache]
+maxEntries = 1000
+ttlSeconds = 3600  # 1 hour cache
+persist = true
+
+# Upload settings
+[fileWatcher]
+watcherType = "none"  # Disable file watching in production
+
+# Security settings
+[security]
+enableWebsocketCompression = true
+allowWebsocketOrigin = "*"
+
+# Memory management
+[memory]
+maxCacheSize = "1GB"
+garbageCollectorThreshold = 0.8
+
+# Performance monitoring
+[metrics]
+enableMetrics = true
+metricsAddr = "127.0.0.1:8502"

@@ -28,6 +28,7 @@ import {
   SessionSecurityDto,
 } from '../dto/session.dto';
 import { AuditService } from './audit.service';
+import { AuditAction } from '../entities/audit-log.entity';
 import { NotificationService } from './notification.service';
 
 interface SessionValidationResult {
@@ -165,7 +166,7 @@ export class SessionService {
     // Log session creation
     await this.auditLogService.log({
       userId,
-      action: 'session_created',
+      action: AuditAction.SESSION_CREATED,
       resource: 'user_session',
       description: 'New session created',
       ipAddress,
@@ -299,7 +300,7 @@ export class SessionService {
     // Log the update
     await this.auditLogService.log({
       userId: updatedBy,
-      action: 'session_updated',
+      action: AuditAction.SESSION_REFRESHED,
       resource: 'user_session',
       description: 'Session updated',
       ipAddress,
@@ -367,7 +368,7 @@ export class SessionService {
     // Log the revocation
     await this.auditLogService.log({
       userId: revokedBy,
-      action: 'session_revoked',
+      action: AuditAction.SESSION_REVOKED,
       resource: 'user_session',
       description: 'Session revoked',
       ipAddress,
@@ -437,7 +438,7 @@ export class SessionService {
     // Log the mass revocation
     await this.auditLogService.log({
       userId: revokedBy,
-      action: 'sessions_revoked_all',
+      action: AuditAction.ALL_OTHER_SESSIONS_TERMINATED,
       resource: 'user_session',
       description: 'All sessions revoked',
       ipAddress,
@@ -512,7 +513,7 @@ export class SessionService {
     // Log the extension
     await this.auditLogService.log({
       userId,
-      action: 'session_extended',
+      action: AuditAction.SESSION_REFRESHED,
       resource: 'user_session',
       description: 'Session expiration extended',
       ipAddress,
@@ -919,7 +920,7 @@ export class SessionService {
   ): Promise<void> {
     const alert = {
       type: 'security_alert',
-      severity: 'medium',
+      severity: 'medium' as const,
       title: 'Suspicious login activity detected',
       message: `A new login was detected from ${session.country || 'unknown location'} using ${session.deviceType} device.`,
       details: {

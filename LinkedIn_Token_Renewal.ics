@@ -1,0 +1,27 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//AI Finance Agency//LinkedIn Token Reminder//EN
+BEGIN:VEVENT
+SUMMARY:🔐 LinkedIn Token Renewal Required - AI Finance Agency
+DTSTART:20251103T090000
+DTEND:20251103T100000
+DESCRIPTION:URGENT: LinkedIn Access Token expires on November 10\, 2025\n\
+ nACTION REQUIRED:\n1. Run: python3 linkedin_oauth_personal.py\n2. Complete
+  OAuth authorization in browser\n3. Copy authorization code\n4. Run: pytho
+ n3 exchange_linkedin_code.py YOUR_CODE\n5. Test with: python3 test_linkedi
+ n_post.py\n\nCurrent Token Details:\n- Client ID: 77ccq66ayuwvqo\n- Person
+  URN: urn:li:person:vlt5EDPS3C\n- Profile: Srijan Arya (srijanaryay@gmail.
+ com)\n- Scopes: openid\, profile\, email\, w_member_social\n\nFiles to use
+ :\n- /Users/srijan/ai-finance-agency/linkedin_oauth_personal.py\n- /Users/
+ srijan/ai-finance-agency/exchange_linkedin_code.py\n- /Users/srijan/ai-fin
+ ance-agency/restore_credentials.py\n\nDO NOT DELAY - Social media automati
+ on depends on this!
+LOCATION:AI Finance Agency - LinkedIn Integration
+PRIORITY:1
+BEGIN:VALARM
+ACTION:DISPLAY
+DESCRIPTION:LinkedIn Token Renewal Due!
+TRIGGER:-PT1H
+END:VALARM
+END:VEVENT
+END:VCALENDAR

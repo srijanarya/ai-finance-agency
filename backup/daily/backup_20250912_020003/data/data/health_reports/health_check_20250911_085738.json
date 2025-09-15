@@ -1,0 +1,86 @@
+{
+  "timestamp": "2025-09-11T08:57:35.828837",
+  "platforms": {
+    "telegram": {
+      "platform": "telegram",
+      "timestamp": "2025-09-11T08:57:35.828844",
+      "status": "healthy",
+      "response_time_ms": 792.8,
+      "details": {
+        "bot_username": "@AIFinanceAgencyBot",
+        "bot_id": 8478124403,
+        "can_join_groups": true,
+        "can_read_all_group_messages": false
+      }
+    },
+    "twitter": {
+      "platform": "twitter",
+      "timestamp": "2025-09-11T08:57:36.623343",
+      "status": "healthy",
+      "response_time_ms": 363.85,
+      "details": {
+        "username": "@aryasrijan",
+        "user_id": 345467935,
+        "followers_count": 90,
+        "following_count": 306,
+        "tweet_count": 16,
+        "verified": null
+      }
+    },
+    "linkedin": {
+      "platform": "linkedin",
+      "timestamp": "2025-09-11T08:57:36.987257",
+      "status": "healthy",
+      "response_time_ms": 1124.36,
+      "details": {
+        "profile_name": "Srijan Arya",
+        "email": "srijanaryay@gmail.com",
+        "locale": "en",
+        "token_expires": "November 10, 2025"
+      }
+    },
+    "database": {
+      "platform": "database",
+      "timestamp": "2025-09-11T08:57:38.114374",
+      "status": "healthy",
+      "response_time_ms": 1.54,
+      "details": {
+        "database_file": "data/automated_posts.db",
+        "tables_found": [
+          "posts",
+          "sqlite_sequence"
+        ],
+        "recent_posts_24h": 2,
+        "failed_posts_24h": 0,
+        "database_accessible": true
+      }
+    }
+  },
+  "overall_status": "healthy",
+  "summary": {},
+  "success_rates": {
+    "telegram": {
+      "success_rate_percent": 100.0,
+      "total_attempts": 2,
+      "successful_posts": 2,
+      "status": "healthy"
+    },
+    "twitter": {
+      "success_rate_percent": 100.0,
+      "total_attempts": 2,
+      "successful_posts": 2,
+      "status": "healthy"
+    },
+    "linkedin": {
+      "success_rate_percent": 100.0,
+      "total_attempts": 2,
+      "successful_posts": 2,
+      "status": "healthy"
+    }
+  },
+  "recommendations": [
+    "\u2705 All systems operating normally",
+    "\u2022 Continue regular monitoring",
+    "\u2022 Maintain current posting schedule"
+  ]
+}

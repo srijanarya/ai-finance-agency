@@ -1,0 +1,28 @@
+{
+  "generated_at": "2025-09-12T03:32:48.933618",
+  "platforms": [
+    {
+      "platform": "Telegram",
+      "api_status": "\u274c Error",
+      "error": "{\"ok\":false,\"error_code\":404,\"description\":\"Not Found\"}",
+      "health_score": 0
+    },
+    {
+      "platform": "Twitter/X",
+      "api_status": "\u274c Exception",
+      "error": "401 Unauthorized\nUnauthorized",
+      "health_score": 0
+    },
+    {
+      "platform": "LinkedIn",
+      "api_status": "\u274c Token Issue",
+      "error": "HTTP 401",
+      "health_score": 0
+    }
+  ],
+  "summary": {
+    "healthy_platforms": 0,
+    "total_platforms": 3,
+    "average_health": 0.0
+  }
+}

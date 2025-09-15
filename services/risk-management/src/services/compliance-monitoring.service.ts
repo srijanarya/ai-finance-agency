@@ -426,7 +426,7 @@ export class ComplianceMonitoringService {
     
     // Points for having required documents
     for (const reqType of requiredDocTypes) {
-      if (providedTypes.has(reqType)) {
+      if (providedTypes.has(reqType as any)) {
         score += 40;
       }
     }

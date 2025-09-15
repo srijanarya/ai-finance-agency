@@ -31,7 +31,7 @@ export class PaymentService {
     private auditService: AuditService,
   ) {
     this.stripe = new Stripe(this.configService.get<string>('STRIPE_SECRET_KEY'), {
-      apiVersion: '2024-06-20',
+      apiVersion: '2023-10-16',
     });
   }
 
@@ -162,7 +162,7 @@ export class PaymentService {
       
       if (paymentIntent.status === 'succeeded') {
         payment.markAsCompleted();
-      } else if (paymentIntent.status === 'payment_failed') {
+      } else if (paymentIntent.status === 'canceled' || paymentIntent.last_payment_error) {
         payment.markAsFailed(
           paymentIntent.last_payment_error?.message || 'Payment failed',
           paymentIntent.last_payment_error?.code,

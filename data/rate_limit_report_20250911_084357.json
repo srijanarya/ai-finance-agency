@@ -1,0 +1,48 @@
+{
+  "generated_at": "2025-09-11T08:43:57.546776",
+  "platforms": [
+    {
+      "platform": "Telegram",
+      "bot_username": "@AIFinanceAgencyBot",
+      "api_status": "\u2705 Healthy",
+      "rate_limit_status": "\u2705 Normal",
+      "daily_limit": "Unlimited",
+      "current_usage": "Unknown (no usage API)",
+      "recommendations": [
+        "Telegram has built-in rate limiting",
+        "Bot can send ~30 messages per second",
+        "No daily posting limits"
+      ],
+      "health_score": 100
+    },
+    {
+      "platform": "Twitter/X",
+      "api_status": "\u274c Exception",
+      "error": "404 Not Found",
+      "health_score": 0
+    },
+    {
+      "platform": "LinkedIn",
+      "profile": "Srijan Arya",
+      "email": "srijanaryay@gmail.com",
+      "api_status": "\u2705 Healthy",
+      "rate_limit_status": "\u2705 Low Usage",
+      "daily_limit": "100 posts",
+      "current_usage": "2 posts today",
+      "usage_percentage": "2.0%",
+      "token_expires": "Nov 10, 2025 (~60 days)",
+      "recommendations": [
+        "Current usage: 2.0% of daily limit",
+        "LinkedIn has the strictest posting limits",
+        "Focus on quality over quantity",
+        "Renew token before Nov 10, 2025"
+      ],
+      "health_score": 100
+    }
+  ],
+  "summary": {
+    "healthy_platforms": 2,
+    "total_platforms": 3,
+    "average_health": 66.66666666666667
+  }
+}

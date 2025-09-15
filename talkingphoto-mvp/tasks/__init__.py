@@ -1,0 +1,1 @@
+# TalkingPhoto MVP - Celery Tasks Package

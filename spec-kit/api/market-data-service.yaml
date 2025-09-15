@@ -1,0 +1,1182 @@
+openapi: 3.1.0
+info:
+  title: AI Finance Agency - Market Data Service
+  description: |
+    Market Data Service provides real-time and historical market data,
+    price alerts, watchlists, and market analysis capabilities.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@aifinance.agency
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://market-data.aifinance.agency/v1
+    description: Production server
+  - url: https://staging-market-data.aifinance.agency/v1
+    description: Staging server
+  - url: http://localhost:3006/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check market data service health status
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # Real-time Market Data
+  /market-data/{symbol}/quote:
+    get:
+      tags:
+        - Market Data
+      summary: Get real-time quote
+      description: Retrieve current bid/ask prices and market data for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,10}$'
+          example: AAPL
+      responses:
+        '200':
+          description: Real-time quote retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '404':
+          description: Symbol not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /market-data/{symbol}/candles:
+    get:
+      tags:
+        - Market Data
+      summary: Get historical OHLCV data
+      description: Retrieve historical candlestick data for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,10}$'
+        - name: timeframe
+          in: query
+          schema:
+            type: string
+            enum: [1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M]
+            default: 1h
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5000
+            default: 500
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Start time for historical data
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: End time for historical data
+      responses:
+        '200':
+          description: Historical data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandleData'
+
+  /market-data/{symbol}/trades:
+    get:
+      tags:
+        - Market Data
+      summary: Get recent trades
+      description: Retrieve recent trade history for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,10}$'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: Recent trades retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradeHistory'
+
+  /market-data/{symbol}/orderbook:
+    get:
+      tags:
+        - Market Data
+      summary: Get order book
+      description: Retrieve current order book (Level 2 market data)
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,10}$'
+        - name: depth
+          in: query
+          schema:
+            type: integer
+            minimum: 5
+            maximum: 100
+            default: 20
+          description: Number of price levels to return
+      responses:
+        '200':
+          description: Order book retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderBook'
+
+  # Market Search and Discovery
+  /market-data/search:
+    get:
+      tags:
+        - Market Data
+      summary: Search symbols
+      description: Search for trading symbols by name or ticker
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+          description: Search query (symbol or company name)
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: exchange
+          in: query
+          schema:
+            type: string
+          description: Filter by exchange
+        - name: assetType
+          in: query
+          schema:
+            type: string
+            enum: [stock, etf, crypto, forex, commodity, index]
+          description: Filter by asset type
+      responses:
+        '200':
+          description: Search results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResults'
+
+  /market-data/symbols:
+    get:
+      tags:
+        - Market Data
+      summary: Get available symbols
+      description: Retrieve list of available trading symbols
+      parameters:
+        - name: exchange
+          in: query
+          schema:
+            type: string
+        - name: assetType
+          in: query
+          schema:
+            type: string
+            enum: [stock, etf, crypto, forex, commodity, index]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: Symbols retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SymbolsResponse'
+
+  # Market Analysis
+  /market-data/{symbol}/stats:
+    get:
+      tags:
+        - Market Analysis
+      summary: Get market statistics
+      description: Retrieve market statistics and key metrics for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,10}$'
+      responses:
+        '200':
+          description: Market statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketStats'
+
+  /market-data/{symbol}/fundamentals:
+    get:
+      tags:
+        - Market Analysis
+      summary: Get fundamental data
+      description: Retrieve fundamental analysis data for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,10}$'
+      responses:
+        '200':
+          description: Fundamental data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FundamentalData'
+
+  # Watchlists
+  /watchlists:
+    get:
+      tags:
+        - Watchlists
+      summary: Get user watchlists
+      description: Retrieve all watchlists for the authenticated user
+      responses:
+        '200':
+          description: Watchlists retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Watchlist'
+
+    post:
+      tags:
+        - Watchlists
+      summary: Create watchlist
+      description: Create a new watchlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWatchlistDto'
+      responses:
+        '201':
+          description: Watchlist created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Watchlist'
+
+  /watchlists/{id}:
+    get:
+      tags:
+        - Watchlists
+      summary: Get watchlist by ID
+      description: Retrieve specific watchlist with current market data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Watchlist retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchlistWithData'
+
+    put:
+      tags:
+        - Watchlists
+      summary: Update watchlist
+      description: Update watchlist name or description
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWatchlistDto'
+      responses:
+        '200':
+          description: Watchlist updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Watchlist'
+
+    delete:
+      tags:
+        - Watchlists
+      summary: Delete watchlist
+      description: Delete a watchlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Watchlist deleted successfully
+
+  /watchlists/{id}/symbols:
+    post:
+      tags:
+        - Watchlists
+      summary: Add symbol to watchlist
+      description: Add a symbol to an existing watchlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - symbol
+              properties:
+                symbol:
+                  type: string
+                  pattern: '^[A-Z]{1,10}$'
+      responses:
+        '200':
+          description: Symbol added to watchlist successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Watchlist'
+
+    delete:
+      tags:
+        - Watchlists
+      summary: Remove symbol from watchlist
+      description: Remove a symbol from a watchlist
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - symbol
+              properties:
+                symbol:
+                  type: string
+                  pattern: '^[A-Z]{1,10}$'
+      responses:
+        '200':
+          description: Symbol removed from watchlist successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Watchlist'
+
+  # Price Alerts
+  /alerts:
+    get:
+      tags:
+        - Price Alerts
+      summary: Get user alerts
+      description: Retrieve all price alerts for the authenticated user
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, triggered, expired, cancelled]
+        - name: symbol
+          in: query
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,10}$'
+      responses:
+        '200':
+          description: Alerts retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PriceAlert'
+
+    post:
+      tags:
+        - Price Alerts
+      summary: Create price alert
+      description: Create a new price alert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAlertDto'
+      responses:
+        '201':
+          description: Alert created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAlert'
+
+  /alerts/{id}:
+    get:
+      tags:
+        - Price Alerts
+      summary: Get alert by ID
+      description: Retrieve specific price alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Alert retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAlert'
+
+    put:
+      tags:
+        - Price Alerts
+      summary: Update price alert
+      description: Update an existing price alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAlertDto'
+      responses:
+        '200':
+          description: Alert updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PriceAlert'
+
+    delete:
+      tags:
+        - Price Alerts
+      summary: Delete price alert
+      description: Delete a price alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Alert deleted successfully
+
+  # Market News and Events
+  /market-data/news:
+    get:
+      tags:
+        - News & Events
+      summary: Get market news
+      description: Retrieve latest market news and analysis
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+            pattern: '^[A-Z]{1,10}$'
+          description: Filter news by symbol
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [general, earnings, mergers, dividends, upgrades, downgrades]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: News from this timestamp
+      responses:
+        '200':
+          description: Market news retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewsResponse'
+
+  /market-data/economic-calendar:
+    get:
+      tags:
+        - News & Events
+      summary: Get economic calendar
+      description: Retrieve upcoming economic events and data releases
+      parameters:
+        - name: country
+          in: query
+          schema:
+            type: string
+          description: Filter by country code (US, UK, EU, etc.)
+        - name: importance
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Economic calendar retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EconomicCalendar'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        service:
+          type: string
+          example: market-data-service
+        version:
+          type: string
+          example: 1.0.0
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    Quote:
+      type: object
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        exchange:
+          type: string
+        assetType:
+          type: string
+          enum: [stock, etf, crypto, forex, commodity, index]
+        bid:
+          type: number
+          format: decimal
+        ask:
+          type: number
+          format: decimal
+        last:
+          type: number
+          format: decimal
+        volume:
+          type: integer
+        change:
+          type: number
+          format: decimal
+        changePercent:
+          type: number
+          format: float
+        high:
+          type: number
+          format: decimal
+        low:
+          type: number
+          format: decimal
+        open:
+          type: number
+          format: decimal
+        previousClose:
+          type: number
+          format: decimal
+        marketCap:
+          type: number
+          format: decimal
+        pe:
+          type: number
+          format: float
+        timestamp:
+          type: string
+          format: date-time
+        isMarketOpen:
+          type: boolean
+
+    CandleData:
+      type: object
+      properties:
+        symbol:
+          type: string
+        timeframe:
+          type: string
+        candles:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              open:
+                type: number
+                format: decimal
+              high:
+                type: number
+                format: decimal
+              low:
+                type: number
+                format: decimal
+              close:
+                type: number
+                format: decimal
+              volume:
+                type: integer
+        count:
+          type: integer
+
+    TradeHistory:
+      type: object
+      properties:
+        symbol:
+          type: string
+        trades:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              price:
+                type: number
+                format: decimal
+              size:
+                type: number
+                format: decimal
+              side:
+                type: string
+                enum: [buy, sell]
+        count:
+          type: integer
+
+    OrderBook:
+      type: object
+      properties:
+        symbol:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        bids:
+          type: array
+          items:
+            type: object
+            properties:
+              price:
+                type: number
+                format: decimal
+              size:
+                type: number
+                format: decimal
+        asks:
+          type: array
+          items:
+            type: object
+            properties:
+              price:
+                type: number
+                format: decimal
+              size:
+                type: number
+                format: decimal
+
+    SearchResults:
+      type: object
+      properties:
+        query:
+          type: string
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol:
+                type: string
+              name:
+                type: string
+              exchange:
+                type: string
+              assetType:
+                type: string
+              currency:
+                type: string
+        count:
+          type: integer
+
+    SymbolsResponse:
+      type: object
+      properties:
+        symbols:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol:
+                type: string
+              name:
+                type: string
+              exchange:
+                type: string
+              assetType:
+                type: string
+              currency:
+                type: string
+              isActive:
+                type: boolean
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    MarketStats:
+      type: object
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        statistics:
+          type: object
+          properties:
+            marketCap:
+              type: number
+              format: decimal
+            pe:
+              type: number
+              format: float
+            eps:
+              type: number
+              format: decimal
+            dividend:
+              type: number
+              format: decimal
+            dividendYield:
+              type: number
+              format: float
+            beta:
+              type: number
+              format: float
+            week52High:
+              type: number
+              format: decimal
+            week52Low:
+              type: number
+              format: decimal
+            averageVolume:
+              type: integer
+            sharesOutstanding:
+              type: integer
+
+    FundamentalData:
+      type: object
+      properties:
+        symbol:
+          type: string
+        name:
+          type: string
+        fundamentals:
+          type: object
+          properties:
+            revenue:
+              type: number
+              format: decimal
+            netIncome:
+              type: number
+              format: decimal
+            totalDebt:
+              type: number
+              format: decimal
+            totalAssets:
+              type: number
+              format: decimal
+            bookValue:
+              type: number
+              format: decimal
+            roe:
+              type: number
+              format: float
+            roa:
+              type: number
+              format: float
+            debtToEquity:
+              type: number
+              format: float
+            currentRatio:
+              type: number
+              format: float
+            quickRatio:
+              type: number
+              format: float
+
+    CreateWatchlistDto:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        symbols:
+          type: array
+          items:
+            type: string
+            pattern: '^[A-Z]{1,10}$'
+          maxItems: 100
+        isPublic:
+          type: boolean
+          default: false
+
+    UpdateWatchlistDto:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        isPublic:
+          type: boolean
+
+    Watchlist:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        symbols:
+          type: array
+          items:
+            type: string
+        isPublic:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    WatchlistWithData:
+      allOf:
+        - $ref: '#/components/schemas/Watchlist'
+        - type: object
+          properties:
+            symbolsData:
+              type: array
+              items:
+                $ref: '#/components/schemas/Quote'
+
+    CreateAlertDto:
+      type: object
+      required:
+        - symbol
+        - condition
+        - targetPrice
+      properties:
+        symbol:
+          type: string
+          pattern: '^[A-Z]{1,10}$'
+        condition:
+          type: string
+          enum: [above, below, change_up, change_down]
+        targetPrice:
+          type: number
+          format: decimal
+          minimum: 0
+        message:
+          type: string
+          maxLength: 500
+        isRepeating:
+          type: boolean
+          default: false
+        expiresAt:
+          type: string
+          format: date-time
+
+    UpdateAlertDto:
+      type: object
+      properties:
+        condition:
+          type: string
+          enum: [above, below, change_up, change_down]
+        targetPrice:
+          type: number
+          format: decimal
+          minimum: 0
+        message:
+          type: string
+          maxLength: 500
+        isRepeating:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+
+    PriceAlert:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        condition:
+          type: string
+          enum: [above, below, change_up, change_down]
+        targetPrice:
+          type: number
+          format: decimal
+        currentPrice:
+          type: number
+          format: decimal
+        message:
+          type: string
+        status:
+          type: string
+          enum: [active, triggered, expired, cancelled]
+        isRepeating:
+          type: boolean
+        triggeredAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    NewsResponse:
+      type: object
+      properties:
+        news:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              headline:
+                type: string
+              summary:
+                type: string
+              url:
+                type: string
+                format: uri
+              source:
+                type: string
+              publishedAt:
+                type: string
+                format: date-time
+              symbols:
+                type: array
+                items:
+                  type: string
+              category:
+                type: string
+              sentiment:
+                type: string
+                enum: [positive, negative, neutral]
+              imageUrl:
+                type: string
+                format: uri
+        count:
+          type: integer
+
+    EconomicCalendar:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              country:
+                type: string
+              currency:
+                type: string
+              releaseDate:
+                type: string
+                format: date-time
+              importance:
+                type: string
+                enum: [low, medium, high]
+              actual:
+                type: string
+              forecast:
+                type: string
+              previous:
+                type: string
+              unit:
+                type: string
+        count:
+          type: integer
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

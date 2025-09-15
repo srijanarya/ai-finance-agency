@@ -1,0 +1,42 @@
+{
+  "timestamp": "2025-09-12T03:48:44.082870",
+  "status": {
+    "telegram": {
+      "configured": false,
+      "status": "\ud83d\udd34 Not configured",
+      "details": "Channel: @YourChannelName",
+      "automation": "\u2705 Posting every 4 hours during market hours"
+    },
+    "linkedin": {
+      "status": "\ud83d\udfe1 Partial setup",
+      "details": "Personal token available, company pending",
+      "automation": "\ud83d\udc64 Personal posting only",
+      "personal_configured": false,
+      "company_configured": true
+    },
+    "twitter": {
+      "configured": false,
+      "status": "\ud83d\udd34 Not configured",
+      "details": "Missing API credentials",
+      "automation": "\u23f3 Ready for testing"
+    },
+    "monitoring": {
+      "configured": false,
+      "status": "\ud83d\udd34 Not found",
+      "details": "Health reports directory ready",
+      "automation": "\ud83d\udcca 15-minute health checks + daily reports"
+    },
+    "automation": {
+      "configured": false,
+      "status": "\ud83d\udfe1 Manual setup needed",
+      "details": "Run ./setup_cron.sh to activate",
+      "schedule": [
+        "Telegram: 9 AM, 1 PM, 5 PM (Mon-Fri)",
+        "LinkedIn content: 8 AM daily (Mon-Fri)",
+        "Health checks: Every 15min (9 AM-4 PM)",
+        "Daily reports: 6 PM (Mon-Fri)"
+      ]
+    }
+  },
+  "overall_health": "operational"
+}

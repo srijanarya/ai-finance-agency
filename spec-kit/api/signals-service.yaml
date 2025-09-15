@@ -1,0 +1,1197 @@
+openapi: 3.1.0
+info:
+  title: AI Finance Agency - Signals Service
+  description: |
+    Signals Service provides AI-powered trading signals, technical analysis,
+    market data processing, backtesting, and machine learning model management.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@aifinance.agency
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://signals.aifinance.agency/v1
+    description: Production server
+  - url: https://staging-signals.aifinance.agency/v1
+    description: Staging server
+  - url: http://localhost:3004/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health/check:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check signals service health status
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # Trading Signals
+  /signals:
+    get:
+      tags:
+        - Signals
+      summary: Get trading signals
+      description: Retrieve trading signals with filtering and pagination
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+          description: Filter signals by symbol
+        - name: timeFrame
+          in: query
+          schema:
+            $ref: '#/components/schemas/TimeFrame'
+          description: Filter signals by time frame
+        - name: signalType
+          in: query
+          schema:
+            $ref: '#/components/schemas/SignalType'
+          description: Filter signals by type
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/SignalStatus'
+          description: Filter signals by status
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Maximum number of signals to return
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+      responses:
+        '200':
+          description: Signals retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalsResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /signals/active:
+    get:
+      tags:
+        - Signals
+      summary: Get active signals
+      description: Retrieve currently active trading signals
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+        - name: timeFrame
+          in: query
+          schema:
+            $ref: '#/components/schemas/TimeFrame'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Active signals retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveSignalsResponse'
+
+  /signals/performance:
+    get:
+      tags:
+        - Signals
+      summary: Get signal performance metrics
+      description: Retrieve performance metrics for trading signals
+      responses:
+        '200':
+          description: Performance metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceResponse'
+
+  /signals/{id}:
+    get:
+      tags:
+        - Signals
+      summary: Get signal by ID
+      description: Retrieve specific signal details by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Signal retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalResponse'
+        '404':
+          description: Signal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /signals/generate/{symbol}:
+    post:
+      tags:
+        - Signals
+      summary: Generate signal for symbol
+      description: Manually trigger signal generation for a specific symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: timeFrame
+          in: query
+          schema:
+            $ref: '#/components/schemas/TimeFrame'
+            default: FIFTEEN_MIN
+      responses:
+        '200':
+          description: Signal generation triggered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerationResponse'
+
+  /signals/{id}/status:
+    put:
+      tags:
+        - Signals
+      summary: Update signal status
+      description: Update the status of a trading signal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSignalStatusDto'
+      responses:
+        '200':
+          description: Signal status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalUpdateResponse'
+
+  # Market Data
+  /signals/market-data/{symbol}:
+    get:
+      tags:
+        - Market Data
+      summary: Get market data for symbol
+      description: Retrieve market data for technical analysis
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: timeFrame
+          in: query
+          schema:
+            type: string
+            default: '1min'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 100
+      responses:
+        '200':
+          description: Market data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketDataResponse'
+
+  # Technical Analysis
+  /signals/technical-analysis/{symbol}:
+    get:
+      tags:
+        - Technical Analysis
+      summary: Get technical analysis
+      description: Retrieve technical analysis for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: timeFrame
+          in: query
+          schema:
+            type: string
+            default: '5min'
+      responses:
+        '200':
+          description: Technical analysis retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TechnicalAnalysisResponse'
+
+  # News and Sentiment
+  /signals/news/{symbol}:
+    get:
+      tags:
+        - News & Sentiment
+      summary: Get market news
+      description: Retrieve market news with sentiment analysis
+      parameters:
+        - name: symbol
+          in: path
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Market news retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewsResponse'
+
+  # Backtesting
+  /signals/backtest:
+    post:
+      tags:
+        - Backtesting
+      summary: Run backtest
+      description: Execute a backtesting strategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacktestRequestDto'
+      responses:
+        '200':
+          description: Backtest completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestResponse'
+
+  /signals/backtest/{strategyId}:
+    get:
+      tags:
+        - Backtesting
+      summary: Get backtest results
+      description: Retrieve results for a specific backtest strategy
+      parameters:
+        - name: strategyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backtest results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacktestResultsResponse'
+
+  # ML Models
+  /signals/ml-models/{symbol}:
+    get:
+      tags:
+        - Machine Learning
+      summary: Get ML model info
+      description: Retrieve machine learning model information for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ML model info retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MLModelResponse'
+
+  /signals/ml-models/{symbol}/retrain:
+    post:
+      tags:
+        - Machine Learning
+      summary: Retrain ML model
+      description: Trigger retraining of ML model for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ML model retraining initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrainResponse'
+
+  # Subscriptions
+  /signals/subscribe/{symbol}:
+    post:
+      tags:
+        - Subscriptions
+      summary: Subscribe to symbol signals
+      description: Subscribe to real-time signals for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully subscribed to symbol
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+
+    delete:
+      tags:
+        - Subscriptions
+      summary: Unsubscribe from symbol signals
+      description: Unsubscribe from signals for a symbol
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully unsubscribed from symbol
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionResponse'
+
+  # Analytics
+  /signals/analytics/patterns:
+    get:
+      tags:
+        - Analytics
+      summary: Get signal patterns
+      description: Retrieve detected signal patterns and analysis
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+        - name: timeFrame
+          in: query
+          schema:
+            $ref: '#/components/schemas/TimeFrame'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+      responses:
+        '200':
+          description: Signal patterns retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatternsResponse'
+
+components:
+  schemas:
+    TimeFrame:
+      type: string
+      enum:
+        - ONE_MIN
+        - FIVE_MIN
+        - FIFTEEN_MIN
+        - ONE_HOUR
+        - FOUR_HOUR
+        - ONE_DAY
+        - ONE_WEEK
+
+    SignalType:
+      type: string
+      enum:
+        - BUY
+        - SELL
+        - HOLD
+        - STRONG_BUY
+        - STRONG_SELL
+
+    SignalStatus:
+      type: string
+      enum:
+        - GENERATED
+        - ACTIVE
+        - EXECUTED
+        - EXPIRED
+        - CANCELLED
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              example: healthy
+            timestamp:
+              type: string
+              format: date-time
+            service:
+              type: string
+              example: signals-service
+            version:
+              type: string
+              example: 1.0.0
+            uptime:
+              type: number
+            environment:
+              type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+        error:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    TradingSignal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        signalType:
+          $ref: '#/components/schemas/SignalType'
+        strength:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        timeFrame:
+          $ref: '#/components/schemas/TimeFrame'
+        price:
+          type: number
+          format: decimal
+        targetPrice:
+          type: number
+          format: decimal
+        stopLoss:
+          type: number
+          format: decimal
+        expectedReturn:
+          type: number
+          format: float
+        riskReward:
+          type: number
+          format: float
+        status:
+          $ref: '#/components/schemas/SignalStatus'
+        generatedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+
+    SignalsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            signals:
+              type: array
+              items:
+                $ref: '#/components/schemas/TradingSignal'
+            pagination:
+              type: object
+              properties:
+                total:
+                  type: integer
+                page:
+                  type: integer
+                limit:
+                  type: integer
+                totalPages:
+                  type: integer
+
+    ActiveSignalsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            signals:
+              type: array
+              items:
+                $ref: '#/components/schemas/TradingSignal'
+            count:
+              type: integer
+            timestamp:
+              type: string
+              format: date-time
+
+    SignalResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+            id:
+              type: string
+
+    PerformanceResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            metrics:
+              type: object
+              properties:
+                totalSignals:
+                  type: integer
+                accurateSignals:
+                  type: integer
+                accuracy:
+                  type: number
+                  format: float
+                averageReturn:
+                  type: number
+                  format: float
+                winRate:
+                  type: number
+                  format: float
+                totalReturn:
+                  type: number
+                  format: float
+                sharpeRatio:
+                  type: number
+                  format: float
+            timestamp:
+              type: string
+              format: date-time
+
+    GenerationResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+            symbol:
+              type: string
+            timeFrame:
+              $ref: '#/components/schemas/TimeFrame'
+            status:
+              type: string
+              example: queued
+            timestamp:
+              type: string
+              format: date-time
+
+    UpdateSignalStatusDto:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/SignalStatus'
+        executionPrice:
+          type: number
+          format: decimal
+        actualReturn:
+          type: number
+          format: float
+
+    SignalUpdateResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+            signal:
+              $ref: '#/components/schemas/TradingSignal'
+            executionDetails:
+              type: object
+              properties:
+                executionPrice:
+                  type: number
+                  format: decimal
+                actualReturn:
+                  type: number
+                  format: float
+
+    MarketDataResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            symbol:
+              type: string
+            timeFrame:
+              type: string
+            data:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  symbol:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  open:
+                    type: number
+                    format: decimal
+                  high:
+                    type: number
+                    format: decimal
+                  low:
+                    type: number
+                    format: decimal
+                  close:
+                    type: number
+                    format: decimal
+                  volume:
+                    type: integer
+            count:
+              type: integer
+
+    TechnicalAnalysisResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            symbol:
+              type: string
+            timeFrame:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+            analysis:
+              type: object
+              properties:
+                technicalIndicators:
+                  type: object
+                  properties:
+                    rsi:
+                      type: number
+                      format: float
+                    macd:
+                      type: object
+                      properties:
+                        macd:
+                          type: number
+                          format: float
+                        signal:
+                          type: number
+                          format: float
+                        histogram:
+                          type: number
+                          format: float
+                    movingAverages:
+                      type: object
+                      properties:
+                        sma20:
+                          type: number
+                          format: decimal
+                        sma50:
+                          type: number
+                          format: decimal
+                        ema12:
+                          type: number
+                          format: decimal
+                        ema26:
+                          type: number
+                          format: decimal
+                    bollinger:
+                      type: object
+                      properties:
+                        upper:
+                          type: number
+                          format: decimal
+                        middle:
+                          type: number
+                          format: decimal
+                        lower:
+                          type: number
+                          format: decimal
+                pricePatterns:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      pattern:
+                        type: string
+                      confidence:
+                        type: number
+                        format: float
+                      direction:
+                        type: string
+                        enum: [bullish, bearish, neutral]
+                volatilityMetrics:
+                  type: object
+                  properties:
+                    averageTrueRange:
+                      type: number
+                      format: float
+                    volatility:
+                      type: number
+                      format: float
+
+    NewsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            symbol:
+              type: string
+            news:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  headline:
+                    type: string
+                  summary:
+                    type: string
+                  source:
+                    type: string
+                  publishedAt:
+                    type: string
+                    format: date-time
+                  sentimentScore:
+                    type: number
+                    format: float
+                    minimum: -1
+                    maximum: 1
+                  relevanceScore:
+                    type: number
+                    format: float
+                    minimum: 0
+                    maximum: 1
+            count:
+              type: integer
+
+    BacktestRequestDto:
+      type: object
+      required:
+        - symbol
+        - strategyId
+        - startDate
+        - endDate
+      properties:
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        initialCapital:
+          type: number
+          format: decimal
+          minimum: 1000
+          default: 100000
+
+    BacktestResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+            result:
+              $ref: '#/components/schemas/BacktestResult'
+
+    BacktestResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        strategyId:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        initialCapital:
+          type: number
+          format: decimal
+        finalCapital:
+          type: number
+          format: decimal
+        totalReturn:
+          type: number
+          format: float
+        totalReturnPercent:
+          type: number
+          format: float
+        annualizedReturn:
+          type: number
+          format: float
+        maxDrawdown:
+          type: number
+          format: float
+        sharpeRatio:
+          type: number
+          format: float
+        winRate:
+          type: number
+          format: float
+        profitFactor:
+          type: number
+          format: float
+        totalTrades:
+          type: integer
+        winningTrades:
+          type: integer
+        losingTrades:
+          type: integer
+        averageWin:
+          type: number
+          format: decimal
+        averageLoss:
+          type: number
+          format: decimal
+        trades:
+          type: array
+          items:
+            type: object
+            properties:
+              entryDate:
+                type: string
+                format: date-time
+              exitDate:
+                type: string
+                format: date-time
+              entryPrice:
+                type: number
+                format: decimal
+              exitPrice:
+                type: number
+                format: decimal
+              quantity:
+                type: number
+                format: decimal
+              pnl:
+                type: number
+                format: decimal
+              pnlPercent:
+                type: number
+                format: float
+
+    BacktestResultsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            strategyId:
+              type: string
+            results:
+              type: array
+              items:
+                type: object
+                properties:
+                  strategyId:
+                    type: string
+                  totalTrades:
+                    type: integer
+                  winningTrades:
+                    type: integer
+                  losingTrades:
+                    type: integer
+                  winRate:
+                    type: number
+                    format: float
+                  totalReturn:
+                    type: number
+                    format: float
+                  averageReturn:
+                    type: number
+                    format: float
+                  sharpeRatio:
+                    type: number
+                    format: float
+                  maxDrawdown:
+                    type: number
+                    format: float
+                  profitFactor:
+                    type: number
+                    format: float
+                  lastUpdated:
+                    type: string
+                    format: date-time
+            count:
+              type: integer
+
+    MLModelResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            symbol:
+              type: string
+            modelInfo:
+              type: object
+              properties:
+                version:
+                  type: string
+                accuracy:
+                  type: number
+                  format: float
+                lastTrained:
+                  type: string
+                  format: date-time
+                features:
+                  type: array
+                  items:
+                    type: string
+                performance:
+                  type: object
+                  properties:
+                    precision:
+                      type: number
+                      format: float
+                    recall:
+                      type: number
+                      format: float
+                    f1Score:
+                      type: number
+                      format: float
+
+    RetrainResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+            symbol:
+              type: string
+            status:
+              type: string
+              example: training
+            timestamp:
+              type: string
+              format: date-time
+
+    SubscriptionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            message:
+              type: string
+            symbol:
+              type: string
+            status:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+
+    PatternsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            patterns:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  pattern:
+                    type: string
+                  symbol:
+                    type: string
+                  timeFrame:
+                    $ref: '#/components/schemas/TimeFrame'
+                  confidence:
+                    type: number
+                    format: float
+                  direction:
+                    type: string
+                    enum: [bullish, bearish]
+                  detectedAt:
+                    type: string
+                    format: date-time
+                  expectedBreakout:
+                    type: string
+                    format: date-time
+            filters:
+              type: object
+              properties:
+                symbol:
+                  type: string
+                timeFrame:
+                  $ref: '#/components/schemas/TimeFrame'
+            count:
+              type: integer
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

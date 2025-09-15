@@ -6,6 +6,8 @@ export interface ConfigurationInterface {
     username: string;
     password: string;
     database: string;
+    synchronize: boolean;
+    logging: boolean;
   };
   redis: {
     host: string;
@@ -52,6 +54,8 @@ export default (): ConfigurationInterface => ({
     username: process.env.DATABASE_USER || 'treum_user',
     password: process.env.DATABASE_PASSWORD || 'securepassword123',
     database: process.env.DATABASE_NAME || 'treum_signals',
+    synchronize: process.env.NODE_ENV === 'development' || process.env.DATABASE_SYNCHRONIZE === 'true',
+    logging: process.env.DATABASE_LOGGING === 'true',
   },
   redis: {
     host: process.env.REDIS_HOST || 'localhost',

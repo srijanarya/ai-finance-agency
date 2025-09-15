@@ -1,0 +1,1467 @@
+openapi: 3.1.0
+info:
+  title: AI Finance Agency - Education Service
+  description: |
+    Education Service provides learning resources, courses, progress tracking,
+    assessments, and educational content management for financial literacy.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@aifinance.agency
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://education.aifinance.agency/v1
+    description: Production server
+  - url: https://staging-education.aifinance.agency/v1
+    description: Staging server
+  - url: http://localhost:3008/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check education service health status
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # Course Management
+  /courses:
+    get:
+      tags:
+        - Courses
+      summary: Get available courses
+      description: Retrieve list of available courses with filtering options
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [trading_basics, technical_analysis, fundamental_analysis, risk_management, portfolio_management, derivatives, crypto, forex]
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced, expert]
+        - name: isPremium
+          in: query
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CoursesResponse'
+
+    post:
+      tags:
+        - Courses
+      summary: Create course (Admin)
+      description: Create a new educational course (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCourseDto'
+      responses:
+        '201':
+          description: Course created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+
+  /courses/{id}:
+    get:
+      tags:
+        - Courses
+      summary: Get course by ID
+      description: Retrieve specific course details with lessons
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Course retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseWithLessons'
+        '404':
+          description: Course not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Courses
+      summary: Update course (Admin)
+      description: Update course information (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCourseDto'
+      responses:
+        '200':
+          description: Course updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Course'
+
+    delete:
+      tags:
+        - Courses
+      summary: Delete course (Admin)
+      description: Delete a course (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Course deleted successfully
+
+  /courses/{id}/enroll:
+    post:
+      tags:
+        - Courses
+      summary: Enroll in course
+      description: Enroll the authenticated user in a course
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Enrollment successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Enrollment'
+        '409':
+          description: Already enrolled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /courses/{id}/unenroll:
+    post:
+      tags:
+        - Courses
+      summary: Unenroll from course
+      description: Unenroll the authenticated user from a course
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Unenrollment successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  # Lesson Management
+  /courses/{courseId}/lessons:
+    get:
+      tags:
+        - Lessons
+      summary: Get course lessons
+      description: Retrieve all lessons for a specific course
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lessons retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lesson'
+
+    post:
+      tags:
+        - Lessons
+      summary: Create lesson (Admin)
+      description: Create a new lesson in a course (admin only)
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLessonDto'
+      responses:
+        '201':
+          description: Lesson created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+
+  /lessons/{id}:
+    get:
+      tags:
+        - Lessons
+      summary: Get lesson by ID
+      description: Retrieve specific lesson content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lesson retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonWithContent'
+
+    put:
+      tags:
+        - Lessons
+      summary: Update lesson (Admin)
+      description: Update lesson content (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLessonDto'
+      responses:
+        '200':
+          description: Lesson updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lesson'
+
+    delete:
+      tags:
+        - Lessons
+      summary: Delete lesson (Admin)
+      description: Delete a lesson (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Lesson deleted successfully
+
+  /lessons/{id}/complete:
+    post:
+      tags:
+        - Lessons
+      summary: Mark lesson as complete
+      description: Mark a lesson as completed by the user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timeSpent:
+                  type: integer
+                  description: Time spent on lesson in seconds
+                notes:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '200':
+          description: Lesson marked as complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonProgress'
+
+  # Progress Tracking
+  /progress:
+    get:
+      tags:
+        - Progress
+      summary: Get user progress
+      description: Retrieve learning progress for the authenticated user
+      parameters:
+        - name: courseId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Progress retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProgress'
+
+  /progress/courses/{courseId}:
+    get:
+      tags:
+        - Progress
+      summary: Get course progress
+      description: Retrieve detailed progress for a specific course
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Course progress retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CourseProgress'
+
+  /progress/reset/{courseId}:
+    post:
+      tags:
+        - Progress
+      summary: Reset course progress
+      description: Reset progress for a specific course
+      parameters:
+        - name: courseId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Progress reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  # Assessments and Quizzes
+  /assessments:
+    get:
+      tags:
+        - Assessments
+      summary: Get available assessments
+      description: Retrieve list of available assessments
+      parameters:
+        - name: courseId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [quiz, assignment, exam, certification]
+      responses:
+        '200':
+          description: Assessments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Assessment'
+
+    post:
+      tags:
+        - Assessments
+      summary: Create assessment (Admin)
+      description: Create a new assessment (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssessmentDto'
+      responses:
+        '201':
+          description: Assessment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+
+  /assessments/{id}:
+    get:
+      tags:
+        - Assessments
+      summary: Get assessment by ID
+      description: Retrieve specific assessment details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Assessment retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentWithQuestions'
+
+  /assessments/{id}/submit:
+    post:
+      tags:
+        - Assessments
+      summary: Submit assessment
+      description: Submit answers for an assessment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssessmentSubmission'
+      responses:
+        '200':
+          description: Assessment submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResult'
+
+  /assessments/{id}/results:
+    get:
+      tags:
+        - Assessments
+      summary: Get assessment results
+      description: Retrieve results for a submitted assessment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Assessment results retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentResult'
+
+  # Categories
+  /categories:
+    get:
+      tags:
+        - Categories
+      summary: Get course categories
+      description: Retrieve list of course categories
+      responses:
+        '200':
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+
+    post:
+      tags:
+        - Categories
+      summary: Create category (Admin)
+      description: Create a new course category (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryDto'
+      responses:
+        '201':
+          description: Category created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /categories/{id}:
+    get:
+      tags:
+        - Categories
+      summary: Get category by ID
+      description: Retrieve specific category with courses
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Category retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryWithCourses'
+
+    put:
+      tags:
+        - Categories
+      summary: Update category (Admin)
+      description: Update category information (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryDto'
+      responses:
+        '200':
+          description: Category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+    delete:
+      tags:
+        - Categories
+      summary: Delete category (Admin)
+      description: Delete a category (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Category deleted successfully
+
+  # User Enrollments
+  /enrollments:
+    get:
+      tags:
+        - Enrollments
+      summary: Get user enrollments
+      description: Retrieve all course enrollments for the authenticated user
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [enrolled, completed, dropped]
+      responses:
+        '200':
+          description: Enrollments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EnrollmentWithCourse'
+
+  # Certificates
+  /certificates:
+    get:
+      tags:
+        - Certificates
+      summary: Get user certificates
+      description: Retrieve earned certificates for the authenticated user
+      responses:
+        '200':
+          description: Certificates retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Certificate'
+
+  /certificates/{id}/download:
+    get:
+      tags:
+        - Certificates
+      summary: Download certificate
+      description: Download certificate as PDF
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Certificate PDF downloaded successfully
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        service:
+          type: string
+          example: education-service
+        version:
+          type: string
+          example: 1.0.0
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    CreateCourseDto:
+      type: object
+      required:
+        - title
+        - description
+        - categoryId
+        - level
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        categoryId:
+          type: string
+          format: uuid
+        level:
+          type: string
+          enum: [beginner, intermediate, advanced, expert]
+        duration:
+          type: integer
+          minimum: 1
+          description: Duration in minutes
+        price:
+          type: number
+          format: decimal
+          minimum: 0
+        isPremium:
+          type: boolean
+          default: false
+        thumbnailUrl:
+          type: string
+          format: uri
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        prerequisites:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: Course IDs that are prerequisites
+        learningObjectives:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+
+    UpdateCourseDto:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        level:
+          type: string
+          enum: [beginner, intermediate, advanced, expert]
+        duration:
+          type: integer
+          minimum: 1
+        price:
+          type: number
+          format: decimal
+          minimum: 0
+        isPremium:
+          type: boolean
+        thumbnailUrl:
+          type: string
+          format: uri
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        prerequisites:
+          type: array
+          items:
+            type: string
+            format: uuid
+        learningObjectives:
+          type: array
+          items:
+            type: string
+          maxItems: 20
+        isActive:
+          type: boolean
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        categoryId:
+          type: string
+          format: uuid
+        category:
+          $ref: '#/components/schemas/Category'
+        level:
+          type: string
+          enum: [beginner, intermediate, advanced, expert]
+        duration:
+          type: integer
+          description: Duration in minutes
+        price:
+          type: number
+          format: decimal
+        isPremium:
+          type: boolean
+        thumbnailUrl:
+          type: string
+          format: uri
+        tags:
+          type: array
+          items:
+            type: string
+        prerequisites:
+          type: array
+          items:
+            type: string
+            format: uuid
+        learningObjectives:
+          type: array
+          items:
+            type: string
+        enrollmentCount:
+          type: integer
+        rating:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+        reviewCount:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CourseWithLessons:
+      allOf:
+        - $ref: '#/components/schemas/Course'
+        - type: object
+          properties:
+            lessons:
+              type: array
+              items:
+                $ref: '#/components/schemas/Lesson'
+            totalLessons:
+              type: integer
+            completedLessons:
+              type: integer
+            progressPercent:
+              type: number
+              format: float
+
+    CoursesResponse:
+      type: object
+      properties:
+        courses:
+          type: array
+          items:
+            $ref: '#/components/schemas/Course'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    CreateLessonDto:
+      type: object
+      required:
+        - title
+        - content
+        - order
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        content:
+          type: string
+          minLength: 1
+        contentType:
+          type: string
+          enum: [text, video, interactive, quiz]
+          default: text
+        order:
+          type: integer
+          minimum: 1
+        duration:
+          type: integer
+          minimum: 1
+          description: Duration in minutes
+        videoUrl:
+          type: string
+          format: uri
+        resources:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              url:
+                type: string
+                format: uri
+              type:
+                type: string
+                enum: [pdf, link, download]
+
+    UpdateLessonDto:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        content:
+          type: string
+        contentType:
+          type: string
+          enum: [text, video, interactive, quiz]
+        order:
+          type: integer
+          minimum: 1
+        duration:
+          type: integer
+          minimum: 1
+        videoUrl:
+          type: string
+          format: uri
+        resources:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              url:
+                type: string
+                format: uri
+              type:
+                type: string
+                enum: [pdf, link, download]
+
+    Lesson:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        contentType:
+          type: string
+          enum: [text, video, interactive, quiz]
+        order:
+          type: integer
+        duration:
+          type: integer
+        videoUrl:
+          type: string
+          format: uri
+        isCompleted:
+          type: boolean
+          description: Whether the current user has completed this lesson
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LessonWithContent:
+      allOf:
+        - $ref: '#/components/schemas/Lesson'
+        - type: object
+          properties:
+            content:
+              type: string
+            resources:
+              type: array
+              items:
+                type: object
+                properties:
+                  title:
+                    type: string
+                  url:
+                    type: string
+                    format: uri
+                  type:
+                    type: string
+                    enum: [pdf, link, download]
+
+    LessonProgress:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        lessonId:
+          type: string
+          format: uuid
+        isCompleted:
+          type: boolean
+        timeSpent:
+          type: integer
+          description: Time spent in seconds
+        notes:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserProgress:
+      type: object
+      properties:
+        totalCourses:
+          type: integer
+        completedCourses:
+          type: integer
+        inProgressCourses:
+          type: integer
+        totalLessons:
+          type: integer
+        completedLessons:
+          type: integer
+        totalTimeSpent:
+          type: integer
+          description: Total time spent in seconds
+        certificatesEarned:
+          type: integer
+        courses:
+          type: array
+          items:
+            $ref: '#/components/schemas/CourseProgress'
+
+    CourseProgress:
+      type: object
+      properties:
+        courseId:
+          type: string
+          format: uuid
+        course:
+          $ref: '#/components/schemas/Course'
+        progressPercent:
+          type: number
+          format: float
+        completedLessons:
+          type: integer
+        totalLessons:
+          type: integer
+        timeSpent:
+          type: integer
+        lastActivity:
+          type: string
+          format: date-time
+        enrolledAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+
+    Enrollment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [enrolled, completed, dropped]
+        enrolledAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        droppedAt:
+          type: string
+          format: date-time
+
+    EnrollmentWithCourse:
+      allOf:
+        - $ref: '#/components/schemas/Enrollment'
+        - type: object
+          properties:
+            course:
+              $ref: '#/components/schemas/Course'
+            progress:
+              $ref: '#/components/schemas/CourseProgress'
+
+    CreateAssessmentDto:
+      type: object
+      required:
+        - title
+        - type
+        - questions
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 1000
+        courseId:
+          type: string
+          format: uuid
+        lessonId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [quiz, assignment, exam, certification]
+        timeLimit:
+          type: integer
+          minimum: 1
+          description: Time limit in minutes
+        passingScore:
+          type: integer
+          minimum: 0
+          maximum: 100
+        maxAttempts:
+          type: integer
+          minimum: 1
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+          minItems: 1
+
+    Assessment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        courseId:
+          type: string
+          format: uuid
+        lessonId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [quiz, assignment, exam, certification]
+        timeLimit:
+          type: integer
+        passingScore:
+          type: integer
+        maxAttempts:
+          type: integer
+        totalQuestions:
+          type: integer
+        attemptsCount:
+          type: integer
+          description: Number of attempts by current user
+        bestScore:
+          type: integer
+          description: Best score achieved by current user
+        createdAt:
+          type: string
+          format: date-time
+
+    AssessmentWithQuestions:
+      allOf:
+        - $ref: '#/components/schemas/Assessment'
+        - type: object
+          properties:
+            questions:
+              type: array
+              items:
+                $ref: '#/components/schemas/Question'
+
+    Question:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [multiple_choice, true_false, short_answer, essay]
+        question:
+          type: string
+        options:
+          type: array
+          items:
+            type: string
+          description: For multiple choice questions
+        correctAnswer:
+          type: string
+          description: Only shown to admins or after submission
+        explanation:
+          type: string
+        points:
+          type: integer
+          minimum: 1
+        order:
+          type: integer
+
+    AssessmentSubmission:
+      type: object
+      required:
+        - answers
+      properties:
+        answers:
+          type: array
+          items:
+            type: object
+            properties:
+              questionId:
+                type: string
+                format: uuid
+              answer:
+                type: string
+
+    AssessmentResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        assessmentId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        score:
+          type: integer
+        totalPoints:
+          type: integer
+        percentage:
+          type: number
+          format: float
+        passed:
+          type: boolean
+        timeSpent:
+          type: integer
+          description: Time spent in seconds
+        attempt:
+          type: integer
+        answers:
+          type: array
+          items:
+            type: object
+            properties:
+              questionId:
+                type: string
+                format: uuid
+              answer:
+                type: string
+              isCorrect:
+                type: boolean
+              points:
+                type: integer
+        submittedAt:
+          type: string
+          format: date-time
+
+    CreateCategoryDto:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        icon:
+          type: string
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+
+    UpdateCategoryDto:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        icon:
+          type: string
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+        isActive:
+          type: boolean
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        icon:
+          type: string
+        color:
+          type: string
+        courseCount:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CategoryWithCourses:
+      allOf:
+        - $ref: '#/components/schemas/Category'
+        - type: object
+          properties:
+            courses:
+              type: array
+              items:
+                $ref: '#/components/schemas/Course'
+
+    Certificate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        course:
+          $ref: '#/components/schemas/Course'
+        certificateNumber:
+          type: string
+        issuedAt:
+          type: string
+          format: date-time
+        pdfUrl:
+          type: string
+          format: uri
+        verificationUrl:
+          type: string
+          format: uri
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

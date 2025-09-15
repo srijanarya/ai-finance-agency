@@ -18,6 +18,7 @@ export enum AuditAction {
   USER_DEACTIVATED = 'user_deactivated',
   USER_SUSPENDED = 'user_suspended',
   USER_UNSUSPENDED = 'user_unsuspended',
+  ACCOUNT_DEACTIVATION = 'account_deactivation',
 
   // Authentication Actions
   USER_LOGIN = 'user_login',
@@ -64,6 +65,9 @@ export enum AuditAction {
   SESSION_TERMINATED = 'session_terminated',
   SESSIONS_LIMITED = 'sessions_limited',
   ALL_OTHER_SESSIONS_TERMINATED = 'all_other_sessions_terminated',
+  SESSION_UPDATED = 'session_updated',
+  SESSION_EXTENDED = 'session_extended',
+  SESSIONS_REVOKED_ALL = 'sessions_revoked_all',
 
   // Role & Permission Management
   ROLE_ASSIGNED = 'role_assigned',
@@ -73,6 +77,8 @@ export enum AuditAction {
   ROLE_DELETED = 'role_deleted',
   PERMISSION_GRANTED = 'permission_granted',
   PERMISSION_REVOKED = 'permission_revoked',
+  ROLE_REVOCATION = 'role_revocation',
+  ROLE_PERMISSIONS_UPDATE = 'role_permissions_update',
 
   // KYC Actions
   KYC_STARTED = 'kyc_started',
@@ -88,6 +94,9 @@ export enum AuditAction {
   PROFILE_UPDATED = 'profile_updated',
   PROFILE_PICTURE_UPDATED = 'profile_picture_updated',
   PREFERENCES_UPDATED = 'preferences_updated',
+  AVATAR_UPDATE = 'avatar_update',
+  EMAIL_CHANGE_REQUEST = 'email_change_request',
+  PHONE_UPDATE = 'phone_update',
 
   // Trading Actions
   TRADE_EXECUTED = 'trade_executed',

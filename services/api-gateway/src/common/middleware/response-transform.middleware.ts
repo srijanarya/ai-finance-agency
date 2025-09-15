@@ -12,6 +12,7 @@ export class ResponseTransformMiddleware implements NestMiddleware {
     const startTime = (req as any).startTime || Date.now();
 
     // Override the json method to transform responses
+    const self = this;
     res.json = function(body: any): Response {
       const requestId = req.headers['x-request-id'] as string;
       const responseTime = Date.now() - startTime;
@@ -20,11 +21,11 @@ export class ResponseTransformMiddleware implements NestMiddleware {
       res.setHeader('X-Response-Time', `${responseTime}ms`);
       
       // Transform the response
-      const transformedResponse = this.transformResponse(body, req, res, requestId, responseTime);
+      const transformedResponse = self.transformResponse(body, req, res, requestId, responseTime);
       
       // Call the original json method with transformed response
-      return originalJson.call(this, transformedResponse);
-    }.bind(this);
+      return originalJson.call(res, transformedResponse);
+    };
 
     next();
   }

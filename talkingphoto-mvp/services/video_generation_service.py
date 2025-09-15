@@ -641,10 +641,47 @@ class VideoGenerationPipeline:
                                    animation_data: Dict[str, Any],
                                    video_generation_id: str) -> Dict[str, Any]:
         """
-        Generate video using HeyGen API
+        Generate video using HeyGen Premium API
         """
-        # Implementation for HeyGen
-        return {'success': False, 'error': 'HeyGen integration pending'}
+        try:
+            from services.heygen_service import heygen_service, HeyGenGenerationRequest, HeyGenVideoQuality, HeyGenLanguage
+
+            # Map quality settings
+            quality_map = {
+                VideoQuality.ECONOMY: HeyGenVideoQuality.HD_720P,
+                VideoQuality.STANDARD: HeyGenVideoQuality.FULL_HD_1080P,
+                VideoQuality.PREMIUM: HeyGenVideoQuality.UHD_4K
+            }
+
+            # Get user email from session or request context
+            user_email = getattr(request, 'user_email', 'unknown@example.com')
+
+            # Create HeyGen request
+            heygen_request = HeyGenGenerationRequest(
+                avatar_id=request.provider_preference or 'anna_business',  # Default avatar
+                text=request.script_text,
+                voice_id='professional_en_us_female',
+                quality=quality_map.get(request.quality, HeyGenVideoQuality.FULL_HD_1080P),
+                background=request.background or 'studio_professional',
+                language=HeyGenLanguage.ENGLISH,
+                emotion='professional',
+                speed=1.0
+            )
+
+            # Progress callback
+            async def progress_callback(percentage, message):
+                await self._update_progress(video_generation_id, percentage, message)
+
+            # Generate video with HeyGen premium service
+            result = await heygen_service.generate_video(
+                user_email, heygen_request, progress_callback
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error("HeyGen premium generation failed", error=str(e))
+            return {'success': False, 'error': str(e)}
     
     async def _post_process_video(self, video_result: Dict[str, Any],
                                  request: VideoGenerationRequest,

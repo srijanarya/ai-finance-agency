@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     perplexity_api_key: Optional[str] = Field(default=None, env="PERPLEXITY_API_KEY")
     google_ai_key: Optional[str] = Field(default=None, env="GOOGLE_AI_KEY")
     
+    # Nano Banana API for AI-powered photo analysis
+    nano_banana_api_key: Optional[str] = Field(default=None, env="NANO_BANANA_API_KEY")
+    nano_banana_base_url: str = Field(default="https://api.nanobanana.ai/v1", env="NANO_BANANA_BASE_URL")
+    
     # Social Media APIs
     linkedin_client_id: Optional[str] = Field(default=None, env="LINKEDIN_PERSONAL_CLIENT_ID")
     linkedin_client_secret: Optional[str] = Field(default=None, env="LINKEDIN_PERSONAL_CLIENT_SECRET")
@@ -106,6 +110,19 @@ class Settings(BaseSettings):
     # Celery Configuration
     celery_broker_url: str = Field(default="redis://localhost:6379/0", env="CELERY_BROKER_URL")
     celery_result_backend: str = Field(default="redis://localhost:6379/1", env="CELERY_RESULT_BACKEND")
+    
+    # Photo Processing Configuration
+    max_photo_size_mb: int = Field(default=10, env="MAX_PHOTO_SIZE_MB")
+    supported_photo_formats: List[str] = Field(default=["JPEG", "PNG", "WEBP"], env="SUPPORTED_PHOTO_FORMATS")
+    photo_processing_timeout: int = Field(default=30, env="PHOTO_PROCESSING_TIMEOUT")
+    enable_face_detection: bool = Field(default=True, env="ENABLE_FACE_DETECTION")
+    face_detection_confidence: float = Field(default=0.95, env="FACE_DETECTION_CONFIDENCE")
+    
+    # AWS S3 Configuration for photo storage
+    aws_access_key_id: Optional[str] = Field(default=None, env="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: Optional[str] = Field(default=None, env="AWS_SECRET_ACCESS_KEY")
+    aws_s3_bucket: str = Field(default="talkingphoto-storage", env="AWS_S3_BUCKET")
+    aws_s3_region: str = Field(default="us-east-1", env="AWS_S3_REGION")
     
     # Monitoring & Observability
     sentry_dsn: Optional[str] = Field(default=None, env="SENTRY_DSN")

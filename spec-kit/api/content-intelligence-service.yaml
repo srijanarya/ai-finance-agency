@@ -1,0 +1,1586 @@
+openapi: 3.1.0
+info:
+  title: AI Finance Agency - Content Intelligence Service
+  description: |
+    Content Intelligence Service provides AI-powered content generation,
+    natural language processing, market analysis, and personalized content delivery.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@aifinance.agency
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://content-ai.aifinance.agency/v1
+    description: Production server
+  - url: https://staging-content-ai.aifinance.agency/v1
+    description: Staging server
+  - url: http://localhost:3010/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check content intelligence service health status
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # AI Content Generation
+  /content/generate:
+    post:
+      tags:
+        - Content Generation
+      summary: Generate AI content
+      description: Generate various types of content using AI models
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentGenerationRequest'
+      responses:
+        '200':
+          description: Content generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeneratedContent'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /content/generate/market-analysis:
+    post:
+      tags:
+        - Content Generation
+      summary: Generate market analysis
+      description: Generate AI-powered market analysis content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketAnalysisRequest'
+      responses:
+        '200':
+          description: Market analysis generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarketAnalysisContent'
+
+  /content/generate/newsletter:
+    post:
+      tags:
+        - Content Generation
+      summary: Generate newsletter
+      description: Generate personalized newsletter content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewsletterRequest'
+      responses:
+        '200':
+          description: Newsletter generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewsletterContent'
+
+  /content/generate/social-post:
+    post:
+      tags:
+        - Content Generation
+      summary: Generate social media post
+      description: Generate social media content for various platforms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SocialPostRequest'
+      responses:
+        '200':
+          description: Social media post generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SocialPostContent'
+
+  # Natural Language Processing
+  /nlp/sentiment:
+    post:
+      tags:
+        - NLP
+      summary: Analyze sentiment
+      description: Perform sentiment analysis on text content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SentimentAnalysisRequest'
+      responses:
+        '200':
+          description: Sentiment analysis completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SentimentAnalysisResult'
+
+  /nlp/extract-entities:
+    post:
+      tags:
+        - NLP
+      summary: Extract entities
+      description: Extract named entities from text (companies, stocks, etc.)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityExtractionRequest'
+      responses:
+        '200':
+          description: Entity extraction completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityExtractionResult'
+
+  /nlp/summarize:
+    post:
+      tags:
+        - NLP
+      summary: Summarize text
+      description: Generate summary of long-form text content
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TextSummarizationRequest'
+      responses:
+        '200':
+          description: Text summarization completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TextSummarizationResult'
+
+  /nlp/classify:
+    post:
+      tags:
+        - NLP
+      summary: Classify content
+      description: Classify content into predefined categories
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentClassificationRequest'
+      responses:
+        '200':
+          description: Content classification completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentClassificationResult'
+
+  # News Aggregation
+  /news/aggregate:
+    post:
+      tags:
+        - News Aggregation
+      summary: Aggregate news
+      description: Aggregate and process news from multiple sources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewsAggregationRequest'
+      responses:
+        '200':
+          description: News aggregation completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregatedNews'
+
+  /news/trends:
+    get:
+      tags:
+        - News Aggregation
+      summary: Get trending topics
+      description: Retrieve trending topics and themes from news analysis
+      parameters:
+        - name: timeframe
+          in: query
+          schema:
+            type: string
+            enum: [1h, 6h, 24h, 7d]
+            default: 24h
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [stocks, crypto, forex, commodities, general]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Trending topics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendingTopics'
+
+  /news/impact-analysis:
+    post:
+      tags:
+        - News Aggregation
+      summary: Analyze news impact
+      description: Analyze potential market impact of news events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewsImpactRequest'
+      responses:
+        '200':
+          description: News impact analysis completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NewsImpactAnalysis'
+
+  # Personalization
+  /personalization/recommend-content:
+    get:
+      tags:
+        - Personalization
+      summary: Get content recommendations
+      description: Get personalized content recommendations for the user
+      parameters:
+        - name: contentType
+          in: query
+          schema:
+            type: string
+            enum: [article, video, course, analysis, news]
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [trading, education, market_analysis, news, research]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 10
+      responses:
+        '200':
+          description: Content recommendations retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentRecommendations'
+
+  /personalization/user-interests:
+    get:
+      tags:
+        - Personalization
+      summary: Get user interests
+      description: Retrieve inferred user interests and preferences
+      responses:
+        '200':
+          description: User interests retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInterests'
+
+    put:
+      tags:
+        - Personalization
+      summary: Update user interests
+      description: Update user interests and preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserInterestsRequest'
+      responses:
+        '200':
+          description: User interests updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInterests'
+
+  # Content Quality
+  /quality/score:
+    post:
+      tags:
+        - Content Quality
+      summary: Score content quality
+      description: Evaluate content quality using AI models
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentQualityRequest'
+      responses:
+        '200':
+          description: Content quality scored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentQualityResult'
+
+  /quality/improve:
+    post:
+      tags:
+        - Content Quality
+      summary: Improve content
+      description: Get suggestions to improve content quality
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentImprovementRequest'
+      responses:
+        '200':
+          description: Content improvement suggestions generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentImprovementResult'
+
+  # Compliance Validation
+  /compliance/validate:
+    post:
+      tags:
+        - Compliance
+      summary: Validate content compliance
+      description: Check content for regulatory compliance issues
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComplianceValidationRequest'
+      responses:
+        '200':
+          description: Compliance validation completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceValidationResult'
+
+  /compliance/guidelines:
+    get:
+      tags:
+        - Compliance
+      summary: Get compliance guidelines
+      description: Retrieve content compliance guidelines and rules
+      parameters:
+        - name: jurisdiction
+          in: query
+          schema:
+            type: string
+            enum: [US, EU, UK, CA, AU]
+            default: US
+        - name: contentType
+          in: query
+          schema:
+            type: string
+            enum: [financial_advice, market_analysis, educational, promotional]
+      responses:
+        '200':
+          description: Compliance guidelines retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceGuidelines'
+
+  # Analytics
+  /analytics/content-performance:
+    get:
+      tags:
+        - Analytics
+      summary: Get content performance analytics
+      description: Retrieve analytics on content performance and engagement
+      parameters:
+        - name: contentId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: contentType
+          in: query
+          schema:
+            type: string
+            enum: [article, video, course, analysis, news]
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [1d, 7d, 30d, 90d]
+            default: 30d
+      responses:
+        '200':
+          description: Content performance analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentPerformanceAnalytics'
+
+  /analytics/engagement-metrics:
+    get:
+      tags:
+        - Analytics
+      summary: Get engagement metrics
+      description: Retrieve user engagement metrics for content
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [1d, 7d, 30d, 90d]
+            default: 30d
+      responses:
+        '200':
+          description: Engagement metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EngagementMetrics'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        service:
+          type: string
+          example: content-intelligence-service
+        version:
+          type: string
+          example: 1.0.0
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    ContentGenerationRequest:
+      type: object
+      required:
+        - contentType
+        - topic
+      properties:
+        contentType:
+          type: string
+          enum: [article, blog_post, social_media, email, summary, analysis, report]
+        topic:
+          type: string
+          minLength: 1
+          maxLength: 500
+        length:
+          type: string
+          enum: [short, medium, long]
+          default: medium
+        tone:
+          type: string
+          enum: [professional, casual, authoritative, educational, conversational]
+          default: professional
+        audience:
+          type: string
+          enum: [beginner, intermediate, advanced, expert, general]
+          default: general
+        keywords:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        context:
+          type: string
+          maxLength: 2000
+        includeDisclaimer:
+          type: boolean
+          default: true
+        language:
+          type: string
+          default: en
+        model:
+          type: string
+          enum: [gpt-4, gpt-3.5-turbo, claude-3, custom]
+          default: gpt-4
+
+    GeneratedContent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        title:
+          type: string
+        summary:
+          type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        metadata:
+          type: object
+          properties:
+            contentType:
+              type: string
+            wordCount:
+              type: integer
+            readingTime:
+              type: integer
+              description: Estimated reading time in minutes
+            tone:
+              type: string
+            audience:
+              type: string
+            qualityScore:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+        generatedAt:
+          type: string
+          format: date-time
+        model:
+          type: string
+
+    MarketAnalysisRequest:
+      type: object
+      required:
+        - symbols
+        - analysisType
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        analysisType:
+          type: string
+          enum: [technical, fundamental, sentiment, comprehensive]
+        timeframe:
+          type: string
+          enum: [1d, 1w, 1m, 3m, 6m, 1y]
+          default: 1m
+        includeCharts:
+          type: boolean
+          default: false
+        includeRecommendations:
+          type: boolean
+          default: true
+        riskLevel:
+          type: string
+          enum: [conservative, moderate, aggressive]
+          default: moderate
+
+    MarketAnalysisContent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbols:
+          type: array
+          items:
+            type: string
+        analysis:
+          type: string
+        keyFindings:
+          type: array
+          items:
+            type: string
+        recommendations:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol:
+                type: string
+              action:
+                type: string
+                enum: [buy, sell, hold]
+              confidence:
+                type: number
+                format: float
+                minimum: 0
+                maximum: 1
+              reasoning:
+                type: string
+        riskAssessment:
+          type: object
+          properties:
+            overall:
+              type: string
+              enum: [low, medium, high]
+            factors:
+              type: array
+              items:
+                type: string
+        metadata:
+          type: object
+          properties:
+            analysisType:
+              type: string
+            timeframe:
+              type: string
+            confidence:
+              type: number
+              format: float
+        generatedAt:
+          type: string
+          format: date-time
+
+    NewsletterRequest:
+      type: object
+      required:
+        - template
+      properties:
+        template:
+          type: string
+          enum: [daily_digest, weekly_roundup, market_update, custom]
+        sections:
+          type: array
+          items:
+            type: string
+            enum: [market_overview, top_stories, analysis, signals, education, performance]
+        personalizeFor:
+          type: string
+          format: uuid
+          description: User ID for personalization
+        includeImages:
+          type: boolean
+          default: true
+        length:
+          type: string
+          enum: [brief, standard, detailed]
+          default: standard
+
+    NewsletterContent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject:
+          type: string
+        content:
+          type: string
+        htmlContent:
+          type: string
+        sections:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              type:
+                type: string
+        previewText:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+
+    SocialPostRequest:
+      type: object
+      required:
+        - platform
+        - content
+      properties:
+        platform:
+          type: string
+          enum: [twitter, linkedin, facebook, instagram]
+        content:
+          type: string
+          maxLength: 2000
+        includeHashtags:
+          type: boolean
+          default: true
+        includeEmojis:
+          type: boolean
+          default: false
+        tone:
+          type: string
+          enum: [professional, casual, engaging, informative]
+          default: professional
+        callToAction:
+          type: string
+        targetAudience:
+          type: string
+          enum: [traders, investors, beginners, professionals]
+
+    SocialPostContent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        platform:
+          type: string
+        content:
+          type: string
+        hashtags:
+          type: array
+          items:
+            type: string
+        characterCount:
+          type: integer
+        estimatedReach:
+          type: object
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+        optimizationSuggestions:
+          type: array
+          items:
+            type: string
+        generatedAt:
+          type: string
+          format: date-time
+
+    SentimentAnalysisRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        language:
+          type: string
+          default: en
+        includeConcepts:
+          type: boolean
+          default: false
+
+    SentimentAnalysisResult:
+      type: object
+      properties:
+        sentiment:
+          type: string
+          enum: [positive, negative, neutral, mixed]
+        score:
+          type: number
+          format: float
+          minimum: -1
+          maximum: 1
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        emotions:
+          type: object
+          properties:
+            joy:
+              type: number
+              format: float
+            sadness:
+              type: number
+              format: float
+            anger:
+              type: number
+              format: float
+            fear:
+              type: number
+              format: float
+            surprise:
+              type: number
+              format: float
+        concepts:
+          type: array
+          items:
+            type: object
+            properties:
+              concept:
+                type: string
+              sentiment:
+                type: string
+              score:
+                type: number
+                format: float
+
+    EntityExtractionRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        entityTypes:
+          type: array
+          items:
+            type: string
+            enum: [PERSON, ORGANIZATION, STOCK_SYMBOL, CURRENCY, LOCATION, DATE, MONEY]
+        language:
+          type: string
+          default: en
+
+    EntityExtractionResult:
+      type: object
+      properties:
+        entities:
+          type: array
+          items:
+            type: object
+            properties:
+              text:
+                type: string
+              type:
+                type: string
+              confidence:
+                type: number
+                format: float
+              startOffset:
+                type: integer
+              endOffset:
+                type: integer
+              metadata:
+                type: object
+                additionalProperties: true
+
+    TextSummarizationRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          minLength: 100
+          maxLength: 50000
+        summaryLength:
+          type: string
+          enum: [short, medium, long]
+          default: medium
+        summaryType:
+          type: string
+          enum: [extractive, abstractive]
+          default: abstractive
+        keyPoints:
+          type: integer
+          minimum: 3
+          maximum: 10
+
+    TextSummarizationResult:
+      type: object
+      properties:
+        summary:
+          type: string
+        keyPoints:
+          type: array
+          items:
+            type: string
+        originalLength:
+          type: integer
+        summaryLength:
+          type: integer
+        compressionRatio:
+          type: number
+          format: float
+
+    ContentClassificationRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        categories:
+          type: array
+          items:
+            type: string
+          description: Custom categories to classify into
+
+    ContentClassificationResult:
+      type: object
+      properties:
+        classifications:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              confidence:
+                type: number
+                format: float
+              subcategories:
+                type: array
+                items:
+                  type: string
+
+    NewsAggregationRequest:
+      type: object
+      properties:
+        sources:
+          type: array
+          items:
+            type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        symbols:
+          type: array
+          items:
+            type: string
+        timeframe:
+          type: string
+          enum: [1h, 6h, 24h, 7d]
+          default: 24h
+        maxArticles:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+
+    AggregatedNews:
+      type: object
+      properties:
+        articles:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              title:
+                type: string
+              summary:
+                type: string
+              content:
+                type: string
+              source:
+                type: string
+              url:
+                type: string
+                format: uri
+              publishedAt:
+                type: string
+                format: date-time
+              sentiment:
+                type: object
+                properties:
+                  score:
+                    type: number
+                    format: float
+                  label:
+                    type: string
+                    enum: [positive, negative, neutral]
+              entities:
+                type: array
+                items:
+                  type: string
+              relevanceScore:
+                type: number
+                format: float
+        totalArticles:
+          type: integer
+        timeframe:
+          type: string
+        aggregatedAt:
+          type: string
+          format: date-time
+
+    TrendingTopics:
+      type: object
+      properties:
+        topics:
+          type: array
+          items:
+            type: object
+            properties:
+              topic:
+                type: string
+              frequency:
+                type: integer
+              sentiment:
+                type: number
+                format: float
+              relatedSymbols:
+                type: array
+                items:
+                  type: string
+              trend:
+                type: string
+                enum: [rising, falling, stable]
+        timeframe:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+
+    NewsImpactRequest:
+      type: object
+      required:
+        - newsArticles
+      properties:
+        newsArticles:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              content:
+                type: string
+              source:
+                type: string
+              publishedAt:
+                type: string
+                format: date-time
+        symbols:
+          type: array
+          items:
+            type: string
+          description: Symbols to analyze impact for
+
+    NewsImpactAnalysis:
+      type: object
+      properties:
+        overallImpact:
+          type: string
+          enum: [very_positive, positive, neutral, negative, very_negative]
+        impactScore:
+          type: number
+          format: float
+          minimum: -1
+          maximum: 1
+        symbolImpacts:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol:
+                type: string
+              impact:
+                type: string
+                enum: [very_positive, positive, neutral, negative, very_negative]
+              score:
+                type: number
+                format: float
+              reasoning:
+                type: string
+        timeHorizon:
+          type: string
+          enum: [immediate, short_term, medium_term, long_term]
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+
+    ContentRecommendations:
+      type: object
+      properties:
+        recommendations:
+          type: array
+          items:
+            type: object
+            properties:
+              contentId:
+                type: string
+                format: uuid
+              title:
+                type: string
+              type:
+                type: string
+              category:
+                type: string
+              relevanceScore:
+                type: number
+                format: float
+              personalizedReason:
+                type: string
+              estimatedReadTime:
+                type: integer
+              url:
+                type: string
+                format: uri
+        totalCount:
+          type: integer
+        generatedAt:
+          type: string
+          format: date-time
+
+    UserInterests:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        interests:
+          type: object
+          properties:
+            symbols:
+              type: array
+              items:
+                type: object
+                properties:
+                  symbol:
+                    type: string
+                  score:
+                    type: number
+                    format: float
+            sectors:
+              type: array
+              items:
+                type: object
+                properties:
+                  sector:
+                    type: string
+                  score:
+                    type: number
+                    format: float
+            topics:
+              type: array
+              items:
+                type: object
+                properties:
+                  topic:
+                    type: string
+                  score:
+                    type: number
+                    format: float
+            contentTypes:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  preference:
+                    type: number
+                    format: float
+        riskProfile:
+          type: string
+          enum: [conservative, moderate, aggressive]
+        experienceLevel:
+          type: string
+          enum: [beginner, intermediate, advanced, expert]
+        lastUpdated:
+          type: string
+          format: date-time
+
+    UpdateUserInterestsRequest:
+      type: object
+      properties:
+        symbols:
+          type: array
+          items:
+            type: string
+        sectors:
+          type: array
+          items:
+            type: string
+        topics:
+          type: array
+          items:
+            type: string
+        riskProfile:
+          type: string
+          enum: [conservative, moderate, aggressive]
+        experienceLevel:
+          type: string
+          enum: [beginner, intermediate, advanced, expert]
+
+    ContentQualityRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+        contentType:
+          type: string
+          enum: [article, blog_post, social_media, email, report]
+        criteria:
+          type: array
+          items:
+            type: string
+            enum: [readability, accuracy, engagement, seo, compliance]
+
+    ContentQualityResult:
+      type: object
+      properties:
+        overallScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        scores:
+          type: object
+          properties:
+            readability:
+              type: number
+              format: float
+            accuracy:
+              type: number
+              format: float
+            engagement:
+              type: number
+              format: float
+            seo:
+              type: number
+              format: float
+            compliance:
+              type: number
+              format: float
+        feedback:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              issue:
+                type: string
+              suggestion:
+                type: string
+              severity:
+                type: string
+                enum: [low, medium, high]
+
+    ContentImprovementRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+        targetAudience:
+          type: string
+          enum: [beginner, intermediate, advanced, expert]
+        goals:
+          type: array
+          items:
+            type: string
+            enum: [increase_readability, improve_engagement, enhance_seo, ensure_compliance]
+
+    ContentImprovementResult:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              suggestion:
+                type: string
+              impact:
+                type: string
+                enum: [low, medium, high]
+              implementation:
+                type: string
+        improvedVersion:
+          type: string
+        changes:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              original:
+                type: string
+              improved:
+                type: string
+              reason:
+                type: string
+
+    ComplianceValidationRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+        contentType:
+          type: string
+          enum: [financial_advice, market_analysis, educational, promotional]
+        jurisdiction:
+          type: string
+          enum: [US, EU, UK, CA, AU]
+          default: US
+        distributionChannels:
+          type: array
+          items:
+            type: string
+            enum: [email, social_media, website, app, newsletter]
+
+    ComplianceValidationResult:
+      type: object
+      properties:
+        isCompliant:
+          type: boolean
+        riskLevel:
+          type: string
+          enum: [low, medium, high, critical]
+        issues:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+              description:
+                type: string
+              severity:
+                type: string
+                enum: [warning, error, critical]
+              recommendation:
+                type: string
+              regulation:
+                type: string
+        disclaimers:
+          type: array
+          items:
+            type: string
+        requiredModifications:
+          type: array
+          items:
+            type: string
+
+    ComplianceGuidelines:
+      type: object
+      properties:
+        jurisdiction:
+          type: string
+        contentType:
+          type: string
+        guidelines:
+          type: array
+          items:
+            type: object
+            properties:
+              rule:
+                type: string
+              description:
+                type: string
+              examples:
+                type: array
+                items:
+                  type: string
+              severity:
+                type: string
+                enum: [mandatory, recommended, optional]
+        requiredDisclosures:
+          type: array
+          items:
+            type: string
+        prohibitedContent:
+          type: array
+          items:
+            type: string
+        lastUpdated:
+          type: string
+          format: date-time
+
+    ContentPerformanceAnalytics:
+      type: object
+      properties:
+        contentId:
+          type: string
+          format: uuid
+        metrics:
+          type: object
+          properties:
+            views:
+              type: integer
+            clicks:
+              type: integer
+            shares:
+              type: integer
+            likes:
+              type: integer
+            comments:
+              type: integer
+            timeSpent:
+              type: number
+              format: float
+              description: Average time spent in seconds
+            bounceRate:
+              type: number
+              format: float
+            conversionRate:
+              type: number
+              format: float
+        engagement:
+          type: object
+          properties:
+            totalEngagement:
+              type: integer
+            engagementRate:
+              type: number
+              format: float
+            viralityCoefficient:
+              type: number
+              format: float
+        demographics:
+          type: object
+          properties:
+            ageGroups:
+              type: object
+              additionalProperties:
+                type: integer
+            locations:
+              type: object
+              additionalProperties:
+                type: integer
+            experienceLevels:
+              type: object
+              additionalProperties:
+                type: integer
+        period:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+
+    EngagementMetrics:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        period:
+          type: string
+        metrics:
+          type: object
+          properties:
+            contentConsumed:
+              type: integer
+            timeSpent:
+              type: integer
+              description: Total time spent in seconds
+            articlesRead:
+              type: integer
+            videosWatched:
+              type: integer
+            coursesCompleted:
+              type: integer
+            sharesGenerated:
+              type: integer
+        preferences:
+          type: object
+          properties:
+            preferredContentTypes:
+              type: array
+              items:
+                type: string
+            preferredTopics:
+              type: array
+              items:
+                type: string
+            averageSessionDuration:
+              type: integer
+              description: In seconds
+            peakEngagementTime:
+              type: string
+              description: Time of day (HH:MM format)
+        trends:
+          type: object
+          properties:
+            engagementTrend:
+              type: string
+              enum: [increasing, stable, decreasing]
+            interestEvolution:
+              type: array
+              items:
+                type: object
+                properties:
+                  topic:
+                    type: string
+                  trend:
+                    type: string
+                    enum: [rising, stable, declining]
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

@@ -31,6 +31,7 @@ import {
   RecoveryAttemptsDto,
 } from '../dto/password-recovery.dto';
 import { AuditService } from './audit.service';
+import { AuditAction } from '../entities/audit-log.entity';
 import { EmailService } from './email.service';
 import { NotificationService } from './notification.service';
 
@@ -135,7 +136,7 @@ export class PasswordRecoveryService {
       // Log the attempt for security monitoring
       await this.auditLogService.log({
         userId: null,
-        action: 'password_reset_attempt',
+        action: AuditAction.PASSWORD_RESET_FAILED,
         resource: 'password_recovery',
         description: 'Password reset requested for non-existent email',
         ipAddress,
@@ -187,7 +188,7 @@ export class PasswordRecoveryService {
     // Log the attempt
     await this.auditLogService.log({
       userId: user.id,
-      action: 'password_reset_initiated',
+      action: AuditAction.PASSWORD_RESET_REQUESTED,
       resource: 'password_recovery',
       description: 'Password reset token generated and sent',
       ipAddress,
@@ -365,7 +366,7 @@ export class PasswordRecoveryService {
     // Log the password reset
     await this.auditLogService.log({
       userId: user.id,
-      action: 'password_reset_completed',
+      action: AuditAction.PASSWORD_RESET_COMPLETED,
       resource: 'password_recovery',
       description: 'Password successfully reset using token',
       ipAddress,
@@ -467,7 +468,7 @@ export class PasswordRecoveryService {
     // Log the action
     await this.auditLogService.log({
       userId,
-      action: 'security_questions_set',
+      action: AuditAction.PROFILE_UPDATED,
       resource: 'password_recovery',
       description: 'Security questions configured',
       ipAddress,
@@ -588,7 +589,7 @@ export class PasswordRecoveryService {
     // Log the admin reset
     await this.auditLogService.log({
       userId: adminUserId,
-      action: 'admin_password_reset',
+      action: AuditAction.PASSWORD_RESET_COMPLETED,
       resource: 'password_recovery',
       description: 'Password reset by administrator',
       ipAddress,
@@ -902,7 +903,7 @@ export class PasswordRecoveryService {
   ): Promise<void> {
     await this.auditLogService.log({
       userId,
-      action: 'password_reset_failed',
+      action: AuditAction.PASSWORD_RESET_FAILED,
       resource: 'password_recovery',
       description: 'Failed password reset attempt',
       ipAddress,

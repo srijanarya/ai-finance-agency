@@ -39,7 +39,7 @@ interface AvatarUploadResult {
   mimeType: string;
 }
 
-interface ProfileValidationResult {
+export interface ProfileValidationResult {
   isValid: boolean;
   errors: string[];
   warnings: string[];
@@ -168,7 +168,7 @@ export class ProfileService {
     // Log the update
     await this.auditLogService.log({
       userId,
-      action: 'profile_update',
+      action: AuditAction.PROFILE_UPDATED,
       resource: 'user_profile',
       description: 'Basic profile information updated',
       ipAddress,
@@ -226,7 +226,7 @@ export class ProfileService {
     // Log the update
     await this.auditLogService.log({
       userId,
-      action: 'preferences_update',
+      action: AuditAction.PREFERENCES_UPDATED,
       resource: 'user_preferences',
       description: 'User preferences updated',
       ipAddress,
@@ -311,7 +311,7 @@ export class ProfileService {
       // Log the update
       await this.auditLogService.log({
         userId,
-        action: 'avatar_update',
+        action: AuditAction.PROFILE_PICTURE_UPDATED,
         resource: 'user_avatar',
         description: 'Profile picture updated',
         ipAddress,
@@ -390,7 +390,7 @@ export class ProfileService {
     // Log the email change request
     await this.auditLogService.log({
       userId,
-      action: 'email_change_request',
+      action: AuditAction.EMAIL_VERIFICATION_SENT,
       resource: 'user_email',
       description: 'Email change requested',
       ipAddress,
@@ -477,7 +477,7 @@ export class ProfileService {
     // Log the password change
     await this.auditLogService.log({
       userId,
-      action: 'password_change',
+      action: AuditAction.PASSWORD_CHANGED,
       resource: 'user_password',
       description: 'Password changed successfully',
       ipAddress,
@@ -543,7 +543,7 @@ export class ProfileService {
     // Log the phone update
     await this.auditLogService.log({
       userId,
-      action: 'phone_update',
+      action: AuditAction.PHONE_VERIFIED,
       resource: 'user_phone',
       description: 'Phone number updated, verification required',
       ipAddress,
@@ -682,7 +682,7 @@ export class ProfileService {
     // Log the deactivation
     await this.auditLogService.log({
       userId,
-      action: 'account_deactivation',
+      action: AuditAction.USER_DEACTIVATED,
       resource: 'user_account',
       description: 'Account deactivated by user',
       ipAddress,

@@ -184,5 +184,238 @@ class DatabaseManager:
         finally:
             session.close()
 
+# Photo Processing Models for TalkingPhoto AI
+
+class Photo(Base):
+    __tablename__ = 'photos'
+    
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False)
+    filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    s3_key = Column(String(500), nullable=True)  # S3 storage key
+    file_size_bytes = Column(Integer, nullable=False)
+    format = Column(String(10), nullable=False)  # JPEG, PNG, WEBP
+    width = Column(Integer, nullable=False)
+    height = Column(Integer, nullable=False)
+    
+    # Processing status
+    processing_status = Column(String(20), default='uploaded')  # uploaded, processing, completed, failed
+    upload_timestamp = Column(DateTime, default=datetime.utcnow)
+    processing_started_at = Column(DateTime, nullable=True)
+    processing_completed_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    analysis_results = relationship("PhotoAnalysis", back_populates="photo", cascade="all, delete-orphan")
+    enhancements = relationship("PhotoEnhancement", back_populates="photo", cascade="all, delete-orphan")
+    face_detections = relationship("FaceDetection", back_populates="photo", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        Index('idx_photo_user_id', 'user_id'),
+        Index('idx_photo_status', 'processing_status'),
+        Index('idx_photo_timestamp', 'upload_timestamp'),
+    )
+
+
+class PhotoAnalysis(Base):
+    __tablename__ = 'photo_analysis'
+    
+    id = Column(Integer, primary_key=True)
+    photo_id = Column(Integer, ForeignKey('photos.id'), nullable=False)
+    
+    # Quality metrics
+    brightness_score = Column(Float, nullable=True)
+    contrast_score = Column(Float, nullable=True)
+    sharpness_score = Column(Float, nullable=True)
+    noise_level = Column(Float, nullable=True)
+    overall_quality_score = Column(Float, nullable=True)
+    
+    # Composition analysis
+    rule_of_thirds_score = Column(Float, nullable=True)
+    symmetry_score = Column(Float, nullable=True)
+    leading_lines_detected = Column(Boolean, default=False)
+    composition_score = Column(Float, nullable=True)
+    
+    # Auto-crop recommendations
+    suggested_crop_x = Column(Integer, nullable=True)
+    suggested_crop_y = Column(Integer, nullable=True)
+    suggested_crop_width = Column(Integer, nullable=True)
+    suggested_crop_height = Column(Integer, nullable=True)
+    
+    # AI service results
+    nano_banana_response = Column(JSON, nullable=True)
+    analysis_metadata = Column(JSON, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    photo = relationship("Photo", back_populates="analysis_results")
+    
+    __table_args__ = (
+        Index('idx_analysis_photo_id', 'photo_id'),
+        Index('idx_analysis_quality', 'overall_quality_score'),
+    )
+
+
+class PhotoEnhancement(Base):
+    __tablename__ = 'photo_enhancements'
+    
+    id = Column(Integer, primary_key=True)
+    photo_id = Column(Integer, ForeignKey('photos.id'), nullable=False)
+    
+    # Enhancement settings applied
+    brightness_adjustment = Column(Float, default=0.0)
+    contrast_adjustment = Column(Float, default=0.0)
+    saturation_adjustment = Column(Float, default=0.0)
+    sharpness_adjustment = Column(Float, default=0.0)
+    noise_reduction_level = Column(Float, default=0.0)
+    
+    # Enhancement results
+    enhanced_file_path = Column(String(500), nullable=True)
+    enhanced_s3_key = Column(String(500), nullable=True)
+    enhancement_applied = Column(Boolean, default=False)
+    
+    # Performance metrics
+    processing_time_seconds = Column(Float, nullable=True)
+    enhancement_score = Column(Float, nullable=True)  # Before/after comparison
+    
+    # Metadata
+    enhancement_metadata = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    photo = relationship("Photo", back_populates="enhancements")
+    
+    __table_args__ = (
+        Index('idx_enhancement_photo_id', 'photo_id'),
+        Index('idx_enhancement_score', 'enhancement_score'),
+    )
+
+
+class FaceDetection(Base):
+    __tablename__ = 'face_detections'
+    
+    id = Column(Integer, primary_key=True)
+    photo_id = Column(Integer, ForeignKey('photos.id'), nullable=False)
+    
+    # Detection results
+    faces_detected = Column(Integer, default=0)
+    primary_face_id = Column(Integer, nullable=True)  # ID of the main face for video generation
+    
+    # Confidence scores
+    detection_confidence = Column(Float, nullable=True)
+    face_recognition_confidence = Column(Float, nullable=True)
+    
+    # Face detection service used
+    detection_service = Column(String(50), default='nano_banana')  # nano_banana, mediapipe, dlib
+    service_response = Column(JSON, nullable=True)
+    
+    # Processing info
+    processing_time_seconds = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    photo = relationship("Photo", back_populates="face_detections")
+    face_landmarks = relationship("FaceLandmark", back_populates="face_detection", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        Index('idx_face_detection_photo_id', 'photo_id'),
+        Index('idx_face_detection_count', 'faces_detected'),
+    )
+
+
+class FaceLandmark(Base):
+    __tablename__ = 'face_landmarks'
+    
+    id = Column(Integer, primary_key=True)
+    face_detection_id = Column(Integer, ForeignKey('face_detections.id'), nullable=False)
+    face_index = Column(Integer, default=0)  # Index of face in multi-face photos
+    
+    # Bounding box
+    bbox_x = Column(Float, nullable=False)
+    bbox_y = Column(Float, nullable=False)
+    bbox_width = Column(Float, nullable=False)
+    bbox_height = Column(Float, nullable=False)
+    
+    # Key facial landmarks (stored as JSON for flexibility)
+    landmarks = Column(JSON, nullable=False)  # All facial landmarks
+    
+    # Specific landmark coordinates for lip-sync accuracy
+    left_eye_center_x = Column(Float, nullable=True)
+    left_eye_center_y = Column(Float, nullable=True)
+    right_eye_center_x = Column(Float, nullable=True)
+    right_eye_center_y = Column(Float, nullable=True)
+    nose_tip_x = Column(Float, nullable=True)
+    nose_tip_y = Column(Float, nullable=True)
+    mouth_left_x = Column(Float, nullable=True)
+    mouth_left_y = Column(Float, nullable=True)
+    mouth_right_x = Column(Float, nullable=True)
+    mouth_right_y = Column(Float, nullable=True)
+    mouth_center_x = Column(Float, nullable=True)
+    mouth_center_y = Column(Float, nullable=True)
+    
+    # Head pose estimation for animation
+    head_pose_pitch = Column(Float, nullable=True)  # Up/down rotation
+    head_pose_yaw = Column(Float, nullable=True)    # Left/right rotation
+    head_pose_roll = Column(Float, nullable=True)   # Tilting rotation
+    
+    # Expression analysis
+    expression_scores = Column(JSON, nullable=True)  # Happy, sad, surprised, etc.
+    primary_expression = Column(String(50), nullable=True)
+    expression_confidence = Column(Float, nullable=True)
+    
+    # 3D face model preparation data
+    face_mesh_points = Column(JSON, nullable=True)  # 3D mesh coordinates
+    texture_coordinates = Column(JSON, nullable=True)  # UV mapping for textures
+    
+    # Quality metrics for video generation
+    landmark_quality_score = Column(Float, nullable=True)
+    suitable_for_animation = Column(Boolean, default=False)
+    
+    # Relationships
+    face_detection = relationship("FaceDetection", back_populates="face_landmarks")
+    
+    __table_args__ = (
+        Index('idx_landmark_face_detection', 'face_detection_id'),
+        Index('idx_landmark_quality', 'landmark_quality_score'),
+    )
+
+
+class PhotoProcessingJob(Base):
+    __tablename__ = 'photo_processing_jobs'
+    
+    id = Column(Integer, primary_key=True)
+    photo_id = Column(Integer, ForeignKey('photos.id'), nullable=False)
+    
+    # Job details
+    job_type = Column(String(50), nullable=False)  # analysis, enhancement, face_detection
+    celery_task_id = Column(String(255), nullable=True)  # Celery task ID for tracking
+    
+    # Job status
+    status = Column(String(20), default='pending')  # pending, running, completed, failed
+    progress_percentage = Column(Integer, default=0)
+    
+    # Error handling
+    error_message = Column(Text, nullable=True)
+    retry_count = Column(Integer, default=0)
+    max_retries = Column(Integer, default=3)
+    
+    # Timing
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    
+    # Results
+    result_data = Column(JSON, nullable=True)
+    
+    __table_args__ = (
+        Index('idx_job_photo_id', 'photo_id'),
+        Index('idx_job_status', 'status'),
+        Index('idx_job_type', 'job_type'),
+        Index('idx_job_celery_id', 'celery_task_id'),
+    )
+
+
 # Initialize database manager
 db_manager = DatabaseManager()

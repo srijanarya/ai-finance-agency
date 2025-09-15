@@ -1,0 +1,190 @@
+groups:
+  - name: ai-finance-agency.rules
+    rules:
+      # Service Health Alerts
+      - alert: ServiceDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 30 seconds."
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{code=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "Error rate is {{ $value }} errors per second on {{ $labels.job }}."
+
+      # Performance Alerts
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, job)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High response time on {{ $labels.job }}"
+          description: "95th percentile response time is {{ $value }}s on {{ $labels.job }}."
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}% on {{ $labels.instance }}."
+
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}."
+
+      # Trading Specific Alerts
+      - alert: TradingExecutionLatencyHigh
+        expr: trading_execution_latency_p95 > 100
+        for: 2m
+        labels:
+          severity: critical
+          team: trading
+        annotations:
+          summary: "High trading execution latency"
+          description: "95th percentile trading execution latency is {{ $value }}ms."
+
+      - alert: TradingOrderFailureRate
+        expr: rate(trading_orders_failed_total[5m]) / rate(trading_orders_total[5m]) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+          team: trading
+        annotations:
+          summary: "High trading order failure rate"
+          description: "Trading order failure rate is {{ $value | humanizePercentage }}."
+
+      # Payment Alerts
+      - alert: PaymentProcessingFailure
+        expr: rate(payment_transactions_failed_total[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: critical
+          team: payments
+        annotations:
+          summary: "Payment processing failures detected"
+          description: "Payment failure rate is {{ $value }} failures per second."
+
+      - alert: PaymentQueueBacklog
+        expr: payment_queue_size > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: payments
+        annotations:
+          summary: "Payment queue backlog"
+          description: "Payment queue has {{ $value }} pending transactions."
+
+      # Database Alerts
+      - alert: PostgreSQLDown
+        expr: up{job="postgres"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          team: database
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is down for more than 30 seconds."
+
+      - alert: PostgreSQLTooManyConnections
+        expr: sum(pg_stat_database_numbackends) / sum(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          team: database
+        annotations:
+          summary: "PostgreSQL too many connections"
+          description: "PostgreSQL is using {{ $value | humanizePercentage }} of max connections."
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          team: cache
+        annotations:
+          summary: "Redis is down"
+          description: "Redis cache is down for more than 30 seconds."
+
+      # Market Data Alerts
+      - alert: MarketDataLatency
+        expr: market_data_latency_p95 > 1000
+        for: 2m
+        labels:
+          severity: warning
+          team: market-data
+        annotations:
+          summary: "High market data latency"
+          description: "95th percentile market data latency is {{ $value }}ms."
+
+      - alert: MarketDataStale
+        expr: time() - market_data_last_update > 300
+        for: 1m
+        labels:
+          severity: critical
+          team: market-data
+        annotations:
+          summary: "Market data is stale"
+          description: "Market data hasn't been updated for {{ $value }} seconds."
+
+      # Security Alerts
+      - alert: SuspiciousLoginActivity
+        expr: rate(authentication_failed_attempts_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Suspicious login activity detected"
+          description: "Failed login rate is {{ $value }} attempts per second."
+
+      - alert: APIRateLimitExceeded
+        expr: rate(api_rate_limit_exceeded_total[5m]) > 5
+        for: 2m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "API rate limit exceeded"
+          description: "API rate limit exceeded {{ $value }} times per second."
+
+      # Business Metrics Alerts
+      - alert: RevenueDropAlert
+        expr: decrease(revenue_total[1h]) < -1000
+        for: 5m
+        labels:
+          severity: critical
+          team: business
+        annotations:
+          summary: "Significant revenue drop detected"
+          description: "Revenue has dropped by ${{ $value }} in the last hour."
+
+      - alert: LowActiveUsers
+        expr: active_users_count < 100
+        for: 10m
+        labels:
+          severity: warning
+          team: product
+        annotations:
+          summary: "Low active user count"
+          description: "Active user count is {{ $value }}, below normal threshold."

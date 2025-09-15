@@ -1,0 +1,18 @@
+{
+  "content": "\ud83d\ude80 Automated Pipeline Test - 08:27\n\nTesting the AI Finance Agency automated posting system across all platforms.\n\nThis demonstrates our end-to-end content distribution capability.\n\n#AIFinance #Automation #Testing",
+  "timestamp": "2025-09-11T08:27:10.443641",
+  "platforms": {
+    "telegram": {
+      "success": true,
+      "id": "439"
+    },
+    "twitter": {
+      "success": true,
+      "id": "1965972872083689773"
+    },
+    "linkedin": {
+      "success": true,
+      "id": "urn:li:share:7371738570467794944"
+    }
+  }
+}

@@ -1,0 +1,1244 @@
+openapi: 3.1.0
+info:
+  title: AI Finance Agency - User Management Service
+  description: |
+    User Management Service handles authentication, authorization, user profiles,
+    role-based access control, session management, and multi-factor authentication.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@aifinance.agency
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://user-mgmt.aifinance.agency/v1
+    description: Production server
+  - url: https://staging-user-mgmt.aifinance.agency/v1
+    description: Staging server
+  - url: http://localhost:3002/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check service health status
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      description: Create a new user account with email verification
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDto'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid registration data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and return JWT tokens with session tracking
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '423':
+          description: Account locked due to failed attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Generate new access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenDto'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate user session and tokens
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/logout-enhanced:
+    post:
+      tags:
+        - Authentication
+      summary: Enhanced logout
+      description: Comprehensive logout with token blacklisting and session cleanup
+      responses:
+        '200':
+          description: Enhanced logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/forgot-password:
+    post:
+      tags:
+        - Authentication
+      summary: Forgot password
+      description: Initiate password reset process via email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ForgotPasswordDto'
+      responses:
+        '200':
+          description: Password reset email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Reset password
+      description: Reset password using token from email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordDto'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid or expired reset token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/change-password:
+    post:
+      tags:
+        - Authentication
+      summary: Change password
+      description: Change password for authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordDto'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid current password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/verify-email:
+    get:
+      tags:
+        - Authentication
+      summary: Verify email (GET)
+      description: Verify email address using token from email link
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid or expired verification token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Authentication
+      summary: Verify email (POST)
+      description: Verify email address using token in request body
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyEmailDto'
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/resend-verification:
+    post:
+      tags:
+        - Authentication
+      summary: Resend verification email
+      description: Send new email verification link
+      security: []
+      responses:
+        '200':
+          description: Verification email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current user
+      description: Retrieve authenticated user information
+      responses:
+        '200':
+          description: User information retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+
+  /auth/check:
+    get:
+      tags:
+        - Authentication
+      summary: Check authentication
+      description: Verify user authentication status
+      responses:
+        '200':
+          description: User is authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authenticated:
+                    type: boolean
+                    example: true
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                      firstName:
+                        type: string
+                      lastName:
+                        type: string
+                      roles:
+                        type: array
+                        items:
+                          type: string
+
+  # MFA Endpoints
+  /auth/mfa/setup:
+    post:
+      tags:
+        - Multi-Factor Authentication
+      summary: Setup MFA
+      description: Initialize MFA setup for user
+      responses:
+        '200':
+          description: MFA setup initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaSetupResponse'
+
+  /auth/mfa/enable:
+    post:
+      tags:
+        - Multi-Factor Authentication
+      summary: Enable MFA
+      description: Complete MFA setup and enable for user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  pattern: '^\d{6}$'
+      responses:
+        '200':
+          description: MFA enabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/mfa/disable:
+    post:
+      tags:
+        - Multi-Factor Authentication
+      summary: Disable MFA
+      description: Disable MFA for user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  pattern: '^\d{6}$'
+      responses:
+        '200':
+          description: MFA disabled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/mfa/complete:
+    post:
+      tags:
+        - Multi-Factor Authentication
+      summary: Complete MFA login
+      description: Complete two-factor authentication during login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mfaToken:
+                  type: string
+                totpToken:
+                  type: string
+                  pattern: '^\d{6}$'
+      responses:
+        '200':
+          description: MFA login completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  # Session Management
+  /auth/sessions:
+    get:
+      tags:
+        - Session Management
+      summary: Get user sessions
+      description: Retrieve all active sessions for the user
+      responses:
+        '200':
+          description: Sessions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+
+  /auth/sessions/terminate:
+    post:
+      tags:
+        - Session Management
+      summary: Terminate specific session
+      description: Terminate a specific user session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Session terminated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/sessions/terminate-all:
+    post:
+      tags:
+        - Session Management
+      summary: Terminate all other sessions
+      description: Terminate all user sessions except the current one
+      responses:
+        '200':
+          description: All other sessions terminated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  # User Management
+  /users:
+    get:
+      tags:
+        - User Management
+      summary: List users
+      description: Get paginated list of users (admin only)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsersResponse'
+
+    post:
+      tags:
+        - User Management
+      summary: Create user
+      description: Create new user (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserDto'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/{id}:
+    get:
+      tags:
+        - User Management
+      summary: Get user by ID
+      description: Retrieve specific user information
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - User Management
+      summary: Update user
+      description: Update user information
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserDto'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+    delete:
+      tags:
+        - User Management
+      summary: Delete user
+      description: Soft delete user account (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  # Profile Management
+  /profile:
+    get:
+      tags:
+        - Profile
+      summary: Get user profile
+      description: Retrieve current user's detailed profile
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+    put:
+      tags:
+        - Profile
+      summary: Update user profile
+      description: Update current user's profile information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileDto'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  # Role Management
+  /roles:
+    get:
+      tags:
+        - Roles
+      summary: List roles
+      description: Get all available roles (admin only)
+      responses:
+        '200':
+          description: Roles retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Role'
+
+    post:
+      tags:
+        - Roles
+      summary: Create role
+      description: Create new role (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoleDto'
+      responses:
+        '201':
+          description: Role created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+
+  /roles/{id}:
+    get:
+      tags:
+        - Roles
+      summary: Get role by ID
+      description: Retrieve specific role information
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Role retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+
+    put:
+      tags:
+        - Roles
+      summary: Update role
+      description: Update role information (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoleDto'
+      responses:
+        '200':
+          description: Role updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Role'
+
+    delete:
+      tags:
+        - Roles
+      summary: Delete role
+      description: Delete role (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Role deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /users/{id}/roles:
+    post:
+      tags:
+        - User Management
+      summary: Assign role to user
+      description: Assign role to specific user (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Role assigned successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+    delete:
+      tags:
+        - User Management
+      summary: Remove role from user
+      description: Remove role from specific user (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Role removed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        service:
+          type: string
+          example: user-management
+        version:
+          type: string
+          example: 1.0.0
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    RegisterDto:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]'
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z\s\-''\.]+$'
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+          pattern: '^[a-zA-Z\s\-''\.]+$'
+        phone:
+          type: string
+          format: phone
+        dateOfBirth:
+          type: string
+          format: date
+        acceptTerms:
+          type: boolean
+        subscribeNewsletter:
+          type: boolean
+
+    LoginDto:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        deviceId:
+          type: string
+        deviceName:
+          type: string
+        rememberMe:
+          type: boolean
+        twoFactorCode:
+          type: string
+          pattern: '^\d{6}$'
+
+    RefreshTokenDto:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+
+    ForgotPasswordDto:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordDto:
+      type: object
+      required:
+        - token
+        - newPassword
+        - confirmPassword
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]'
+        confirmPassword:
+          type: string
+
+    ChangePasswordDto:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+        - confirmPassword
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]'
+        confirmPassword:
+          type: string
+
+    VerifyEmailDto:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+        tokenType:
+          type: string
+          default: Bearer
+        user:
+          $ref: '#/components/schemas/User'
+
+    MfaSetupResponse:
+      type: object
+      properties:
+        qrCodeUrl:
+          type: string
+          format: uri
+        secretKey:
+          type: string
+        setupToken:
+          type: string
+        backupCodes:
+          type: array
+          items:
+            type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        emailVerified:
+          type: boolean
+        twoFactorEnabled:
+          type: boolean
+        kycStatus:
+          type: string
+          enum: [pending, verified, rejected]
+        subscriptionTier:
+          type: string
+          enum: [basic, premium, vip]
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/Role'
+        permissions:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserProfile:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            profilePicture:
+              type: string
+              format: uri
+            timezone:
+              type: string
+            language:
+              type: string
+            tradingExperience:
+              type: string
+              enum: [beginner, intermediate, advanced, professional]
+            riskTolerance:
+              type: string
+              enum: [conservative, moderate, aggressive]
+            investmentGoals:
+              type: array
+              items:
+                type: string
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        deviceId:
+          type: string
+        deviceName:
+          type: string
+        ipAddress:
+          type: string
+          format: ipv4
+        userAgent:
+          type: string
+        location:
+          type: string
+        isActive:
+          type: boolean
+        lastActivity:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    Role:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        isSystem:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UsersResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    CreateUserDto:
+      type: object
+      required:
+        - email
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        roleIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        sendInvitation:
+          type: boolean
+          default: true
+
+    UpdateUserDto:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        emailVerified:
+          type: boolean
+        kycStatus:
+          type: string
+          enum: [pending, verified, rejected]
+        subscriptionTier:
+          type: string
+          enum: [basic, premium, vip]
+
+    UpdateProfileDto:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        profilePicture:
+          type: string
+          format: uri
+        timezone:
+          type: string
+        language:
+          type: string
+        tradingExperience:
+          type: string
+          enum: [beginner, intermediate, advanced, professional]
+        riskTolerance:
+          type: string
+          enum: [conservative, moderate, aggressive]
+        investmentGoals:
+          type: array
+          items:
+            type: string
+
+    CreateRoleDto:
+      type: object
+      required:
+        - name
+        - description
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    UpdateRoleDto:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          type: object
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

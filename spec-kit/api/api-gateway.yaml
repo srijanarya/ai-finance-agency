@@ -1,0 +1,886 @@
+openapi: 3.1.0
+info:
+  title: AI Finance Agency - API Gateway
+  description: |
+    Central API Gateway for the AI Finance Agency platform.
+    Routes requests to appropriate microservices with authentication, 
+    authorization, rate limiting, and monitoring.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@aifinance.agency
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.aifinance.agency/v1
+    description: Production server
+  - url: https://staging-api.aifinance.agency/v1
+    description: Staging server
+  - url: http://localhost:3001/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Check API Gateway health status
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register new user
+      description: Create a new user account
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid registration data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          headers:
+            X-RateLimit-Limit:
+              description: Request limit per window
+              schema:
+                type: integer
+            X-RateLimit-Remaining:
+              description: Requests remaining in window
+              schema:
+                type: integer
+            X-RateLimit-Reset:
+              description: Rate limit window reset time
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user credentials and return JWT tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User logout
+      description: Invalidate user session and tokens
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/profile:
+    get:
+      tags:
+        - User Management
+      summary: Get user profile
+      description: Retrieve current user's profile information
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trading/orders:
+    get:
+      tags:
+        - Trading
+      summary: Get user orders
+      description: Retrieve trading orders for the authenticated user
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of orders to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter orders by status
+          schema:
+            type: string
+            enum: [pending, filled, partially_filled, cancelled, rejected]
+      responses:
+        '200':
+          description: Orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TradingOrder'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Trading
+      summary: Create new order
+      description: Submit a new trading order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TradingOrder'
+        '400':
+          description: Invalid order data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient trading permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /signals/active:
+    get:
+      tags:
+        - Signals
+      summary: Get active trading signals
+      description: Retrieve currently active trading signals
+      parameters:
+        - name: symbol
+          in: query
+          description: Filter signals by symbol
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of signals to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Active signals retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalsResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient signal permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /payments:
+    get:
+      tags:
+        - Payments
+      summary: Get user payments
+      description: Retrieve payment history for the authenticated user
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter payments by status
+          schema:
+            type: string
+            enum: [pending, completed, failed, refunded]
+      responses:
+        '200':
+          description: Payments retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentsResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Payments
+      summary: Create new payment
+      description: Initiate a new payment transaction
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Payment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Payment'
+        '400':
+          description: Invalid payment data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /education/courses:
+    get:
+      tags:
+        - Education
+      summary: Get available courses
+      description: Retrieve educational courses available to the user
+      parameters:
+        - name: category
+          in: query
+          description: Filter courses by category
+          schema:
+            type: string
+        - name: level
+          in: query
+          description: Filter courses by difficulty level
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced]
+      responses:
+        '200':
+          description: Courses retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Course'
+
+  /admin/{service}:
+    all:
+      tags:
+        - Admin
+      summary: Admin service access
+      description: Proxy requests to backend services with admin privileges
+      parameters:
+        - name: service
+          in: path
+          required: true
+          description: Target service name
+          schema:
+            type: string
+            enum: [trading, signals, payments, education, users]
+      responses:
+        '200':
+          description: Request proxied successfully
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient admin permissions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        service:
+          type: string
+          example: api-gateway
+        version:
+          type: string
+          example: 1.0.0
+        uptime:
+          type: number
+          example: 3600.5
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Invalid request data
+            details:
+              type: object
+              additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+          format: uuid
+
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]'
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 50
+        phone:
+          type: string
+          format: phone
+        dateOfBirth:
+          type: string
+          format: date
+        acceptTerms:
+          type: boolean
+          default: false
+        subscribeNewsletter:
+          type: boolean
+          default: true
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        deviceId:
+          type: string
+        deviceName:
+          type: string
+        rememberMe:
+          type: boolean
+          default: false
+        twoFactorCode:
+          type: string
+          pattern: '^\d{6}$'
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        tokenType:
+          type: string
+          default: Bearer
+        expiresIn:
+          type: integer
+          example: 3600
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        subscriptionTier:
+          type: string
+          enum: [basic, premium, vip]
+        emailVerified:
+          type: boolean
+        twoFactorEnabled:
+          type: boolean
+        kycStatus:
+          type: string
+          enum: [pending, verified, rejected]
+        createdAt:
+          type: string
+          format: date-time
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+
+    TradingOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        orderType:
+          type: string
+          enum: [market, limit, stop_loss, take_profit]
+        side:
+          type: string
+          enum: [buy, sell]
+        quantity:
+          type: number
+          format: decimal
+        price:
+          type: number
+          format: decimal
+        status:
+          type: string
+          enum: [pending, filled, partially_filled, cancelled, rejected]
+        executedQuantity:
+          type: number
+          format: decimal
+        executedPrice:
+          type: number
+          format: decimal
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateOrderRequest:
+      type: object
+      required:
+        - symbol
+        - orderType
+        - side
+        - quantity
+      properties:
+        symbol:
+          type: string
+        orderType:
+          type: string
+          enum: [market, limit, stop_loss, take_profit]
+        side:
+          type: string
+          enum: [buy, sell]
+        quantity:
+          type: number
+          format: decimal
+          minimum: 0
+        price:
+          type: number
+          format: decimal
+          minimum: 0
+        timeInForce:
+          type: string
+          enum: [GTC, IOC, FOK, DAY]
+          default: GTC
+
+    SignalsResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            signals:
+              type: array
+              items:
+                $ref: '#/components/schemas/TradingSignal'
+            count:
+              type: integer
+            timestamp:
+              type: string
+              format: date-time
+
+    TradingSignal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        signalType:
+          type: string
+          enum: [buy, sell, hold]
+        strength:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        timeFrame:
+          type: string
+          enum: [1min, 5min, 15min, 1hour, 4hour, 1day]
+        price:
+          type: number
+          format: decimal
+        targetPrice:
+          type: number
+          format: decimal
+        stopLoss:
+          type: number
+          format: decimal
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        generatedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+
+    PaymentsResponse:
+      type: object
+      properties:
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Payment'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    Payment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          format: decimal
+        currency:
+          type: string
+          example: USD
+        status:
+          type: string
+          enum: [pending, completed, failed, refunded]
+        description:
+          type: string
+        paymentMethodId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreatePaymentRequest:
+      type: object
+      required:
+        - amount
+        - currency
+        - paymentMethodId
+      properties:
+        amount:
+          type: number
+          format: decimal
+          minimum: 0.01
+        currency:
+          type: string
+          example: USD
+        description:
+          type: string
+        paymentMethodId:
+          type: string
+
+    Course:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        level:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        duration:
+          type: integer
+          description: Duration in minutes
+        price:
+          type: number
+          format: decimal
+        thumbnailUrl:
+          type: string
+          format: uri
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token obtained from /auth/login endpoint.
+        Format: Authorization: Bearer {token}
+
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: |
+        API key for server-to-server authentication.
+        Contact support for API key provisioning.
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    RateLimitError:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          description: Request limit per window
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          description: Requests remaining in window
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          description: Rate limit window reset time
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

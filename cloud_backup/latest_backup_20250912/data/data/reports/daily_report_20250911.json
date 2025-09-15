@@ -1,0 +1,71 @@
+{
+  "report_date": "2025-09-11T08:56:07.809919",
+  "stats": {
+    "today": {
+      "total_posts": 2,
+      "telegram_posts": 2,
+      "twitter_posts": 2,
+      "linkedin_posts": 2,
+      "successful_posts": 2
+    },
+    "weekly": [
+      [
+        "2025-09-11",
+        2,
+        2
+      ]
+    ],
+    "platform_success_rates": [
+      [
+        "telegram",
+        2,
+        2
+      ],
+      [
+        "twitter",
+        2,
+        2
+      ],
+      [
+        "linkedin",
+        2,
+        2
+      ]
+    ]
+  },
+  "performance": {
+    "overall_success_rate": 100.0,
+    "platform_distribution": {
+      "telegram": 2,
+      "twitter": 2,
+      "linkedin": 2
+    },
+    "weekly_average": 2.0,
+    "trend": "\ud83d\udcca Insufficient data",
+    "total_posts_this_week": 2
+  },
+  "engagement": {
+    "telegram": {
+      "bot_username": "@AIFinanceAgencyBot",
+      "status": "active",
+      "metrics_available": false,
+      "note": "Telegram Bot API provides limited engagement metrics"
+    },
+    "twitter": {
+      "username": "@aryasrijan",
+      "followers": 90,
+      "following": 306,
+      "tweet_count": 16,
+      "listed_count": 0,
+      "status": "active"
+    },
+    "linkedin": {
+      "profile_name": "Srijan Arya",
+      "email": "srijanaryay@gmail.com",
+      "status": "active",
+      "metrics_available": false,
+      "note": "LinkedIn API provides limited engagement metrics for personal profiles"
+    }
+  },
+  "chart_file": "data/reports/daily_analytics_20250911.png"
+}

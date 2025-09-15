@@ -1,0 +1,81 @@
+{
+  "backup_timestamp": "2025-09-12T02:00:03.770014",
+  "backup_type": "daily",
+  "backed_up_files": [
+    {
+      "path": "scripts/daily_analytics_report.py",
+      "size_bytes": 17500,
+      "modified": "2025-09-11T08:54:59.306934"
+    },
+    {
+      "path": "scripts/social_media_verifier.py",
+      "size_bytes": 11524,
+      "modified": "2025-09-11T08:41:22.054141"
+    },
+    {
+      "path": "scripts/platform_health_checker.py",
+      "size_bytes": 20052,
+      "modified": "2025-09-11T08:57:24.176328"
+    },
+    {
+      "path": "scripts/automated_posting_system.py",
+      "size_bytes": 12357,
+      "modified": "2025-09-11T08:27:03.682438"
+    },
+    {
+      "path": "scripts/api_rate_limit_monitor.py",
+      "size_bytes": 13651,
+      "modified": "2025-09-11T08:43:48.234601"
+    },
+    {
+      "path": "scripts/test_openai_content.py",
+      "size_bytes": 13948,
+      "modified": "2025-09-11T08:53:34.416321"
+    },
+    {
+      "path": "scripts/linkedin_token_reminder.py",
+      "size_bytes": 5681,
+      "modified": "2025-09-11T08:40:25.319803"
+    },
+    {
+      "path": "data/data/health_reports/health_check_20250911_085738.json",
+      "size_bytes": 2217,
+      "modified": "2025-09-11T08:57:38.117748"
+    },
+    {
+      "path": "data/data/reports/daily_analytics_20250911.png",
+      "size_bytes": 283425,
+      "modified": "2025-09-11T08:56:07.806752"
+    },
+    {
+      "path": "data/data/reports/daily_report_20250911.json",
+      "size_bytes": 1486,
+      "modified": "2025-09-11T08:56:07.810630"
+    },
+    {
+      "path": "credentials/content_variety_history.json",
+      "size_bytes": 684,
+      "modified": "2025-09-11T20:37:50.763695"
+    },
+    {
+      "path": "credentials/.env",
+      "size_bytes": 7793,
+      "modified": "2025-09-11T22:15:38.972906"
+    },
+    {
+      "path": "credentials/API_RATE_LIMITS_GUIDE.md",
+      "size_bytes": 9971,
+      "modified": "2025-09-11T08:49:59.870051"
+    },
+    {
+      "path": "credentials/data/automated_posts.db",
+      "size_bytes": 12288,
+      "modified": "2025-09-11T08:42:26.445476"
+    }
+  ],
+  "system_info": {
+    "hostname": "Srijans-MacBook-Air.local",
+    "python_version": "Python 3.9.6",
+    "disk_usage": "Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on\n/dev/disk3s5   228Gi   190Gi    14Gi    94%    3.0M  149M    2%   /System/Volumes/Data\n"
+  }
+}

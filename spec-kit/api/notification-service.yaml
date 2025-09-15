@@ -1,0 +1,1329 @@
+openapi: 3.1.0
+info:
+  title: AI Finance Agency - Notification Service
+  description: |
+    Notification Service handles multi-channel notifications including email,
+    SMS, push notifications, and in-app messaging with user preferences.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@aifinance.agency
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://notifications.aifinance.agency/v1
+    description: Production server
+  - url: https://staging-notifications.aifinance.agency/v1
+    description: Staging server
+  - url: http://localhost:3009/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check notification service health status
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # Notification Management
+  /notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Get user notifications
+      description: Retrieve notifications for the authenticated user
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [unread, read, all]
+            default: all
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [trading, signal, payment, education, system, marketing]
+        - name: channel
+          in: query
+          schema:
+            type: string
+            enum: [email, sms, push, in_app]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high, urgent]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationsResponse'
+
+    post:
+      tags:
+        - Notifications
+      summary: Send notification (Admin)
+      description: Send a notification to users (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotificationDto'
+      responses:
+        '201':
+          description: Notification sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+
+  /notifications/{id}:
+    get:
+      tags:
+        - Notifications
+      summary: Get notification by ID
+      description: Retrieve specific notification details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Notification retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '404':
+          description: Notification not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Notifications
+      summary: Delete notification
+      description: Delete a notification from user's inbox
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Notification deleted successfully
+
+  /notifications/{id}/read:
+    post:
+      tags:
+        - Notifications
+      summary: Mark notification as read
+      description: Mark a specific notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+
+  /notifications/mark-all-read:
+    post:
+      tags:
+        - Notifications
+      summary: Mark all notifications as read
+      description: Mark all user notifications as read
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [trading, signal, payment, education, system, marketing]
+                  description: Optional filter by notification type
+      responses:
+        '200':
+          description: All notifications marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  updatedCount:
+                    type: integer
+
+  /notifications/unread-count:
+    get:
+      tags:
+        - Notifications
+      summary: Get unread notification count
+      description: Get count of unread notifications by type
+      responses:
+        '200':
+          description: Unread count retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnreadCount'
+
+  # Bulk Operations
+  /notifications/bulk/read:
+    post:
+      tags:
+        - Notifications
+      summary: Mark multiple notifications as read
+      description: Mark multiple notifications as read by ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - notificationIds
+              properties:
+                notificationIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  maxItems: 100
+      responses:
+        '200':
+          description: Notifications marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  updatedCount:
+                    type: integer
+
+  /notifications/bulk/delete:
+    post:
+      tags:
+        - Notifications
+      summary: Delete multiple notifications
+      description: Delete multiple notifications by ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - notificationIds
+              properties:
+                notificationIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  maxItems: 100
+      responses:
+        '200':
+          description: Notifications deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  deletedCount:
+                    type: integer
+
+  # Notification Preferences
+  /preferences:
+    get:
+      tags:
+        - Preferences
+      summary: Get notification preferences
+      description: Retrieve notification preferences for the authenticated user
+      responses:
+        '200':
+          description: Preferences retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+
+    put:
+      tags:
+        - Preferences
+      summary: Update notification preferences
+      description: Update notification preferences for the authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePreferencesDto'
+      responses:
+        '200':
+          description: Preferences updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+
+  /preferences/reset:
+    post:
+      tags:
+        - Preferences
+      summary: Reset preferences to default
+      description: Reset notification preferences to default values
+      responses:
+        '200':
+          description: Preferences reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+
+  # Push Notification Devices
+  /devices:
+    get:
+      tags:
+        - Devices
+      summary: Get registered devices
+      description: Retrieve push notification devices for the authenticated user
+      responses:
+        '200':
+          description: Devices retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Device'
+
+    post:
+      tags:
+        - Devices
+      summary: Register device
+      description: Register a device for push notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDeviceDto'
+      responses:
+        '201':
+          description: Device registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+
+  /devices/{deviceId}:
+    put:
+      tags:
+        - Devices
+      summary: Update device
+      description: Update device information
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDeviceDto'
+      responses:
+        '200':
+          description: Device updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+
+    delete:
+      tags:
+        - Devices
+      summary: Unregister device
+      description: Remove device from push notifications
+      parameters:
+        - name: deviceId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Device unregistered successfully
+
+  # Templates (Admin)
+  /templates:
+    get:
+      tags:
+        - Templates
+      summary: Get notification templates (Admin)
+      description: Retrieve notification templates (admin only)
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [trading, signal, payment, education, system, marketing]
+        - name: channel
+          in: query
+          schema:
+            type: string
+            enum: [email, sms, push, in_app]
+      responses:
+        '200':
+          description: Templates retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificationTemplate'
+
+    post:
+      tags:
+        - Templates
+      summary: Create notification template (Admin)
+      description: Create a new notification template (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplateDto'
+      responses:
+        '201':
+          description: Template created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTemplate'
+
+  /templates/{id}:
+    get:
+      tags:
+        - Templates
+      summary: Get template by ID (Admin)
+      description: Retrieve specific template (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Template retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTemplate'
+
+    put:
+      tags:
+        - Templates
+      summary: Update template (Admin)
+      description: Update notification template (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTemplateDto'
+      responses:
+        '200':
+          description: Template updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTemplate'
+
+    delete:
+      tags:
+        - Templates
+      summary: Delete template (Admin)
+      description: Delete notification template (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Template deleted successfully
+
+  # Broadcasting (Admin)
+  /broadcast:
+    post:
+      tags:
+        - Broadcasting
+      summary: Broadcast notification (Admin)
+      description: Send notification to multiple users (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BroadcastNotificationDto'
+      responses:
+        '202':
+          description: Broadcast initiated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  broadcastId:
+                    type: string
+                    format: uuid
+                  message:
+                    type: string
+                  estimatedRecipients:
+                    type: integer
+
+  /broadcast/{broadcastId}/status:
+    get:
+      tags:
+        - Broadcasting
+      summary: Get broadcast status (Admin)
+      description: Check status of a broadcast notification (admin only)
+      parameters:
+        - name: broadcastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Broadcast status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BroadcastStatus'
+
+  # Analytics (Admin)
+  /analytics/delivery-stats:
+    get:
+      tags:
+        - Analytics
+      summary: Get delivery statistics (Admin)
+      description: Retrieve notification delivery statistics (admin only)
+      parameters:
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [trading, signal, payment, education, system, marketing]
+        - name: channel
+          in: query
+          schema:
+            type: string
+            enum: [email, sms, push, in_app]
+      responses:
+        '200':
+          description: Delivery statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeliveryStats'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        service:
+          type: string
+          example: notification-service
+        version:
+          type: string
+          example: 1.0.0
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    CreateNotificationDto:
+      type: object
+      required:
+        - title
+        - message
+        - type
+        - recipients
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        type:
+          type: string
+          enum: [trading, signal, payment, education, system, marketing]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          default: medium
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [email, sms, push, in_app]
+          default: [in_app]
+        recipients:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: User IDs to send notification to
+        data:
+          type: object
+          additionalProperties: true
+          description: Additional data for the notification
+        actionUrl:
+          type: string
+          format: uri
+          description: URL to navigate when notification is clicked
+        expiresAt:
+          type: string
+          format: date-time
+        scheduleFor:
+          type: string
+          format: date-time
+          description: Schedule notification for future delivery
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+          enum: [trading, signal, payment, education, system, marketing]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [email, sms, push, in_app]
+        status:
+          type: string
+          enum: [pending, sent, delivered, failed, read]
+        isRead:
+          type: boolean
+        data:
+          type: object
+          additionalProperties: true
+        actionUrl:
+          type: string
+          format: uri
+        deliveryStatus:
+          type: object
+          properties:
+            email:
+              type: string
+              enum: [sent, delivered, bounced, failed]
+            sms:
+              type: string
+              enum: [sent, delivered, failed]
+            push:
+              type: string
+              enum: [sent, delivered, failed]
+            in_app:
+              type: string
+              enum: [delivered, read]
+        sentAt:
+          type: string
+          format: date-time
+        deliveredAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    NotificationsResponse:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/Notification'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+        unreadCount:
+          type: integer
+
+    UnreadCount:
+      type: object
+      properties:
+        total:
+          type: integer
+        byType:
+          type: object
+          properties:
+            trading:
+              type: integer
+            signal:
+              type: integer
+            payment:
+              type: integer
+            education:
+              type: integer
+            system:
+              type: integer
+            marketing:
+              type: integer
+
+    UpdatePreferencesDto:
+      type: object
+      properties:
+        email:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            trading:
+              type: boolean
+            signals:
+              type: boolean
+            payments:
+              type: boolean
+            education:
+              type: boolean
+            system:
+              type: boolean
+            marketing:
+              type: boolean
+        sms:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            trading:
+              type: boolean
+            signals:
+              type: boolean
+            payments:
+              type: boolean
+            system:
+              type: boolean
+        push:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            trading:
+              type: boolean
+            signals:
+              type: boolean
+            payments:
+              type: boolean
+            education:
+              type: boolean
+            system:
+              type: boolean
+            marketing:
+              type: boolean
+        in_app:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            trading:
+              type: boolean
+            signals:
+              type: boolean
+            payments:
+              type: boolean
+            education:
+              type: boolean
+            system:
+              type: boolean
+            marketing:
+              type: boolean
+        quietHours:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            startTime:
+              type: string
+              pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+              example: '22:00'
+            endTime:
+              type: string
+              pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+              example: '08:00'
+            timezone:
+              type: string
+              example: 'America/New_York'
+
+    NotificationPreferences:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        email:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            trading:
+              type: boolean
+            signals:
+              type: boolean
+            payments:
+              type: boolean
+            education:
+              type: boolean
+            system:
+              type: boolean
+            marketing:
+              type: boolean
+        sms:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            trading:
+              type: boolean
+            signals:
+              type: boolean
+            payments:
+              type: boolean
+            system:
+              type: boolean
+        push:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            trading:
+              type: boolean
+            signals:
+              type: boolean
+            payments:
+              type: boolean
+            education:
+              type: boolean
+            system:
+              type: boolean
+            marketing:
+              type: boolean
+        in_app:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            trading:
+              type: boolean
+            signals:
+              type: boolean
+            payments:
+              type: boolean
+            education:
+              type: boolean
+            system:
+              type: boolean
+            marketing:
+              type: boolean
+        quietHours:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            startTime:
+              type: string
+            endTime:
+              type: string
+            timezone:
+              type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    RegisterDeviceDto:
+      type: object
+      required:
+        - deviceId
+        - platform
+        - token
+      properties:
+        deviceId:
+          type: string
+          description: Unique device identifier
+        platform:
+          type: string
+          enum: [ios, android, web]
+        token:
+          type: string
+          description: FCM/APNS token for push notifications
+        deviceName:
+          type: string
+        appVersion:
+          type: string
+        osVersion:
+          type: string
+
+    UpdateDeviceDto:
+      type: object
+      properties:
+        token:
+          type: string
+        deviceName:
+          type: string
+        appVersion:
+          type: string
+        osVersion:
+          type: string
+        isActive:
+          type: boolean
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        deviceId:
+          type: string
+        platform:
+          type: string
+          enum: [ios, android, web]
+        token:
+          type: string
+        deviceName:
+          type: string
+        appVersion:
+          type: string
+        osVersion:
+          type: string
+        isActive:
+          type: boolean
+        lastUsed:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateTemplateDto:
+      type: object
+      required:
+        - name
+        - type
+        - channel
+        - subject
+        - content
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        type:
+          type: string
+          enum: [trading, signal, payment, education, system, marketing]
+        channel:
+          type: string
+          enum: [email, sms, push, in_app]
+        subject:
+          type: string
+          maxLength: 200
+        content:
+          type: string
+          minLength: 1
+        variables:
+          type: array
+          items:
+            type: string
+          description: List of template variables like {{userName}}
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateTemplateDto:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        subject:
+          type: string
+          maxLength: 200
+        content:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+
+    NotificationTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [trading, signal, payment, education, system, marketing]
+        channel:
+          type: string
+          enum: [email, sms, push, in_app]
+        subject:
+          type: string
+        content:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BroadcastNotificationDto:
+      type: object
+      required:
+        - title
+        - message
+        - type
+        - targetAudience
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        type:
+          type: string
+          enum: [trading, signal, payment, education, system, marketing]
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          default: medium
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [email, sms, push, in_app]
+          default: [in_app]
+        targetAudience:
+          type: object
+          properties:
+            userIds:
+              type: array
+              items:
+                type: string
+                format: uuid
+              description: Specific user IDs (overrides other filters)
+            subscriptionTiers:
+              type: array
+              items:
+                type: string
+                enum: [basic, premium, vip]
+            roles:
+              type: array
+              items:
+                type: string
+            segments:
+              type: array
+              items:
+                type: string
+                enum: [active_traders, new_users, inactive_users, premium_subscribers]
+        templateId:
+          type: string
+          format: uuid
+          description: Use template instead of title/message
+        templateVariables:
+          type: object
+          additionalProperties:
+            type: string
+        scheduleFor:
+          type: string
+          format: date-time
+
+    BroadcastStatus:
+      type: object
+      properties:
+        broadcastId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, cancelled]
+        totalRecipients:
+          type: integer
+        sent:
+          type: integer
+        delivered:
+          type: integer
+        failed:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        failureReason:
+          type: string
+
+    DeliveryStats:
+      type: object
+      properties:
+        period:
+          type: object
+          properties:
+            startDate:
+              type: string
+              format: date
+            endDate:
+              type: string
+              format: date
+        totalNotifications:
+          type: integer
+        byChannel:
+          type: object
+          properties:
+            email:
+              type: object
+              properties:
+                sent:
+                  type: integer
+                delivered:
+                  type: integer
+                bounced:
+                  type: integer
+                failed:
+                  type: integer
+                deliveryRate:
+                  type: number
+                  format: float
+            sms:
+              type: object
+              properties:
+                sent:
+                  type: integer
+                delivered:
+                  type: integer
+                failed:
+                  type: integer
+                deliveryRate:
+                  type: number
+                  format: float
+            push:
+              type: object
+              properties:
+                sent:
+                  type: integer
+                delivered:
+                  type: integer
+                failed:
+                  type: integer
+                deliveryRate:
+                  type: number
+                  format: float
+            in_app:
+              type: object
+              properties:
+                sent:
+                  type: integer
+                read:
+                  type: integer
+                readRate:
+                  type: number
+                  format: float
+        byType:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              sent:
+                type: integer
+              delivered:
+                type: integer
+              read:
+                type: integer
+        engagementMetrics:
+          type: object
+          properties:
+            clickThroughRate:
+              type: number
+              format: float
+            averageReadTime:
+              type: integer
+              description: In seconds
+            unsubscribeRate:
+              type: number
+              format: float
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

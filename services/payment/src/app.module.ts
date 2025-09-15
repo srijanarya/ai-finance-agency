@@ -91,8 +91,12 @@ import { RolesGuard } from './guards/roles.guard';
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        ttl: configService.get('payment.security.rateLimiting.windowMs'),
-        limit: configService.get('payment.security.rateLimiting.max'),
+        throttlers: [
+          {
+            ttl: configService.get('payment.security.rateLimiting.windowMs', 60000),
+            limit: configService.get('payment.security.rateLimiting.max', 100),
+          },
+        ],
       }),
     }),
   ],

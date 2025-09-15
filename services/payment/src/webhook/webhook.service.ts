@@ -22,7 +22,7 @@ export class WebhookService {
     private auditService: AuditService,
   ) {
     this.stripe = new Stripe(this.configService.get<string>('payment.stripe.secretKey'), {
-      apiVersion: '2024-06-20',
+      apiVersion: '2023-10-16',
     });
   }
 
@@ -89,9 +89,7 @@ export class WebhookService {
           await this.handleInvoiceFinalized(event.data.object as Stripe.Invoice);
           break;
 
-        case 'customer.source.chargeable':
-          await this.handleCustomerSourceChargeable(event.data.object as Stripe.Source);
-          break;
+        // Note: customer.source.chargeable event type has been deprecated in newer Stripe API versions
 
         default:
           this.logger.warn(`Unhandled Stripe webhook event type: ${event.type}`);

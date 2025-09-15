@@ -176,10 +176,113 @@ def apply_professional_theme():
             padding: 2rem !important;
             transition: var(--transition);
         }
-        
+
         .stFileUploader > div:hover {
             background: rgba(217,104,51,0.1) !important;
             border-color: var(--accent-hover) !important;
+        }
+
+        /* Enhanced Upload Zone */
+        .upload-zone:hover {
+            border-color: var(--accent-hover);
+            background: rgba(217,104,51,0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px var(--shadow-orange);
+        }
+
+        .upload-zone .upload-icon {
+            transition: var(--transition);
+        }
+
+        .upload-zone:hover .upload-icon {
+            transform: scale(1.1);
+        }
+
+        /* Drag and Drop States */
+        .upload-zone.dragover {
+            border-color: #10b981;
+            background: rgba(16,185,129,0.1);
+        }
+
+        /* Script Editor Enhancements */
+        .script-editor-header {
+            background: rgba(217,104,51,0.05);
+            border-radius: 12px 12px 0 0;
+            padding: 1rem;
+            margin-bottom: 0;
+        }
+
+        /* Credits Card Animation */
+        .credits-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px var(--shadow-orange);
+        }
+
+        .credits-counter {
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+            50% { text-shadow: 0 0 20px var(--accent-orange), 2px 2px 4px rgba(0,0,0,0.3); }
+        }
+
+        /* Video Player Container */
+        .video-player-container {
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .video-player-container:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        /* Mobile Optimizations */
+        .stSelectbox > div > div {
+            background: var(--card-bg) !important;
+            border: 1px solid rgba(217,104,51,0.3) !important;
+            border-radius: 12px !important;
+            color: var(--text-primary) !important;
+        }
+
+        /* Enhanced Button Hover Effects */
+        .stButton > button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px var(--shadow-orange);
+        }
+
+        /* Progress Bar Enhancements */
+        .stProgress > div {
+            background: rgba(217,104,51,0.2) !important;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .stProgress > div > div > div {
+            background: linear-gradient(90deg, var(--accent-orange) 0%, #ff7b3d 50%, var(--accent-orange) 100%) !important;
+            animation: shimmer 2s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200px 0; }
+            100% { background-position: 200px 0; }
+        }
+
+        /* Expander Styling */
+        .streamlit-expanderHeader {
+            background: var(--card-bg) !important;
+            border: 1px solid rgba(217,104,51,0.2) !important;
+            border-radius: 12px !important;
+            color: var(--text-primary) !important;
+        }
+
+        .streamlit-expanderContent {
+            background: var(--card-bg) !important;
+            border: 1px solid rgba(217,104,51,0.2) !important;
+            border-top: none !important;
+            border-radius: 0 0 12px 12px !important;
         }
         
         /* Input Fields */
@@ -276,18 +379,139 @@ def apply_professional_theme():
             margin: 2rem 0;
         }
         
-        /* Responsive Design */
+        /* Mobile-First Responsive Design */
         @media (max-width: 768px) {
             .hero-container {
                 padding: 2rem 1rem;
+                margin: 1rem;
             }
-            
+
+            .hero-title {
+                font-size: 2rem !important;
+            }
+
+            .hero-subtitle {
+                font-size: 1rem !important;
+            }
+
             .feature-card {
                 padding: 1.5rem;
+                margin: 0.5rem;
             }
-            
+
             .grid-container {
                 grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .upload-zone {
+                padding: 2rem 1rem !important;
+                margin: 0.5rem 0 !important;
+            }
+
+            .upload-icon {
+                font-size: 3rem !important;
+            }
+
+            .credits-card {
+                margin: 1rem !important;
+                padding: 1.5rem !important;
+            }
+
+            .credits-counter {
+                font-size: 3rem !important;
+            }
+
+            .video-player-container {
+                margin: 1rem auto !important;
+                aspect-ratio: 9/16 !important; /* Portrait for mobile */
+            }
+
+            .script-editor-header {
+                padding: 0.75rem !important;
+            }
+
+            /* Stack columns on mobile */
+            .stColumns {
+                flex-direction: column !important;
+            }
+
+            /* Mobile button adjustments */
+            .stButton > button {
+                padding: 0.75rem 1.5rem !important;
+                font-size: 0.9rem !important;
+            }
+
+            /* Mobile selectbox styling */
+            .stSelectbox > div > div {
+                font-size: 0.9rem !important;
+            }
+
+            /* Mobile text area */
+            .stTextArea > div > div > textarea {
+                min-height: 120px !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero-title {
+                font-size: 1.75rem !important;
+            }
+
+            .upload-zone {
+                padding: 1.5rem 0.75rem !important;
+            }
+
+            .feature-card {
+                padding: 1rem;
+            }
+
+            .credits-counter {
+                font-size: 2.5rem !important;
+            }
+
+            /* Very small screen adjustments */
+            .stButton > button {
+                padding: 0.65rem 1rem !important;
+                font-size: 0.85rem !important;
+            }
+        }
+
+        /* Tablet optimizations */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .hero-container {
+                padding: 3rem 1.5rem;
+            }
+
+            .feature-card {
+                padding: 1.75rem;
+            }
+        }
+
+        /* Touch device optimizations */
+        @media (hover: none) and (pointer: coarse) {
+            .feature-card:hover,
+            .upload-zone:hover,
+            .credits-card:hover {
+                transform: none !important;
+            }
+
+            .stButton > button:hover {
+                transform: none !important;
+            }
+
+            /* Increase touch targets */
+            .stButton > button {
+                min-height: 48px !important;
+            }
+
+            /* Improve text readability on touch devices */
+            .hero-title {
+                line-height: 1.2 !important;
+            }
+
+            .hero-subtitle {
+                line-height: 1.4 !important;
             }
         }
         

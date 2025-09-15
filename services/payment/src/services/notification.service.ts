@@ -33,7 +33,7 @@ export class NotificationService {
     };
 
     if (emailConfig.host) {
-      this.transporter = nodemailer.createTransporter(emailConfig);
+      this.transporter = nodemailer.createTransport(emailConfig);
     } else {
       this.logger.warn('Email configuration not provided, email notifications disabled');
     }

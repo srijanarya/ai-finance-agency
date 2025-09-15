@@ -1,0 +1,60 @@
+{
+  "test_date": "2025-09-11T08:53:41.389056",
+  "summary": {
+    "total_content": 4,
+    "safe_content": 4,
+    "avg_compliance": 100.0
+  },
+  "results": {
+    "market_update": {
+      "content": "\ud83d\udcca Market Update - 11 Sep\n\nNifty 50 trading near 19,650 levels with IT sector showing strength. Banking stocks consolidating after recent gains.\n\nOutlook: Cautiously optimistic with support at 19,500.\n\n\u26a0\ufe0f For educational purposes only. Not investment advice.\n\n#Nifty50 #StockMarket #AIFinance",
+      "compliance": {
+        "score": 100,
+        "issues": [],
+        "warnings": [
+          "Content exceeds Twitter character limit"
+        ],
+        "has_disclaimer": true,
+        "safe_to_post": true
+      },
+      "timestamp": "2025-09-11T08:53:41.388569"
+    },
+    "educational": {
+      "content": "\ud83d\udca1 SIP Investing Made Simple\n\nSystematic Investment Plan (SIP) allows you to invest fixed amounts regularly in mutual funds.\n\nBenefits: Rupee cost averaging, disciplined investing, compounding growth.\n\nStart small, stay consistent! \n\n\u26a0\ufe0f Consult SEBI-registered advisor.\n\n#SIP #MutualFunds #Investment",
+      "compliance": {
+        "score": 100,
+        "issues": [],
+        "warnings": [
+          "Content exceeds Twitter character limit"
+        ],
+        "has_disclaimer": true,
+        "safe_to_post": true
+      },
+      "timestamp": "2025-09-11T08:53:41.388617"
+    },
+    "technical_analysis": {
+      "content": "\ud83d\udcc8 Technical Outlook - Nifty 50\n\nCurrent Level: 19,650\nSupport: 19,500\nResistance: 19,850\n\nRSI showing neutral at 52. Volume above average. \n\nNext target: 20,000 on breakout.\n\n\u26a0\ufe0f Technical analysis for education. Trade at your own risk.\n\n#TechnicalAnalysis #Trading",
+      "compliance": {
+        "score": 100,
+        "issues": [],
+        "warnings": [],
+        "has_disclaimer": true,
+        "safe_to_post": true
+      },
+      "timestamp": "2025-09-11T08:53:41.388648"
+    },
+    "news_commentary": {
+      "content": "\ud83c\udfe6 RBI Policy Impact Analysis\n\nRecent policy stance maintains accommodative approach. Banking sector likely to benefit from stable rates.\n\nMarket impact: Positive for interest-sensitive sectors.\n\n\u26a0\ufe0f Analysis for educational purposes. Consult financial advisor.\n\n#RBIPolicy #Banking #MarketAnalysis",
+      "compliance": {
+        "score": 100,
+        "issues": [],
+        "warnings": [
+          "Content exceeds Twitter character limit"
+        ],
+        "has_disclaimer": true,
+        "safe_to_post": true
+      },
+      "timestamp": "2025-09-11T08:53:41.388868"
+    }
+  }
+}

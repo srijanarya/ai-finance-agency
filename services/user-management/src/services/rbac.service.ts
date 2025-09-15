@@ -13,6 +13,7 @@ import { User } from '../entities/user.entity';
 import { Role, SystemRole, RoleType } from '../entities/role.entity';
 import { Permission, PermissionResource, PermissionAction } from '../entities/permission.entity';
 import { AuditService } from './audit.service';
+import { AuditAction } from '../entities/audit-log.entity';
 
 interface RoleHierarchy {
   roleId: string;
@@ -188,7 +189,7 @@ export class RbacService {
     // Log the role assignment
     await this.auditLogService.log({
       userId: assignedBy,
-      action: 'role_assignment',
+      action: AuditAction.ROLE_ASSIGNED,
       resource: 'user_role',
       description: `Assigned role ${roleName} to user ${userId}`,
       ipAddress,
@@ -257,7 +258,7 @@ export class RbacService {
     // Log the role revocation
     await this.auditLogService.log({
       userId: revokedBy,
-      action: 'role_revocation',
+      action: AuditAction.ROLE_REMOVED,
       resource: 'user_role',
       description: `Revoked role ${roleName} from user ${userId}`,
       ipAddress,
@@ -401,7 +402,7 @@ export class RbacService {
     // Log the role creation
     await this.auditLogService.log({
       userId: createdBy,
-      action: 'role_creation',
+      action: AuditAction.ROLE_CREATED,
       resource: 'role',
       description: `Created role ${savedRole.name}`,
       ipAddress,
@@ -475,7 +476,7 @@ export class RbacService {
     // Log the permission update
     await this.auditLogService.log({
       userId: updatedBy,
-      action: 'role_permissions_update',
+      action: AuditAction.ROLE_UPDATED,
       resource: 'role_permissions',
       description: `Updated permissions for role ${role.name}`,
       ipAddress,

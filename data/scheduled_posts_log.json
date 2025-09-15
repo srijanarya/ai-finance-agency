@@ -1,0 +1,24 @@
+[
+  {
+    "timestamp": "2025-09-11T08:42:26.446707",
+    "post_number": 1,
+    "result": {
+      "content": "\ud83d\udcc8 Good Morning! Market Opening Update - 11 Sep\n\nIndian markets open with positive sentiment. Key sectors showing strength: IT, Banking, Pharma.\n\nNifty50 outlook remains bullish above 19,500 levels.\n\n#StockMarket #Nifty50 #Trading #AIFinance",
+      "timestamp": "2025-09-11T08:42:21.246135",
+      "platforms": {
+        "telegram": {
+          "success": true,
+          "id": "440"
+        },
+        "twitter": {
+          "success": true,
+          "id": "1965976690825506971"
+        },
+        "linkedin": {
+          "success": true,
+          "id": "urn:li:share:7371742389545119744"
+        }
+      }
+    }
+  }
+]

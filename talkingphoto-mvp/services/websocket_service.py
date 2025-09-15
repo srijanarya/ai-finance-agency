@@ -21,12 +21,12 @@ class WebSocketService:
     """
     WebSocket service for real-time video generation progress updates
     """
-    
-    def __init__(self, socketio: SocketIO):
+
+    def __init__(self, socketio: SocketIO = None):
         self.socketio = socketio
         self.redis_client = Redis(
-            host=current_app.config.get('REDIS_HOST', 'localhost'),
-            port=current_app.config.get('REDIS_PORT', 6379),
+            host=current_app.config.get('REDIS_HOST', 'localhost') if current_app else 'localhost',
+            port=current_app.config.get('REDIS_PORT', 6379) if current_app else 6379,
             decode_responses=True
         )
         
@@ -410,7 +410,77 @@ class WebSocketService:
             
         except Exception as e:
             logger.error("Failed to track video", error=str(e))
-    
+
+    # Async methods for workflow orchestrator integration
+    async def send_progress_update(
+        self,
+        user_id: str,
+        video_id: str,
+        progress_data: Dict[str, Any]
+    ) -> None:
+        """
+        Send progress update for workflow orchestrator
+        """
+        try:
+            percentage = progress_data.get('progress_percentage', 0)
+            step = progress_data.get('current_step', 'unknown')
+            details = progress_data.get('step_details', {})
+
+            self.broadcast_progress(
+                video_id=video_id,
+                percentage=int(percentage),
+                message=f"Step: {step}",
+                status='processing',
+                metadata={
+                    'step': step,
+                    'details': details,
+                    'estimated_completion': progress_data.get('estimated_completion_time')
+                }
+            )
+
+        except Exception as e:
+            logger.error("Failed to send progress update", error=str(e))
+
+    async def send_completion_notification(
+        self,
+        user_id: str,
+        video_id: str,
+        output_url: str,
+        metadata: Dict[str, Any] = None
+    ) -> None:
+        """
+        Send completion notification for workflow orchestrator
+        """
+        try:
+            self.notify_video_completed(
+                video_id=video_id,
+                user_id=user_id,
+                output_url=output_url,
+                metadata=metadata
+            )
+
+        except Exception as e:
+            logger.error("Failed to send completion notification", error=str(e))
+
+    async def send_error_notification(
+        self,
+        user_id: str,
+        video_id: str,
+        error_message: str
+    ) -> None:
+        """
+        Send error notification for workflow orchestrator
+        """
+        try:
+            self.notify_video_failed(
+                video_id=video_id,
+                user_id=user_id,
+                error_message=error_message
+            )
+
+        except Exception as e:
+            logger.error("Failed to send error notification", error=str(e))
+
     def get_connection_stats(self) -> Dict[str, Any]:
         """
         Get WebSocket connection statistics

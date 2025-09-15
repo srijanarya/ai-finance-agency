@@ -41,18 +41,18 @@ export class AuditService {
   async log(entry: LogEntry): Promise<AuditLog> {
     try {
       // Convert string level/status to enum if needed
-      let level = entry.level;
-      let status = entry.status;
+      let level: AuditLevel = entry.level as AuditLevel;
+      let status: AuditStatus = entry.status as AuditStatus;
       
-      if (typeof level === 'string') {
-        level = level.toUpperCase() as AuditLevel;
+      if (typeof entry.level === 'string') {
+        level = AuditLevel[entry.level.toUpperCase() as keyof typeof AuditLevel] || AuditLevel.MEDIUM;
       }
       
-      if (typeof status === 'string') {
-        status = status.toUpperCase() as AuditStatus;
+      if (typeof entry.status === 'string') {
+        status = AuditStatus[entry.status.toUpperCase() as keyof typeof AuditStatus] || AuditStatus.SUCCESS;
       }
 
-      const auditLog = this.auditLogRepository.create({
+      const auditLogData = {
         userId: entry.userId,
         action: entry.action,
         resource: entry.resource,
@@ -76,7 +76,9 @@ export class AuditService {
         deviceType: entry.deviceType,
         riskScore: entry.riskScore,
         tags: entry.tags,
-      });
+      };
+
+      const auditLog = this.auditLogRepository.create(auditLogData);
 
       const savedLog = await this.auditLogRepository.save(auditLog);
 

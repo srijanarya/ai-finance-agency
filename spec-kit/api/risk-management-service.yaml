@@ -1,0 +1,1512 @@
+openapi: 3.1.0
+info:
+  title: AI Finance Agency - Risk Management Service
+  description: |
+    Risk Management Service handles risk assessment, compliance monitoring,
+    regulatory checks, position limits, and risk alert systems.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@aifinance.agency
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://risk.aifinance.agency/v1
+    description: Production server
+  - url: https://staging-risk.aifinance.agency/v1
+    description: Staging server
+  - url: http://localhost:3007/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check risk management service health status
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  # Risk Assessment
+  /risk-assessments:
+    get:
+      tags:
+        - Risk Assessment
+      summary: Get risk assessments
+      description: Retrieve risk assessments for the authenticated user
+      parameters:
+        - name: portfolioId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, completed, failed]
+        - name: riskLevel
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high, critical]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Risk assessments retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskAssessmentsResponse'
+
+    post:
+      tags:
+        - Risk Assessment
+      summary: Create risk assessment
+      description: Initiate a new risk assessment for a portfolio or position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRiskAssessmentDto'
+      responses:
+        '201':
+          description: Risk assessment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskAssessment'
+
+  /risk-assessments/{id}:
+    get:
+      tags:
+        - Risk Assessment
+      summary: Get risk assessment by ID
+      description: Retrieve specific risk assessment details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Risk assessment retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskAssessment'
+        '404':
+          description: Risk assessment not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Risk Assessment
+      summary: Update risk assessment
+      description: Update risk assessment parameters and recalculate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRiskAssessmentDto'
+      responses:
+        '200':
+          description: Risk assessment updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskAssessment'
+
+    delete:
+      tags:
+        - Risk Assessment
+      summary: Delete risk assessment
+      description: Delete a risk assessment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Risk assessment deleted successfully
+
+  /risk-assessments/{id}/recalculate:
+    post:
+      tags:
+        - Risk Assessment
+      summary: Recalculate risk assessment
+      description: Trigger recalculation of risk metrics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Risk assessment recalculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskAssessment'
+
+  # Risk Alerts
+  /risk-alerts:
+    get:
+      tags:
+        - Risk Alerts
+      summary: Get risk alerts
+      description: Retrieve risk alerts for the authenticated user
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, acknowledged, resolved, dismissed]
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high, critical]
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [position_limit, var_breach, concentration, liquidity, margin]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Risk alerts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskAlertsResponse'
+
+    post:
+      tags:
+        - Risk Alerts
+      summary: Create risk alert
+      description: Create a new risk alert rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRiskAlertDto'
+      responses:
+        '201':
+          description: Risk alert created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskAlert'
+
+  /risk-alerts/{id}:
+    get:
+      tags:
+        - Risk Alerts
+      summary: Get risk alert by ID
+      description: Retrieve specific risk alert details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Risk alert retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskAlert'
+
+    put:
+      tags:
+        - Risk Alerts
+      summary: Update risk alert
+      description: Update risk alert configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRiskAlertDto'
+      responses:
+        '200':
+          description: Risk alert updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskAlert'
+
+    delete:
+      tags:
+        - Risk Alerts
+      summary: Delete risk alert
+      description: Delete a risk alert rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Risk alert deleted successfully
+
+  /risk-alerts/{id}/acknowledge:
+    post:
+      tags:
+        - Risk Alerts
+      summary: Acknowledge risk alert
+      description: Acknowledge a risk alert to mark it as seen
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '200':
+          description: Risk alert acknowledged successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RiskAlert'
+
+  # Compliance Monitoring
+  /compliance:
+    get:
+      tags:
+        - Compliance
+      summary: Get compliance status
+      description: Retrieve compliance monitoring status and checks
+      responses:
+        '200':
+          description: Compliance status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceStatus'
+
+  /compliance/checks:
+    get:
+      tags:
+        - Compliance
+      summary: Get compliance checks
+      description: Retrieve compliance check history
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [kyc, aml, position_limits, trading_restrictions]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [passed, failed, pending, warning]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Compliance checks retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceChecksResponse'
+
+    post:
+      tags:
+        - Compliance
+      summary: Run compliance check
+      description: Trigger a manual compliance check
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunComplianceCheckDto'
+      responses:
+        '201':
+          description: Compliance check initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceCheck'
+
+  /compliance/checks/{id}:
+    get:
+      tags:
+        - Compliance
+      summary: Get compliance check by ID
+      description: Retrieve specific compliance check details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Compliance check retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceCheck'
+
+  # Position Limits
+  /position-limits:
+    get:
+      tags:
+        - Position Limits
+      summary: Get position limits
+      description: Retrieve position limits for the user
+      parameters:
+        - name: symbol
+          in: query
+          schema:
+            type: string
+        - name: assetType
+          in: query
+          schema:
+            type: string
+            enum: [stock, etf, crypto, forex, commodity]
+      responses:
+        '200':
+          description: Position limits retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PositionLimit'
+
+    post:
+      tags:
+        - Position Limits
+      summary: Create position limit
+      description: Create a new position limit rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePositionLimitDto'
+      responses:
+        '201':
+          description: Position limit created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionLimit'
+
+  /position-limits/{id}:
+    get:
+      tags:
+        - Position Limits
+      summary: Get position limit by ID
+      description: Retrieve specific position limit details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Position limit retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionLimit'
+
+    put:
+      tags:
+        - Position Limits
+      summary: Update position limit
+      description: Update position limit configuration
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePositionLimitDto'
+      responses:
+        '200':
+          description: Position limit updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionLimit'
+
+    delete:
+      tags:
+        - Position Limits
+      summary: Delete position limit
+      description: Delete a position limit rule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Position limit deleted successfully
+
+  # Risk Metrics
+  /risk-metrics/portfolio:
+    get:
+      tags:
+        - Risk Metrics
+      summary: Get portfolio risk metrics
+      description: Retrieve comprehensive risk metrics for the user's portfolio
+      parameters:
+        - name: portfolioId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: timeHorizon
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 252
+            default: 22
+          description: Time horizon in trading days
+        - name: confidenceLevel
+          in: query
+          schema:
+            type: number
+            format: float
+            minimum: 0.9
+            maximum: 0.99
+            default: 0.95
+      responses:
+        '200':
+          description: Portfolio risk metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioRiskMetrics'
+
+  /risk-metrics/position/{positionId}:
+    get:
+      tags:
+        - Risk Metrics
+      summary: Get position risk metrics
+      description: Retrieve risk metrics for a specific position
+      parameters:
+        - name: positionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: timeHorizon
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 252
+            default: 22
+        - name: confidenceLevel
+          in: query
+          schema:
+            type: number
+            format: float
+            minimum: 0.9
+            maximum: 0.99
+            default: 0.95
+      responses:
+        '200':
+          description: Position risk metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PositionRiskMetrics'
+
+  /risk-metrics/var:
+    post:
+      tags:
+        - Risk Metrics
+      summary: Calculate Value at Risk
+      description: Calculate VaR for a given portfolio or position
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VarCalculationDto'
+      responses:
+        '200':
+          description: VaR calculated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VarResult'
+
+  # Stress Testing
+  /stress-testing/scenarios:
+    get:
+      tags:
+        - Stress Testing
+      summary: Get stress test scenarios
+      description: Retrieve available stress test scenarios
+      responses:
+        '200':
+          description: Stress test scenarios retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StressTestScenario'
+
+    post:
+      tags:
+        - Stress Testing
+      summary: Create stress test scenario
+      description: Create a custom stress test scenario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStressTestScenarioDto'
+      responses:
+        '201':
+          description: Stress test scenario created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StressTestScenario'
+
+  /stress-testing/run:
+    post:
+      tags:
+        - Stress Testing
+      summary: Run stress test
+      description: Execute stress test on portfolio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunStressTestDto'
+      responses:
+        '200':
+          description: Stress test completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StressTestResult'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        service:
+          type: string
+          example: risk-management-service
+        version:
+          type: string
+          example: 1.0.0
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+        timestamp:
+          type: string
+          format: date-time
+
+    CreateRiskAssessmentDto:
+      type: object
+      required:
+        - portfolioId
+        - assessmentType
+      properties:
+        portfolioId:
+          type: string
+          format: uuid
+        positionId:
+          type: string
+          format: uuid
+        assessmentType:
+          type: string
+          enum: [portfolio, position, trade]
+        timeHorizon:
+          type: integer
+          minimum: 1
+          maximum: 252
+          default: 22
+        confidenceLevel:
+          type: number
+          format: float
+          minimum: 0.9
+          maximum: 0.99
+          default: 0.95
+
+    UpdateRiskAssessmentDto:
+      type: object
+      properties:
+        timeHorizon:
+          type: integer
+          minimum: 1
+          maximum: 252
+        confidenceLevel:
+          type: number
+          format: float
+          minimum: 0.9
+          maximum: 0.99
+        parameters:
+          type: object
+          additionalProperties: true
+
+    RiskAssessment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        portfolioId:
+          type: string
+          format: uuid
+        positionId:
+          type: string
+          format: uuid
+        assessmentType:
+          type: string
+          enum: [portfolio, position, trade]
+        status:
+          type: string
+          enum: [pending, completed, failed]
+        riskLevel:
+          type: string
+          enum: [low, medium, high, critical]
+        riskScore:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 100
+        metrics:
+          type: object
+          properties:
+            var:
+              type: number
+              format: decimal
+            expectedShortfall:
+              type: number
+              format: decimal
+            beta:
+              type: number
+              format: float
+            volatility:
+              type: number
+              format: float
+            sharpeRatio:
+              type: number
+              format: float
+            maxDrawdown:
+              type: number
+              format: float
+            correlations:
+              type: object
+              additionalProperties:
+                type: number
+                format: float
+        recommendations:
+          type: array
+          items:
+            type: string
+        timeHorizon:
+          type: integer
+        confidenceLevel:
+          type: number
+          format: float
+        calculatedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RiskAssessmentsResponse:
+      type: object
+      properties:
+        assessments:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskAssessment'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    CreateRiskAlertDto:
+      type: object
+      required:
+        - name
+        - category
+        - condition
+        - threshold
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        category:
+          type: string
+          enum: [position_limit, var_breach, concentration, liquidity, margin, drawdown]
+        condition:
+          type: string
+          enum: [greater_than, less_than, equals, percentage_change]
+        threshold:
+          type: number
+          format: decimal
+        symbol:
+          type: string
+        portfolioId:
+          type: string
+          format: uuid
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+          default: medium
+        isEnabled:
+          type: boolean
+          default: true
+
+    UpdateRiskAlertDto:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        condition:
+          type: string
+          enum: [greater_than, less_than, equals, percentage_change]
+        threshold:
+          type: number
+          format: decimal
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        isEnabled:
+          type: boolean
+
+    RiskAlert:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+          enum: [position_limit, var_breach, concentration, liquidity, margin, drawdown]
+        condition:
+          type: string
+          enum: [greater_than, less_than, equals, percentage_change]
+        threshold:
+          type: number
+          format: decimal
+        currentValue:
+          type: number
+          format: decimal
+        symbol:
+          type: string
+        portfolioId:
+          type: string
+          format: uuid
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        status:
+          type: string
+          enum: [active, triggered, acknowledged, resolved, dismissed]
+        isEnabled:
+          type: boolean
+        triggeredAt:
+          type: string
+          format: date-time
+        acknowledgedAt:
+          type: string
+          format: date-time
+        resolvedAt:
+          type: string
+          format: date-time
+        comment:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RiskAlertsResponse:
+      type: object
+      properties:
+        alerts:
+          type: array
+          items:
+            $ref: '#/components/schemas/RiskAlert'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    ComplianceStatus:
+      type: object
+      properties:
+        overall:
+          type: string
+          enum: [compliant, warning, violation]
+        lastChecked:
+          type: string
+          format: date-time
+        checks:
+          type: object
+          properties:
+            kyc:
+              type: string
+              enum: [passed, failed, pending]
+            aml:
+              type: string
+              enum: [passed, failed, pending]
+            positionLimits:
+              type: string
+              enum: [compliant, warning, violation]
+            tradingRestrictions:
+              type: string
+              enum: [compliant, warning, violation]
+        violations:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              description:
+                type: string
+              severity:
+                type: string
+                enum: [low, medium, high, critical]
+              detectedAt:
+                type: string
+                format: date-time
+
+    RunComplianceCheckDto:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [kyc, aml, position_limits, trading_restrictions, full]
+        parameters:
+          type: object
+          additionalProperties: true
+
+    ComplianceCheck:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [kyc, aml, position_limits, trading_restrictions]
+        status:
+          type: string
+          enum: [passed, failed, pending, warning]
+        result:
+          type: object
+          properties:
+            score:
+              type: number
+              format: float
+            findings:
+              type: array
+              items:
+                type: string
+            recommendations:
+              type: array
+              items:
+                type: string
+        parameters:
+          type: object
+          additionalProperties: true
+        executedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    ComplianceChecksResponse:
+      type: object
+      properties:
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComplianceCheck'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    CreatePositionLimitDto:
+      type: object
+      required:
+        - limitType
+        - value
+      properties:
+        symbol:
+          type: string
+        assetType:
+          type: string
+          enum: [stock, etf, crypto, forex, commodity]
+        limitType:
+          type: string
+          enum: [absolute_value, percentage_of_portfolio, quantity, concentration]
+        value:
+          type: number
+          format: decimal
+          minimum: 0
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+          default: USD
+        isEnabled:
+          type: boolean
+          default: true
+
+    UpdatePositionLimitDto:
+      type: object
+      properties:
+        limitType:
+          type: string
+          enum: [absolute_value, percentage_of_portfolio, quantity, concentration]
+        value:
+          type: number
+          format: decimal
+          minimum: 0
+        isEnabled:
+          type: boolean
+
+    PositionLimit:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        assetType:
+          type: string
+          enum: [stock, etf, crypto, forex, commodity]
+        limitType:
+          type: string
+          enum: [absolute_value, percentage_of_portfolio, quantity, concentration]
+        value:
+          type: number
+          format: decimal
+        currentValue:
+          type: number
+          format: decimal
+        utilizationPercent:
+          type: number
+          format: float
+        currency:
+          type: string
+        isEnabled:
+          type: boolean
+        lastChecked:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PortfolioRiskMetrics:
+      type: object
+      properties:
+        portfolioId:
+          type: string
+          format: uuid
+        totalValue:
+          type: number
+          format: decimal
+        currency:
+          type: string
+        timeHorizon:
+          type: integer
+        confidenceLevel:
+          type: number
+          format: float
+        metrics:
+          type: object
+          properties:
+            var:
+              type: number
+              format: decimal
+            expectedShortfall:
+              type: number
+              format: decimal
+            volatility:
+              type: number
+              format: float
+            beta:
+              type: number
+              format: float
+            sharpeRatio:
+              type: number
+              format: float
+            sortinoRatio:
+              type: number
+              format: float
+            maxDrawdown:
+              type: number
+              format: float
+            correlationToMarket:
+              type: number
+              format: float
+            trackingError:
+              type: number
+              format: float
+            informationRatio:
+              type: number
+              format: float
+        diversification:
+          type: object
+          properties:
+            herfindahlIndex:
+              type: number
+              format: float
+            effectiveNumberOfPositions:
+              type: integer
+            concentrationRisk:
+              type: string
+              enum: [low, medium, high]
+        sectorExposure:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        geographicExposure:
+          type: object
+          additionalProperties:
+            type: number
+            format: float
+        calculatedAt:
+          type: string
+          format: date-time
+
+    PositionRiskMetrics:
+      type: object
+      properties:
+        positionId:
+          type: string
+          format: uuid
+        symbol:
+          type: string
+        value:
+          type: number
+          format: decimal
+        weight:
+          type: number
+          format: float
+        metrics:
+          type: object
+          properties:
+            var:
+              type: number
+              format: decimal
+            expectedShortfall:
+              type: number
+              format: decimal
+            volatility:
+              type: number
+              format: float
+            beta:
+              type: number
+              format: float
+            deltaEquivalent:
+              type: number
+              format: decimal
+            marginRequirement:
+              type: number
+              format: decimal
+        greeks:
+          type: object
+          properties:
+            delta:
+              type: number
+              format: float
+            gamma:
+              type: number
+              format: float
+            theta:
+              type: number
+              format: float
+            vega:
+              type: number
+              format: float
+            rho:
+              type: number
+              format: float
+        calculatedAt:
+          type: string
+          format: date-time
+
+    VarCalculationDto:
+      type: object
+      required:
+        - positions
+      properties:
+        positions:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol:
+                type: string
+              quantity:
+                type: number
+                format: decimal
+              price:
+                type: number
+                format: decimal
+        timeHorizon:
+          type: integer
+          minimum: 1
+          maximum: 252
+          default: 22
+        confidenceLevel:
+          type: number
+          format: float
+          minimum: 0.9
+          maximum: 0.99
+          default: 0.95
+        method:
+          type: string
+          enum: [historical, parametric, monte_carlo]
+          default: historical
+
+    VarResult:
+      type: object
+      properties:
+        var:
+          type: number
+          format: decimal
+        expectedShortfall:
+          type: number
+          format: decimal
+        timeHorizon:
+          type: integer
+        confidenceLevel:
+          type: number
+          format: float
+        method:
+          type: string
+        portfolioValue:
+          type: number
+          format: decimal
+        currency:
+          type: string
+        componentVar:
+          type: object
+          additionalProperties:
+            type: number
+            format: decimal
+        calculatedAt:
+          type: string
+          format: date-time
+
+    CreateStressTestScenarioDto:
+      type: object
+      required:
+        - name
+        - shocks
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        shocks:
+          type: array
+          items:
+            type: object
+            properties:
+              asset:
+                type: string
+              shockType:
+                type: string
+                enum: [absolute, percentage]
+              value:
+                type: number
+                format: decimal
+        isGlobal:
+          type: boolean
+          default: false
+
+    StressTestScenario:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        shocks:
+          type: array
+          items:
+            type: object
+            properties:
+              asset:
+                type: string
+              shockType:
+                type: string
+                enum: [absolute, percentage]
+              value:
+                type: number
+                format: decimal
+        isGlobal:
+          type: boolean
+        createdBy:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    RunStressTestDto:
+      type: object
+      required:
+        - portfolioId
+        - scenarioId
+      properties:
+        portfolioId:
+          type: string
+          format: uuid
+        scenarioId:
+          type: string
+          format: uuid
+
+    StressTestResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        portfolioId:
+          type: string
+          format: uuid
+        scenarioId:
+          type: string
+          format: uuid
+        scenarioName:
+          type: string
+        baselineValue:
+          type: number
+          format: decimal
+        stressedValue:
+          type: number
+          format: decimal
+        pnl:
+          type: number
+          format: decimal
+        pnlPercent:
+          type: number
+          format: float
+        positionResults:
+          type: array
+          items:
+            type: object
+            properties:
+              symbol:
+                type: string
+              baselineValue:
+                type: number
+                format: decimal
+              stressedValue:
+                type: number
+                format: decimal
+              pnl:
+                type: number
+                format: decimal
+              pnlPercent:
+                type: number
+                format: float
+        executedAt:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

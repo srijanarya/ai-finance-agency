@@ -503,6 +503,35 @@ export class AuditService {
     this.logger.warn(`Authentication failure audited for user ${userId}: ${reason}`);
   }
 
+  // Webhook Audit Logs
+  async logWebhookProcessed(
+    provider: string,
+    eventType: string,
+    eventId: string,
+    success: boolean,
+    errorMessage?: string,
+    metadata?: Record<string, any>,
+  ): Promise<void> {
+    const auditLog: AuditLog = {
+      userId: 'SYSTEM', // Webhooks are system-level events
+      action: success ? 'WEBHOOK_PROCESSED' : 'WEBHOOK_FAILED',
+      resource: 'WEBHOOK',
+      resourceId: eventId,
+      newValues: {
+        provider,
+        eventType,
+        success,
+        errorMessage,
+        processedAt: new Date(),
+      },
+      metadata,
+      timestamp: new Date(),
+    };
+
+    await this.writeAuditLog(auditLog);
+    this.logger.log(`Webhook processing audited: ${provider}:${eventType}, success: ${success}`);
+  }
+
   // Query Methods
   async getUserAuditLogs(
     userId: string,

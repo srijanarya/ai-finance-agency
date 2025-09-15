@@ -1,0 +1,34 @@
+
+🔐 LINKEDIN TOKEN RENEWAL REMINDER
+================================
+
+⚠️ CRITICAL: LinkedIn access token expires on November 10, 2025
+
+📅 SET REMINDER FOR: November 03, 2025 (7 days before)
+
+🚨 RENEWAL PROCESS:
+1. cd /Users/srijan/ai-finance-agency
+2. python3 linkedin_oauth_personal.py
+3. Complete OAuth in browser (select Treum Algotech if dropdown)
+4. Copy authorization code from redirect URL
+5. python3 exchange_linkedin_code.py [YOUR_CODE]
+6. python3 test_linkedin_post.py (verify working)
+
+📊 CURRENT TOKEN DETAILS:
+- Created: September 11, 2025
+- Expires: November 10, 2025 (60 days)
+- Profile: Srijan Arya (srijanaryay@gmail.com)
+- Client ID: 77ccq66ayuwvqo
+- Person URN: urn:li:person:vlt5EDPS3C
+
+🔗 BACKUP FILES:
+- WORKING_CREDENTIALS_BACKUP.md
+- credentials_backup.json
+- restore_credentials.py
+
+⚡ AUTOMATION IMPACT:
+Without renewal, automated posting to LinkedIn will STOP working!
+All Telegram and Twitter posts will continue working.
+
+💾 Calendar file created: LinkedIn_Token_Renewal.ics
+Import this file into your calendar app for automatic reminder.

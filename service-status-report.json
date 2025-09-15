@@ -1,28 +1,25 @@
 {
-  "timestamp": "2025-09-10T21:46:39.948Z",
+  "timestamp": "2025-09-10T22:26:23.497Z",
   "results": {
     "infrastructure": {
       "postgres": {
-        "status": "running",
-        "details": "Up 2 hours (healthy)"
+        "status": "stopped"
       },
       "redis": {
-        "status": "running",
-        "details": "Up 42 minutes (healthy)"
+        "status": "stopped"
       },
       "rabbitmq": {
-        "status": "running",
-        "details": "Up 40 minutes (healthy)"
+        "status": "stopped"
       },
       "mongodb": {
         "status": "running",
-        "details": "Up 24 minutes (healthy)"
+        "details": "Restarting (133) 6 seconds ago"
       }
     },
     "microservices": {
       "api-gateway": {
         "status": "unhealthy",
-        "responseTime": 177,
+        "responseTime": 337,
         "port": 3000,
         "httpStatus": 404
       },
@@ -65,8 +62,8 @@
     },
     "summary": {
       "total": 14,
-      "running": 4,
-      "stopped": 9,
+      "running": 1,
+      "stopped": 12,
       "error": 1
     }
   },
